@@ -23,6 +23,18 @@ internal static class BlueStacksAutomationSelfTests
         Require(BlueStacksAutomationService.PackageFor(GameKind.FreeFireMax) == "com.dts.freefiremax", "Free Fire MAX package mapping must be exact.");
         Require(BlueStacksAutomationService.EndpointFor(instance) == "127.0.0.1:5565", "ADB endpoint must be derived from the instance port.");
 
+        var playerArgs = BlueStacksAutomationService.BuildPlayerArguments(instance);
+        Require(playerArgs.SequenceEqual(["--instance", "Pie64"]), "Player launch arguments must target exactly the selected instance.");
+
+        var connectArgs = BlueStacksAutomationService.BuildConnectArguments(instance);
+        Require(connectArgs.SequenceEqual(["connect", "127.0.0.1:5565"]), "ADB connect arguments must target only the selected instance endpoint.");
+
+        var launchArgs = BlueStacksAutomationService.BuildLaunchGameArguments(instance, GameKind.FreeFireMax);
+        Require(launchArgs.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "monkey", "-p", "com.dts.freefiremax", "-c", "android.intent.category.LAUNCHER", "1"]), "Game launch must use an explicit package and selected ADB endpoint.");
+
+        var foregroundArgs = BlueStacksAutomationService.BuildForegroundQueryArguments(instance);
+        Require(foregroundArgs.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "window", "windows"]), "Foreground query must be read-only and scoped to the selected instance.");
+
         const string freeFireWindow = "mCurrentFocus=Window{42 u0 com.dts.freefireth/com.dts.freefireth.FFMainActivity}";
         const string maxWindow = "mResumedActivity: ActivityRecord{1 u0 com.dts.freefiremax/com.dts.freefiremax.FFMainActivity t2}";
         Require(BlueStacksAutomationService.ParseForegroundGame(freeFireWindow) == GameKind.FreeFire, "Foreground parser must detect Free Fire.");
