@@ -29,6 +29,20 @@ public partial class MiniModeWindow : Window
         var sample = App.Services.Telemetry.CaptureSystemSample();
         CpuText.Text = sample.CpuPercent is double cpu ? $"{cpu:0}%" : "—";
         GuardianText.Text = App.Services.Settings.GuardianEnabled ? $"● Guardian {App.Services.Guardian.Mode}" : "○ Guardian Off";
+        var environment = App.Services.Environment.Capture();
+        StateText.Text = environment.ActiveGame switch
+        {
+            GameKind.FreeFireMax => "● Free Fire MAX",
+            GameKind.FreeFire => "● Free Fire",
+            _ => environment.BlueStacksDetected ? "● BlueStacks" : "○ Aguardando jogo"
+        };
+    }
+
+    private void UpdateFrameMetrics(TelemetrySample? sample)
+    {
+        if (sample is null) return;
+        FpsText.Text = sample.Fps is double fps ? $"{fps:0}" : "—";
+        LatencyText.Text = sample.LatencyMs is double latency ? $"{latency:0.0} ms" : "—";
     }
 
     private void Drag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -45,30 +59,47 @@ public partial class MiniModeWindow : Window
 
     private void Close_Click(object sender, RoutedEventArgs e) => Hide();
 
-    private async void Boost_Click(object sender, RoutedEventArgs e)
+    public async Task RunQuickBoostAsync()
     {
-        GuardianText.Text = "◉ Quick Boost: verificando...";
-        await Task.Delay(350);
-        GuardianText.Text = "● Sem ação pré-validada necessária";
+        GuardianText.Text = "◉ Quick Boost...";
+        GuardianText.Text = await App.Services.GuardianCanary.QuickBoostAsync();
     }
 
-    private void Profile_Click(object sender, RoutedEventArgs e) => MessageBox.Show("Abra Profiles para escolher favoritos validados. Trocas RestartRequired são adiadas até pós-partida.", "Quick Profiles");
+    private async void Boost_Click(object sender, RoutedEventArgs e) => await RunQuickBoostAsync();
+
+    private void Profile_Click(object sender, RoutedEventArgs e) => MessageBox.Show("Abra Profiles para escolher e aplicar perfis validados. Mudanças que exigem reinício nunca são forçadas no meio da partida.", "Quick Profiles");
 
     private async void Deep_Click(object sender, RoutedEventArgs e)
     {
-        GuardianText.Text = "◉ Deep Scan 60s (análise ampliada)";
-        await Task.Delay(800);
-        GuardianText.Text = "● Deep Scan pronto";
+        GuardianText.Text = "◉ Deep Scan: análise ampliada";
+        var sample = await App.Services.PresentMon.CaptureAsync(TimeSpan.FromSeconds(8));
+        UpdateFrameMetrics(sample);
+        GuardianText.Text = sample is null ? "● Deep Scan sem frame evidence" : $"● Deep Scan: {sample.Fps:0} FPS · P95 {sample.FrameTimeP95Ms:0.0} ms";
     }
 
-    private async void MidGame_Click(object sender, RoutedEventArgs e)
+    public async Task RunMidGameOptimizeAsync()
     {
         App.Services.Guardian.SetState(GameState.Match);
-        GuardianText.Text = "◉ Analisando Mid-Game...";
-        var before = await App.Services.PresentMon.CaptureAsync(TimeSpan.FromSeconds(4));
-        if (before is null) { GuardianText.Text = "● Sem frame evidence; nenhuma mudança"; return; }
-        var action = new GuardianAction { Id = "priority", Description = "Process priority", Safety = ActionSafety.LiveSafe, MinimumConfidence = 0.85 };
-        var decision = App.Services.Guardian.Evaluate(before.Fps ?? 0, before, action);
-        GuardianText.Text = decision.ShouldAct ? "◉ Ação candidata requer canary" : "● Nenhuma intervenção necessária";
+        var profiles = await App.Services.Profiles.LoadAsync();
+        var baseline = profiles
+            .Where(x => x.Evidence == EvidenceLevel.Validated && x.AverageFps is > 0)
+            .OrderByDescending(x => x.Kind == ProfileKind.Recommended)
+            .ThenByDescending(x => x.Confidence)
+            .FirstOrDefault();
+        if (baseline?.AverageFps is not double expectedFps)
+        {
+            GuardianText.Text = "● Mid-Game requer um perfil validado como baseline";
+            return;
+        }
+
+        GuardianText.Text = "◉ Mid-Game: medindo canary...";
+        var result = await App.Services.GuardianCanary.TryAboveNormalPriorityAsync(
+            expectedFps,
+            App.Services.PresentMon.CaptureAsync,
+            TimeSpan.FromSeconds(4));
+        UpdateFrameMetrics(result.After ?? result.Before);
+        GuardianText.Text = result.Message;
     }
+
+    private async void MidGame_Click(object sender, RoutedEventArgs e) => await RunMidGameOptimizeAsync();
 }

@@ -14,14 +14,18 @@ public sealed class AppServices
     public PresentMonService PresentMon { get; } = new();
     public AutoTunerEngine AutoTuner { get; } = new();
     public GuardianEngine Guardian { get; } = new();
+    public ProcessTuningService ProcessTuning { get; } = new();
+    public GuardianKnowledgeService GuardianKnowledge { get; } = new();
     public EnvironmentProbe Environment { get; }
     public ProfileApplicationService ProfileApplication { get; }
+    public GuardianCanaryService GuardianCanary { get; }
     public AppSettings Settings { get; private set; } = new();
 
     public AppServices()
     {
         Environment = new EnvironmentProbe(BlueStacks);
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
+        GuardianCanary = new GuardianCanaryService(Guardian, ProcessTuning, GuardianKnowledge, History);
     }
 
     public async Task InitializeAsync()
