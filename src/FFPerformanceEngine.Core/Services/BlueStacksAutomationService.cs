@@ -22,6 +22,23 @@ public static class BlueStacksAutomationService
         return $"127.0.0.1:{instance.AdbPort.Value}";
     }
 
+    public static IReadOnlyList<string> BuildPlayerArguments(BlueStacksInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (string.IsNullOrWhiteSpace(instance.Name))
+            throw new InvalidOperationException("BlueStacks instance name is unavailable.");
+        return ["--instance", instance.Name];
+    }
+
+    public static IReadOnlyList<string> BuildConnectArguments(BlueStacksInstance instance)
+        => ["connect", EndpointFor(instance)];
+
+    public static IReadOnlyList<string> BuildLaunchGameArguments(BlueStacksInstance instance, GameKind game)
+        => ["-s", EndpointFor(instance), "shell", "monkey", "-p", PackageFor(game), "-c", "android.intent.category.LAUNCHER", "1"];
+
+    public static IReadOnlyList<string> BuildForegroundQueryArguments(BlueStacksInstance instance)
+        => ["-s", EndpointFor(instance), "shell", "dumpsys", "window", "windows"];
+
     public static GameKind ParseForegroundGame(string? dumpsysOutput)
     {
         if (string.IsNullOrWhiteSpace(dumpsysOutput)) return GameKind.None;
