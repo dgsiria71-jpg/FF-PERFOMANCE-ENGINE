@@ -101,7 +101,9 @@ public sealed class BlueStacksService
             RamMb = ReadInt(kvp.Value, "ram"),
             Renderer = ReadString(kvp.Value, "graphics_renderer") ?? ReadString(kvp.Value, "graphics_engine"),
             Fps = ReadInt(kvp.Value, "max_fps") ?? ReadInt(kvp.Value, "fps"),
-            Resolution = ReadResolution(kvp.Value)
+            Resolution = ReadResolution(kvp.Value),
+            AdbPort = ReadInt(kvp.Value, "adb_port"),
+            AdbEnabled = ReadBool(kvp.Value, "enable_adb")
         }).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -230,6 +232,14 @@ public sealed class BlueStacksService
 
     private static int? ReadInt(Dictionary<string, string> values, string key)
         => values.TryGetValue(key, out var raw) && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+
+    private static bool? ReadBool(Dictionary<string, string> values, string key)
+    {
+        if (!values.TryGetValue(key, out var raw)) return null;
+        if (raw == "1") return true;
+        if (raw == "0") return false;
+        return bool.TryParse(raw, out var parsed) ? parsed : null;
+    }
 
     private static string? ReadString(Dictionary<string, string> values, string key) => values.TryGetValue(key, out var value) ? value : null;
 
