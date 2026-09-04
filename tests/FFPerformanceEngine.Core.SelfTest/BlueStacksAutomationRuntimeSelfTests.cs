@@ -39,6 +39,27 @@ internal static class BlueStacksAutomationRuntimeSelfTests
         var disabled = await automation.LaunchGameAsync(instance with { AdbEnabled = false }, GameKind.FreeFireMax);
         Require(!disabled.Success, "Automation must refuse ADB actions when the selected instance explicitly disables ADB.");
 
+        var prepareFake = new FakeProcessExecutor();
+        var prepareAutomation = new BlueStacksAutomationService(
+            blueStacks,
+            prepareFake,
+            adbExecutableOverride: "HD-Adb.exe",
+            playerExecutableOverride: "HD-Player.exe",
+            playerRunningProbe: () => false);
+        prepareFake.Enqueue(new ProcessExecutionResult(0, "connected", string.Empty));
+        prepareFake.Enqueue(new ProcessExecutionResult(0, "Events injected: 1", string.Empty));
+        prepareFake.Enqueue(new ProcessExecutionResult(0, "mCurrentFocus=Window{42 u0 com.dts.freefiremax/com.dts.freefiremax.FFMainActivity}", string.Empty));
+
+        var prepared = await prepareAutomation.PrepareGameAsync(
+            instance,
+            GameKind.FreeFireMax,
+            foregroundTimeout: TimeSpan.FromSeconds(1),
+            startupDelay: TimeSpan.Zero,
+            pollInterval: TimeSpan.Zero);
+        Require(prepared.Success, "Preparation must start the instance, connect ADB, launch the selected game and verify foreground state.");
+        Require(prepareFake.StartCalls.Count == 1, "Preparation must start BlueStacks when the player is not already running.");
+        Require(prepareFake.Calls.Count == 3, "Preparation must execute connect, launch and foreground verification in order.");
+
         Console.WriteLine("PASS executable BlueStacks automation runtime behavior");
     }
 
