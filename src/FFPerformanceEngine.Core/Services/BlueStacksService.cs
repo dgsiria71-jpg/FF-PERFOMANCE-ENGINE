@@ -1,14 +1,28 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using FFPerformanceEngine.Core.Models;
 
 namespace FFPerformanceEngine.Core.Services;
 
+public sealed record BlueStacksConfigWriteResult(bool Success, bool RequiresPlayerStop, string Message, string? BackupPath = null);
+
 public sealed class BlueStacksService
 {
     private static readonly string[] ProcessNames = ["HD-Player", "BlueStacks", "BstkSVC", "BlueStacksAppplayer"];
+    private static readonly string[] PlayerProcessNames = ["HD-Player", "BlueStacksAppplayer"];
     private static readonly Regex InstanceKey = new(@"^bst\.instance\.(?<instance>[^.]+)\.(?<key>.+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SafeInstanceName = new(@"^[A-Za-z0-9_-]+$", RegexOptions.Compiled);
+    private static readonly Regex SafeValue = new(@"^[A-Za-z0-9_.:+-]+$", RegexOptions.Compiled);
+
+    private static readonly HashSet<string> CapturableSettings = new(
+        ["cpus", "ram", "fps", "max_fps", "enable_high_fps", "enable_vsync", "graphics_renderer", "graphics_engine", "display_width", "display_height", "fb_width", "fb_height", "dpi"],
+        StringComparer.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> MutableSettings = new(
+        ["cpus", "ram", "fps", "max_fps", "enable_high_fps", "enable_vsync", "display_width", "display_height", "fb_width", "fb_height", "dpi"],
+        StringComparer.OrdinalIgnoreCase);
 
     public string? FindConfigPath()
     {
@@ -16,6 +30,20 @@ public sealed class BlueStacksService
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BlueStacks_nxt", "bluestacks.conf"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BlueStacks", "bluestacks.conf")
+        };
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    public string? FindPlayerExecutable()
+    {
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        var candidates = new[]
+        {
+            Path.Combine(programFiles, "BlueStacks_nxt", "HD-Player.exe"),
+            Path.Combine(programFiles, "BlueStacks", "HD-Player.exe"),
+            Path.Combine(programFilesX86, "BlueStacks_nxt", "HD-Player.exe"),
+            Path.Combine(programFilesX86, "BlueStacks", "HD-Player.exe")
         };
         return candidates.FirstOrDefault(File.Exists);
     }
@@ -32,6 +60,19 @@ public sealed class BlueStacksService
             catch (InvalidOperationException) { }
         }
         return found;
+    }
+
+    public bool IsPlayerRunning()
+    {
+        foreach (var name in PlayerProcessNames)
+        {
+            try
+            {
+                if (Process.GetProcessesByName(name).Any(p => !p.HasExited)) return true;
+            }
+            catch (InvalidOperationException) { }
+        }
+        return false;
     }
 
     public IReadOnlyList<BlueStacksInstance> ParseConfig(string text)
@@ -59,7 +100,7 @@ public sealed class BlueStacksService
             CpuCores = ReadInt(kvp.Value, "cpus"),
             RamMb = ReadInt(kvp.Value, "ram"),
             Renderer = ReadString(kvp.Value, "graphics_renderer") ?? ReadString(kvp.Value, "graphics_engine"),
-            Fps = ReadInt(kvp.Value, "fps"),
+            Fps = ReadInt(kvp.Value, "max_fps") ?? ReadInt(kvp.Value, "fps"),
             Resolution = ReadResolution(kvp.Value)
         }).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
@@ -77,19 +118,114 @@ public sealed class BlueStacksService
     {
         var path = FindConfigPath();
         if (path is null) return new(StringComparer.OrdinalIgnoreCase);
+        return CaptureAllowedSettingsFromText(File.ReadAllText(path), instanceName);
+    }
+
+    public static Dictionary<string, string> CaptureAllowedSettingsFromText(string text, string instanceName)
+    {
+        ValidateInstanceName(instanceName);
         var prefix = $"bst.instance.{instanceName}.";
-        var allowed = new HashSet<string>(["cpus", "ram", "fps", "graphics_renderer", "graphics_engine", "display_width", "display_height", "dpi"], StringComparer.OrdinalIgnoreCase);
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in File.ReadLines(path))
+        foreach (var line in text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
             var equals = line.IndexOf('=');
             if (equals <= 0) continue;
             var key = line[..equals].Trim();
             if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
             var shortKey = key[prefix.Length..];
-            if (allowed.Contains(shortKey)) result[key] = line[(equals + 1)..].Trim();
+            if (CapturableSettings.Contains(shortKey)) result[key] = line[(equals + 1)..].Trim();
         }
         return result;
+    }
+
+    public static string UpdateInstanceConfigText(string text, string instanceName, IReadOnlyDictionary<string, string> updates)
+    {
+        ValidateInstanceName(instanceName);
+        if (updates.Count == 0) return text;
+        foreach (var pair in updates)
+        {
+            if (!MutableSettings.Contains(pair.Key)) throw new ArgumentException($"BlueStacks setting '{pair.Key}' is not allow-listed for mutation.", nameof(updates));
+            if (string.IsNullOrWhiteSpace(pair.Value) || !SafeValue.IsMatch(pair.Value)) throw new ArgumentException($"BlueStacks setting '{pair.Key}' contains an invalid value.", nameof(updates));
+        }
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var endsWithNewline = text.EndsWith("\r\n", StringComparison.Ordinal) || text.EndsWith('\n');
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        if (endsWithNewline && lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+
+        var prefix = $"bst.instance.{instanceName}.";
+        var remaining = new Dictionary<string, string>(updates, StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var line = lines[index];
+            var equals = line.IndexOf('=');
+            if (equals <= 0) continue;
+            var fullKey = line[..equals].Trim();
+            if (!fullKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var shortKey = fullKey[prefix.Length..];
+            if (!remaining.Remove(shortKey, out var value)) continue;
+            lines[index] = $"{fullKey}=\"{value}\"";
+        }
+
+        foreach (var pair in remaining.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            lines.Add($"{prefix}{pair.Key}=\"{pair.Value}\"");
+
+        var result = string.Join(newline, lines);
+        return endsWithNewline ? result + newline : result;
+    }
+
+    public BlueStacksConfigWriteResult ApplyInstanceSettings(string instanceName, IReadOnlyDictionary<string, string> updates)
+    {
+        if (IsPlayerRunning()) return new(false, true, "BlueStacks App Player is running. Restart-required settings were not changed.");
+        var path = FindConfigPath();
+        if (path is null) return new(false, false, "BlueStacks configuration file was not found.");
+
+        try
+        {
+            var original = File.ReadAllText(path);
+            var updated = UpdateInstanceConfigText(original, instanceName, updates);
+            if (string.Equals(original, updated, StringComparison.Ordinal)) return new(true, false, "No configuration change was necessary.");
+
+            var backup = path + $".ffpe-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.bak";
+            File.Copy(path, backup, false);
+            var temp = path + ".ffpe.tmp";
+            File.WriteAllText(temp, updated, new UTF8Encoding(false));
+            File.Move(temp, path, true);
+            return new(true, false, "BlueStacks configuration updated. Changes take effect on the next instance launch.", backup);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return new(false, false, ex.Message);
+        }
+    }
+
+    public BlueStacksConfigWriteResult RestoreBackup(string backupPath)
+    {
+        if (IsPlayerRunning()) return new(false, true, "BlueStacks App Player is running. Restore was not performed.");
+        var path = FindConfigPath();
+        if (path is null) return new(false, false, "BlueStacks configuration file was not found.");
+        var expectedDirectory = Path.GetFullPath(Path.GetDirectoryName(path)!);
+        var candidate = Path.GetFullPath(backupPath);
+        if (!candidate.StartsWith(expectedDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(candidate))
+            return new(false, false, "Backup path is invalid or unavailable.");
+
+        try
+        {
+            var temp = path + ".ffpe.restore.tmp";
+            File.Copy(candidate, temp, true);
+            File.Move(temp, path, true);
+            return new(true, false, "BlueStacks configuration restored from backup.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new(false, false, ex.Message);
+        }
+    }
+
+    private static void ValidateInstanceName(string instanceName)
+    {
+        if (string.IsNullOrWhiteSpace(instanceName) || !SafeInstanceName.IsMatch(instanceName))
+            throw new ArgumentException("BlueStacks instance name contains unsupported characters.", nameof(instanceName));
     }
 
     private static int? ReadInt(Dictionary<string, string> values, string key)
@@ -99,8 +235,8 @@ public sealed class BlueStacksService
 
     private static string? ReadResolution(Dictionary<string, string> values)
     {
-        var width = ReadInt(values, "display_width");
-        var height = ReadInt(values, "display_height");
+        var width = ReadInt(values, "fb_width") ?? ReadInt(values, "display_width");
+        var height = ReadInt(values, "fb_height") ?? ReadInt(values, "display_height");
         return width is not null && height is not null ? $"{width}x{height}" : null;
     }
 
