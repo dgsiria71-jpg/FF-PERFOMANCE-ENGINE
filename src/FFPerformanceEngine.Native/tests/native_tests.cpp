@@ -5,6 +5,7 @@ int main() {
     assert(ffpe_abi_version() == 1);
     assert(ffpe_get_memory_info(nullptr) == 1);
     assert(ffpe_get_cpu_times(nullptr) == 1);
+    assert(ffpe_get_process_priority(0, nullptr) == 1);
 
     ffpe_memory_info memory{};
     assert(ffpe_get_memory_info(&memory) == 0);

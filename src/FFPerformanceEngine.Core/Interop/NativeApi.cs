@@ -30,6 +30,9 @@ public static partial class NativeApi
     [LibraryImport(LibraryName, EntryPoint = "ffpe_get_cpu_times")]
     public static partial int GetCpuTimes(out NativeCpuTimes times);
 
+    [LibraryImport(LibraryName, EntryPoint = "ffpe_get_process_priority")]
+    public static partial int GetProcessPriority(uint processId, out int priorityClass);
+
     [LibraryImport(LibraryName, EntryPoint = "ffpe_set_process_priority")]
     public static partial int SetProcessPriority(uint processId, int priorityClass);
 }

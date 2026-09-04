@@ -14,6 +14,15 @@ std::uint64_t as_u64(const FILETIME& value) {
     converted.HighPart = value.dwHighDateTime;
     return converted.QuadPart;
 }
+
+bool is_allowed_priority(const int priority_class) {
+    const DWORD allowed[] = {IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS,
+                             ABOVE_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS};
+    for (const DWORD item : allowed) {
+        if (static_cast<int>(item) == priority_class) return true;
+    }
+    return false;
+}
 #endif
 }
 
@@ -52,13 +61,26 @@ int ffpe_get_cpu_times(ffpe_cpu_times* out_times) {
 #endif
 }
 
+int ffpe_get_process_priority(std::uint32_t process_id, int* out_priority_class) {
+    if (out_priority_class == nullptr) return 1;
+#if defined(_WIN32)
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id);
+    if (process == nullptr) return 2;
+    const DWORD priority = GetPriorityClass(process);
+    CloseHandle(process);
+    if (priority == 0) return 2;
+    *out_priority_class = static_cast<int>(priority);
+    return 0;
+#else
+    (void)process_id;
+    *out_priority_class = 0;
+    return 4;
+#endif
+}
+
 int ffpe_set_process_priority(std::uint32_t process_id, int priority_class) {
 #if defined(_WIN32)
-    const DWORD allowed[] = {IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS,
-                             ABOVE_NORMAL_PRIORITY_CLASS, HIGH_PRIORITY_CLASS};
-    bool valid = false;
-    for (const DWORD item : allowed) if (static_cast<int>(item) == priority_class) valid = true;
-    if (!valid) return 3;
+    if (!is_allowed_priority(priority_class)) return 3;
     HANDLE process = OpenProcess(PROCESS_SET_INFORMATION, FALSE, process_id);
     if (process == nullptr) return 2;
     const BOOL ok = SetPriorityClass(process, static_cast<DWORD>(priority_class));

@@ -21,4 +21,5 @@ struct ffpe_cpu_times {
 FFPE_API int ffpe_abi_version();
 FFPE_API int ffpe_get_memory_info(ffpe_memory_info* out_info);
 FFPE_API int ffpe_get_cpu_times(ffpe_cpu_times* out_times);
+FFPE_API int ffpe_get_process_priority(std::uint32_t process_id, int* out_priority_class);
 FFPE_API int ffpe_set_process_priority(std::uint32_t process_id, int priority_class);
