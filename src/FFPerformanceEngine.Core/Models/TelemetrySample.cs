@@ -7,6 +7,9 @@ public sealed record TelemetrySample
     public double? OnePercentLow { get; init; }
     public double? PointOnePercentLow { get; init; }
     public double? FrameTimeMs { get; init; }
+    public double? FrameTimeP95Ms { get; init; }
+    public double? FrameTimeP99Ms { get; init; }
+    public double? StutterPercent { get; init; }
     public double? LatencyMs { get; init; }
     public double? CpuPercent { get; init; }
     public double? GpuPercent { get; init; }

@@ -15,9 +15,14 @@ public sealed class AppServices
     public AutoTunerEngine AutoTuner { get; } = new();
     public GuardianEngine Guardian { get; } = new();
     public EnvironmentProbe Environment { get; }
+    public ProfileApplicationService ProfileApplication { get; }
     public AppSettings Settings { get; private set; } = new();
 
-    public AppServices() => Environment = new EnvironmentProbe(BlueStacks);
+    public AppServices()
+    {
+        Environment = new EnvironmentProbe(BlueStacks);
+        ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
+    }
 
     public async Task InitializeAsync()
     {

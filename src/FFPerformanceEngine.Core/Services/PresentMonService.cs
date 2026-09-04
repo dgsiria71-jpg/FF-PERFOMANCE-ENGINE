@@ -38,8 +38,10 @@ public sealed class PresentMonService
         var pid = FindBlueStacksPlayerPid();
         if (executable is null || pid is null) return null;
 
-        Directory.CreateDirectory(Path.Combine(AppPaths.Root, "captures"));
-        var output = Path.Combine(AppPaths.Root, "captures", $"presentmon-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.csv");
+        var captureDirectory = Path.Combine(AppPaths.Root, "captures");
+        Directory.CreateDirectory(captureDirectory);
+        CleanupCaptureDirectory(captureDirectory);
+        var output = Path.Combine(captureDirectory, $"presentmon-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}.csv");
         var seconds = Math.Clamp((int)Math.Ceiling(duration.TotalSeconds), 2, 300);
         var start = new ProcessStartInfo
         {
@@ -76,15 +78,23 @@ public sealed class PresentMonService
         if (frameTimes.Count < 2) return null;
 
         var fpsSamples = frameTimes.Select(x => 1000d / x).Where(x => x > 0 && x < 2000).OrderBy(x => x).ToArray();
+        var sortedFrameTimes = frameTimes.OrderBy(x => x).ToArray();
         if (fpsSamples.Length < 2) return null;
+        var medianFrameTime = Percentile(sortedFrameTimes, 0.50);
+        var stutterThreshold = Math.Max(medianFrameTime * 1.5, medianFrameTime + 4.0);
+        var stutterPercent = 100d * frameTimes.Count(x => x >= stutterThreshold) / frameTimes.Count;
+
         return new TelemetrySample
         {
             Fps = fpsSamples.Average(),
-            OnePercentLow = Percentile(fpsSamples, 0.01),
-            PointOnePercentLow = Percentile(fpsSamples, 0.001),
+            OnePercentLow = LowAverage(fpsSamples, 0.01),
+            PointOnePercentLow = LowAverage(fpsSamples, 0.001),
             FrameTimeMs = frameTimes.Average(),
+            FrameTimeP95Ms = Percentile(sortedFrameTimes, 0.95),
+            FrameTimeP99Ms = Percentile(sortedFrameTimes, 0.99),
+            StutterPercent = stutterPercent,
             LatencyMs = latencies.Count > 0 ? latencies.Average() : null,
-            DataQuality = "PresentMon"
+            DataQuality = $"PresentMon · {frameTimes.Count} frames"
         };
     }
 
@@ -101,10 +111,20 @@ public sealed class PresentMonService
     private static bool TryMetric(string raw, out double value)
         => double.TryParse(raw.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
+    private static double LowAverage(double[] sortedAscending, double fraction)
+    {
+        var count = Math.Clamp((int)Math.Ceiling(sortedAscending.Length * fraction), 1, sortedAscending.Length);
+        return sortedAscending.Take(count).Average();
+    }
+
     private static double Percentile(double[] sortedAscending, double p)
     {
-        var index = Math.Clamp((int)Math.Floor((sortedAscending.Length - 1) * p), 0, sortedAscending.Length - 1);
-        return sortedAscending[index];
+        var position = Math.Clamp((sortedAscending.Length - 1) * p, 0, sortedAscending.Length - 1);
+        var lower = (int)Math.Floor(position);
+        var upper = (int)Math.Ceiling(position);
+        if (lower == upper) return sortedAscending[lower];
+        var weight = position - lower;
+        return sortedAscending[lower] * (1 - weight) + sortedAscending[upper] * weight;
     }
 
     private static List<string> SplitCsvLine(string line)
@@ -125,5 +145,18 @@ public sealed class PresentMonService
         }
         result.Add(current.ToString());
         return result;
+    }
+
+    private static void CleanupCaptureDirectory(string directory)
+    {
+        try
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-7);
+            foreach (var file in Directory.EnumerateFiles(directory, "presentmon-*.csv").Select(x => new FileInfo(x)).OrderByDescending(x => x.CreationTimeUtc).Skip(200))
+                file.Delete();
+            foreach (var file in Directory.EnumerateFiles(directory, "presentmon-*.csv").Select(x => new FileInfo(x)).Where(x => x.CreationTimeUtc < cutoff))
+                file.Delete();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }

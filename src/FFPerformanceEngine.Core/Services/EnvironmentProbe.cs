@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using FFPerformanceEngine.Core.Interop;
 using FFPerformanceEngine.Core.Models;
@@ -38,6 +39,16 @@ public sealed class EnvironmentProbe
 
     private static GameKind DetectGame()
     {
+        try
+        {
+            foreach (var process in Process.GetProcessesByName("HD-Player"))
+            {
+                var title = process.MainWindowTitle;
+                if (title.Contains("Free Fire MAX", StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFireMax;
+                if (title.Contains("Free Fire", StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFire;
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
         return GameKind.None;
     }
 }
