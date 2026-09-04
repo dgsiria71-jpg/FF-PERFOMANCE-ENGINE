@@ -1,0 +1,1 @@
+using System.Windows;using System.Windows.Controls;namespace FFPerformanceEngine.App.Pages;public partial class HistoryPage:UserControl{public HistoryPage(){InitializeComponent();Loaded+=async(_,_)=>HistoryList.ItemsSource=await App.Services.History.LoadAsync();}}
