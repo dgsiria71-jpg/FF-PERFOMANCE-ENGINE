@@ -19,20 +19,22 @@ internal static class AutoTunerRunCoordinatorSelfTests
         };
         var runtime = new FakeRuntime(
             new TelemetrySample { Fps = 90, OnePercentLow = 80, FrameTimeMs = 11.1, StutterPercent = 1.8, LatencyMs = 10 },
-            new TelemetrySample { Fps = 118, OnePercentLow = 108, FrameTimeMs = 8.5, StutterPercent = 0.8, LatencyMs = 8 });
+            new TelemetrySample { Fps = 91, OnePercentLow = 81, FrameTimeMs = 11.0, StutterPercent = 1.7, LatencyMs = 9.8 },
+            new TelemetrySample { Fps = 118, OnePercentLow = 108, FrameTimeMs = 8.5, StutterPercent = 0.8, LatencyMs = 8 },
+            new TelemetrySample { Fps = 119, OnePercentLow = 109, FrameTimeMs = 8.4, StutterPercent = 0.7, LatencyMs = 7.9 });
         var coordinator = new AutoTunerRunCoordinator(new AutoTunerEngine(), runtime);
         var progress = new List<AutoTunerRunProgress>();
 
         var result = await coordinator.RunAsync(GameKind.FreeFireMax, AutoTunerMode.Adaptive, candidates, progress.Add);
 
         Require(result.Evidence.Count == 2, "Every successfully measured candidate must produce evidence.");
-        Require(result.Evidence.All(x => x.Evidence == EvidenceLevel.Validated), "Successful real measurements must be marked validated by the coordinator.");
+        Require(result.Evidence.All(x => x.Evidence == EvidenceLevel.Validated), "Stable repeated real measurements must be marked validated by the coordinator.");
         Require(result.Winners.Count == 5, "A completed run with valid evidence must select all five winner roles.");
         Require(runtime.Events.SequenceEqual([
-            "apply:4:4096:90:1280x720", "prepare:FreeFireMax", "capture", "complete",
-            "apply:6:6144:120:1920x1080", "prepare:FreeFireMax", "capture", "complete",
+            "apply:4:4096:90:1280x720", "prepare:FreeFireMax", "capture", "capture", "complete",
+            "apply:6:6144:120:1920x1080", "prepare:FreeFireMax", "capture", "capture", "complete",
             "restore"
-        ]), "Candidate lifecycle ordering must be deterministic and baseline restoration must happen last.");
+        ]), "Candidate lifecycle ordering must be deterministic, adaptive validation must repeat stable measurements, and baseline restoration must happen last.");
         Require(progress.Any(x => x.Stage == AutoTunerRunStage.Completed), "Run must emit a completed progress event.");
 
         var failingRuntime = new FakeRuntime(new TelemetrySample { Fps = 90 }) { FailPreparation = true };
