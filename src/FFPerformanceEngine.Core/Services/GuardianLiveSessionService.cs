@@ -72,7 +72,18 @@ public sealed record GuardianLiveSessionStatus
     public bool IsBound => Binding is not null;
 }
 
-public sealed class GuardianLiveSessionService
+public interface IGuardianLiveSessionRunner
+{
+    Task RunAsync(
+        string instanceName,
+        TimeSpan interval,
+        Action<GuardianLiveSessionStatus> publish,
+        CancellationToken cancellationToken = default);
+
+    Task ResetAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class GuardianLiveSessionService : IGuardianLiveSessionRunner
 {
     private readonly Func<EnvironmentSnapshot> _environmentProbe;
     private readonly GuardianPlayerBindingService _bindingService;
@@ -192,5 +203,125 @@ public sealed class GuardianLiveSessionService
         _currentBinding = null;
         _currentInstance = null;
         _currentRunner = null;
+    }
+}
+
+public sealed class GuardianSessionHost : IAsyncDisposable
+{
+    private readonly IGuardianLiveSessionRunner _runner;
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private CancellationTokenSource? _runCancellation;
+    private Task? _runTask;
+    private string? _instanceName;
+    private GuardianLiveSessionStatus? _currentStatus;
+    private bool _disposed;
+
+    public GuardianSessionHost(IGuardianLiveSessionRunner runner)
+        => _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+
+    public event EventHandler<GuardianLiveSessionStatus>? StatusChanged;
+
+    public GuardianLiveSessionStatus? CurrentStatus => Volatile.Read(ref _currentStatus);
+    public string? InstanceName => Volatile.Read(ref _instanceName);
+
+    public bool IsRunning
+    {
+        get
+        {
+            var task = Volatile.Read(ref _runTask);
+            return task is { IsCompleted: false };
+        }
+    }
+
+    public async Task StartAsync(
+        string instanceName,
+        TimeSpan interval,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (string.IsNullOrWhiteSpace(instanceName)) throw new ArgumentException("A BlueStacks instance name is required.", nameof(instanceName));
+        if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(interval));
+
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (IsRunning && string.Equals(_instanceName, instanceName, StringComparison.OrdinalIgnoreCase)) return;
+
+            await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
+
+            _instanceName = instanceName;
+            var runCancellation = new CancellationTokenSource();
+            _runCancellation = runCancellation;
+            _runTask = _runner.RunAsync(instanceName, interval, Publish, runCancellation.Token);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await StopCoreAsync(resetRunner: true, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_disposed) return;
+            await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
+            _disposed = true;
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+            _lifecycleGate.Dispose();
+        }
+    }
+
+    private void Publish(GuardianLiveSessionStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        Volatile.Write(ref _currentStatus, status);
+        StatusChanged?.Invoke(this, status);
+    }
+
+    private async Task StopCoreAsync(bool resetRunner, CancellationToken cancellationToken)
+    {
+        var runCancellation = _runCancellation;
+        var runTask = _runTask;
+        _runCancellation = null;
+        _runTask = null;
+        _instanceName = null;
+
+        if (runCancellation is not null)
+        {
+            runCancellation.Cancel();
+            if (runTask is not null)
+            {
+                try
+                {
+                    await runTask.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (runCancellation.IsCancellationRequested)
+                {
+                }
+            }
+            runCancellation.Dispose();
+        }
+
+        if (resetRunner) await _runner.ResetAsync(cancellationToken).ConfigureAwait(false);
     }
 }
