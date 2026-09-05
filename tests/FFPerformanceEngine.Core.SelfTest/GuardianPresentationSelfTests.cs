@@ -6,6 +6,7 @@ internal static class GuardianPresentationSelfTests
     public static void Run()
     {
         MissingEvidenceRemainsUnavailable();
+        BoundMatchWithoutValidatedBaselineRemainsObserving();
         LiveEvidenceAndValidatedBaselineArePresented();
         CanaryOutcomeControlsInterventionState();
         CooldownIsVisibleWithoutInventingRecovery();
@@ -24,6 +25,32 @@ internal static class GuardianPresentationSelfTests
         Require(presentation.BaselineFps == "—" && presentation.BaselineConfidence == "—",
             "Missing validated baseline evidence must remain unavailable.");
         Require(presentation.StateLabel == "Observando", "An unbound status must remain in an observing state.");
+    }
+
+    private static void BoundMatchWithoutValidatedBaselineRemainsObserving()
+    {
+        var presentation = GuardianPresentation.FromStatus(new GuardianLiveSessionStatus
+        {
+            Binding = new GuardianSessionBinding(99, "Pie64"),
+            Instance = new BlueStacksInstance { Name = "Pie64" },
+            Cycle = new GuardianCycleResult
+            {
+                Observation = new SessionStateObservation
+                {
+                    State = GameState.Match,
+                    ActiveGame = GameKind.FreeFire,
+                    Signals = new GameStateSignals { BlueStacksRunning = true, ForegroundGame = GameKind.FreeFire, Fps = 90 },
+                    Telemetry = new TelemetrySample { Fps = 90 }
+                },
+                Decision = new GuardianDecision { Reason = "No validated baseline." },
+                Message = "No validated baseline."
+            }
+        }, GuardianMode.Adaptive);
+
+        Require(presentation.StateLabel == "Observando",
+            "Guardian must not label a match stable when no validated baseline exists for comparison.");
+        Require(presentation.BaselineFps == "—" && presentation.BaselineConfidence == "—",
+            "Unvalidated or absent baseline evidence must not be rendered as a reference.");
     }
 
     private static void LiveEvidenceAndValidatedBaselineArePresented()
