@@ -14,20 +14,26 @@ public sealed class BlueStacksPlayerProcessProbe : IBlueStacksPlayerProcessProbe
 
     public IReadOnlyList<int> GetRunningPlayerProcessIds()
     {
+        var processIds = new HashSet<int>();
         try
         {
-            return ProcessNames
-                .SelectMany(Process.GetProcessesByName)
-                .Where(process => !process.HasExited)
-                .Select(process => process.Id)
-                .Distinct()
-                .OrderBy(id => id)
-                .ToList();
+            foreach (var processName in ProcessNames)
+            {
+                foreach (var process in Process.GetProcessesByName(processName))
+                {
+                    using (process)
+                    {
+                        if (!process.HasExited) processIds.Add(process.Id);
+                    }
+                }
+            }
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
             return Array.Empty<int>();
         }
+
+        return processIds.OrderBy(id => id).ToList();
     }
 }
 
@@ -90,6 +96,13 @@ public interface IGuardianCanaryExecutor
         CancellationToken cancellationToken = default);
 }
 
+public interface IGuardianCycleRunner
+{
+    Task<GuardianCycleResult> ObserveOnceAsync(
+        GuardianSessionBinding binding,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed record GuardianCycleResult
 {
     public required SessionStateObservation Observation { get; init; }
@@ -100,7 +113,7 @@ public sealed record GuardianCycleResult
     public string Message { get; init; } = string.Empty;
 }
 
-public sealed class GuardianSupervisor
+public sealed class GuardianSupervisor : IGuardianCycleRunner
 {
     private readonly GuardianEngine _guardian;
     private readonly ProfileService _profiles;
