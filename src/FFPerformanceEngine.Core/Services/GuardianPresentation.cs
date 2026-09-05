@@ -31,10 +31,10 @@ public static class GuardianPresentation
 
         var cycle = status.Cycle;
         var telemetry = cycle?.Observation.Telemetry;
-        var baseline = cycle?.Baseline is { Evidence: EvidenceLevel.Validated } validated ? validated : null;
+        var baseline = cycle?.Baseline is { Evidence: EvidenceLevel.Validated, AverageFps: > 0 } validated ? validated : null;
         var canary = cycle?.Canary;
 
-        var stateLabel = StateLabel(status, cycle, canary);
+        var stateLabel = StateLabel(status, cycle, canary, baseline, telemetry);
         var intervention = InterventionLabel(cycle, canary);
 
         return new GuardianStatusPresentation
@@ -61,7 +61,9 @@ public static class GuardianPresentation
     private static string StateLabel(
         GuardianLiveSessionStatus status,
         GuardianCycleResult? cycle,
-        GuardianCanaryResult? canary)
+        GuardianCanaryResult? canary,
+        PerformanceProfile? validatedBaseline,
+        TelemetrySample? telemetry)
     {
         if (canary is { Kept: true }) return "Recuperado";
         if (canary is { RolledBack: true }) return "Observando";
@@ -69,7 +71,15 @@ public static class GuardianPresentation
         if (status.Binding is null || cycle is null) return "Observando";
         if (canary is { Attempted: true }) return "Validando alteração";
         if (cycle.Decision.ShouldAct) return "Investigando";
-        return cycle.Observation.State == GameState.Match ? "Estável" : "Observando";
+
+        var hasComparableEvidence = validatedBaseline is not null
+            && telemetry?.Fps is double fps
+            && double.IsFinite(fps)
+            && fps > 0;
+
+        return cycle.Observation.State == GameState.Match && hasComparableEvidence
+            ? "Estável"
+            : "Observando";
     }
 
     private static string InterventionLabel(GuardianCycleResult? cycle, GuardianCanaryResult? canary)
