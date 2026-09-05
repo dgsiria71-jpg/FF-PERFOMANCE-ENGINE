@@ -18,6 +18,7 @@ public sealed record PerformanceProfile
     public double Confidence { get; init; }
     public double? AverageFps { get; init; }
     public double? OnePercentLow { get; init; }
+    public double? FrameTimeMs { get; init; }
     public double? LatencyMs { get; init; }
     public double? StutterPercent { get; init; }
     public double? GpuTemperatureC { get; init; }
