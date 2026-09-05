@@ -110,7 +110,9 @@ public sealed class AutoTunerSessionService : IAutoTunerSessionRunner
         try
         {
             var runtime = _runtimeFactory.Create(instance);
-            var coordinator = new AutoTunerRunCoordinator(_engine, runtime, _validationPolicy);
+            var coordinator = _validationPolicy is null
+                ? new AutoTunerRunCoordinator(_engine, runtime)
+                : new AutoTunerRunCoordinator(_engine, runtime, _validationPolicy);
             var tuning = await coordinator.RunAsync(game, mode, candidates, progress, cancellationToken).ConfigureAwait(false);
             var boundTuning = BindInstance(tuning, instance.Name);
             var persisted = false;
