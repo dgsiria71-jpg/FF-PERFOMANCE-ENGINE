@@ -87,6 +87,7 @@ try
     await GuardianSessionHostSelfTests.RunAsync();
     GuardianStartupPolicySelfTests.Run();
     GuardianPresentationSelfTests.Run();
+    PerformanceTargetPolicySelfTests.Run();
 }
 finally
 {
