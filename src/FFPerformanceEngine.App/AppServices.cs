@@ -17,6 +17,7 @@ public sealed class AppServices
     public ProcessTuningService ProcessTuning { get; } = new();
     public GuardianKnowledgeService GuardianKnowledge { get; } = new();
     public EnvironmentProbe Environment { get; }
+    public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public GuardianCanaryService GuardianCanary { get; }
     public AppSettings Settings { get; private set; } = new();
@@ -24,6 +25,7 @@ public sealed class AppServices
     public AppServices()
     {
         Environment = new EnvironmentProbe(BlueStacks);
+        BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         GuardianCanary = new GuardianCanaryService(Guardian, ProcessTuning, GuardianKnowledge, History);
     }
