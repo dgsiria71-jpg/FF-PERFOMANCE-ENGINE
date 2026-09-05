@@ -17,16 +17,31 @@ public sealed class PerformanceCaptureCoordinator
     public PerformanceCaptureCoordinator(Func<int, TimeSpan, CancellationToken, Task<TelemetrySample?>> capture)
         => _capture = capture ?? throw new ArgumentNullException(nameof(capture));
 
-    public Task<PerformanceCaptureResult> CaptureAsync(
+    public async Task<PerformanceCaptureResult> CaptureAsync(
         GuardianLiveSessionStatus? guardianStatus,
         TimeSpan duration,
         CancellationToken cancellationToken = default)
     {
+        if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
+
         var target = PerformanceCaptureTargetPolicy.FromGuardianStatus(guardianStatus);
-        return Task.FromResult(new PerformanceCaptureResult
+        if (!target.CanCapture || target.ProcessId is not int processId)
+        {
+            return new PerformanceCaptureResult
+            {
+                Target = target,
+                Message = "Performance capture requires an exact Guardian-bound BlueStacks process."
+            };
+        }
+
+        var sample = await _capture(processId, duration, cancellationToken).ConfigureAwait(false);
+        return new PerformanceCaptureResult
         {
             Target = target,
-            Message = "Performance capture is not available yet."
-        });
+            Sample = sample,
+            Message = sample is null
+                ? $"Frame telemetry is unavailable for BlueStacks PID {processId}."
+                : $"Measured BlueStacks PID {processId} for instance {target.InstanceName}."
+        };
     }
 }
