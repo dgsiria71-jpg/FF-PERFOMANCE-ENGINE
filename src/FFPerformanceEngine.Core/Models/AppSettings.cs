@@ -8,6 +8,7 @@ public sealed record AppSettings
     public bool KeepDeepAsDefault { get; init; }
     public GuardianMode GuardianMode { get; init; } = GuardianMode.Adaptive;
     public bool GuardianEnabled { get; init; } = true;
+    public string? GuardianInstanceName { get; init; }
     public string MiniModeSize { get; init; } = "Mini";
     public bool MiniModeAlwaysOnTop { get; init; } = true;
     public bool MiniModeClickThroughAuto { get; init; } = true;
