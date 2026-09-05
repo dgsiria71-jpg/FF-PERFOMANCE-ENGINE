@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace FFPerformanceEngine.Core.Services;
 
 public sealed record PerformanceCapturePresentation
@@ -22,6 +24,31 @@ public static class PerformancePresentation
     public static PerformanceCapturePresentation FromCapture(PerformanceCaptureResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        return new PerformanceCapturePresentation { Detail = result.Message };
+        var sample = result.Sample;
+        var target = result.Target;
+
+        return new PerformanceCapturePresentation
+        {
+            HasMeasurement = sample is not null,
+            Instance = string.IsNullOrWhiteSpace(target.InstanceName) ? "—" : target.InstanceName,
+            ProcessId = target.ProcessId is > 0 processId
+                ? processId.ToString(CultureInfo.InvariantCulture)
+                : "—",
+            Fps = Metric(sample?.Fps, "0.0", " FPS"),
+            OnePercentLow = Metric(sample?.OnePercentLow, "0.0", " FPS"),
+            PointOnePercentLow = Metric(sample?.PointOnePercentLow, "0.0", " FPS"),
+            FrameTime = Metric(sample?.FrameTimeMs, "0.00", " ms"),
+            P95FrameTime = Metric(sample?.FrameTimeP95Ms, "0.00", " ms"),
+            P99FrameTime = Metric(sample?.FrameTimeP99Ms, "0.00", " ms"),
+            Stutter = Metric(sample?.StutterPercent, "0.00", "%"),
+            Latency = Metric(sample?.LatencyMs, "0.0", " ms"),
+            DataQuality = string.IsNullOrWhiteSpace(sample?.DataQuality) ? "—" : sample!.DataQuality,
+            Detail = result.Message
+        };
     }
+
+    private static string Metric(double? value, string format, string suffix)
+        => value is double number && double.IsFinite(number)
+            ? number.ToString(format, CultureInfo.InvariantCulture) + suffix
+            : "—";
 }
