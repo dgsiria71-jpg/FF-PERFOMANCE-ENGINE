@@ -82,6 +82,7 @@ try
     // rather than under a CLR module initializer/loader context.
     await AutoTunerSessionPersistenceSelfTests.RunAsync();
     await OptimizeWorkflowSelfTests.RunAsync();
+    await GuardianSupervisorSelfTests.RunAsync();
 }
 finally
 {
