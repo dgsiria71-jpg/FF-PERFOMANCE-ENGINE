@@ -34,27 +34,49 @@ public sealed class PresentMonService
 
     public async Task<TelemetrySample?> CaptureAsync(TimeSpan duration, CancellationToken cancellationToken = default)
     {
-        var executable = FindExecutable();
         var pid = FindBlueStacksPlayerPid();
-        if (executable is null || pid is null) return null;
+        return pid is null ? null : await CaptureProcessAsync(pid.Value, duration, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<TelemetrySample?> CaptureProcessAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
+    {
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        var executable = FindExecutable();
+        if (executable is null) return null;
 
         var captureDirectory = Path.Combine(AppPaths.Root, "captures");
         Directory.CreateDirectory(captureDirectory);
         CleanupCaptureDirectory(captureDirectory);
-        var output = Path.Combine(captureDirectory, $"presentmon-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}.csv");
-        var seconds = Math.Clamp((int)Math.Ceiling(duration.TotalSeconds), 2, 300);
+        var output = Path.Combine(captureDirectory, $"presentmon-{processId}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}.csv");
+        var arguments = BuildCaptureArguments(processId, duration, output);
         var start = new ProcessStartInfo
         {
             FileName = executable,
             UseShellExecute = false,
-            CreateNoWindow = true,
-            Arguments = $"--process_id {pid.Value} --timed {seconds} --terminate_after_timed --output_file \"{output}\" --no_console_stats --exclude_dropped"
+            CreateNoWindow = true
         };
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+
         using var process = Process.Start(start);
         if (process is null) return null;
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         if (process.ExitCode != 0 || !File.Exists(output)) return null;
         return ParseCsv(File.ReadAllText(output));
+    }
+
+    public static IReadOnlyList<string> BuildCaptureArguments(int processId, TimeSpan duration, string outputPath)
+    {
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        if (string.IsNullOrWhiteSpace(outputPath)) throw new ArgumentException("Output path is required.", nameof(outputPath));
+        var seconds = Math.Clamp((int)Math.Ceiling(duration.TotalSeconds), 2, 300);
+        return [
+            "--process_id", processId.ToString(CultureInfo.InvariantCulture),
+            "--timed", seconds.ToString(CultureInfo.InvariantCulture),
+            "--terminate_after_timed",
+            "--output_file", outputPath,
+            "--no_console_stats",
+            "--exclude_dropped"
+        ];
     }
 
     public TelemetrySample? ParseCsv(string csv)
