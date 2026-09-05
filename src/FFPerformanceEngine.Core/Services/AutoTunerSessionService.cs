@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Collections.Concurrent;
 using FFPerformanceEngine.Core.Models;
 
 namespace FFPerformanceEngine.Core.Services;
@@ -8,33 +8,44 @@ public interface IAutoTunerRuntimeFactory
     IAutoTunerRuntime Create(BlueStacksInstance instance);
 }
 
+public interface IAutoTunerSessionRunner
+{
+    Task<AutoTunerSessionResult> RunGeneratedAsync(
+        EnvironmentSnapshot environment,
+        BlueStacksInstance instance,
+        GameKind game,
+        AutoTunerMode mode,
+        Action<AutoTunerRunProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class BlueStacksAutoTunerRuntimeFactory : IAutoTunerRuntimeFactory
 {
     private readonly BlueStacksService _blueStacks;
     private readonly BlueStacksAutomationService _automation;
     private readonly PresentMonService _presentMon;
-    private readonly AutoTunerRuntimeOptions _options;
-    private readonly IOwnedProcessController _processController;
+    private readonly IOwnedProcessController? _processController;
+    private readonly AutoTunerRuntimeOptions? _runtimeOptions;
 
     public BlueStacksAutoTunerRuntimeFactory(
         BlueStacksService blueStacks,
         BlueStacksAutomationService automation,
         PresentMonService presentMon,
-        AutoTunerRuntimeOptions? options = null,
-        IOwnedProcessController? processController = null)
+        IOwnedProcessController? processController = null,
+        AutoTunerRuntimeOptions? runtimeOptions = null)
     {
         _blueStacks = blueStacks ?? throw new ArgumentNullException(nameof(blueStacks));
         _automation = automation ?? throw new ArgumentNullException(nameof(automation));
         _presentMon = presentMon ?? throw new ArgumentNullException(nameof(presentMon));
-        _options = options ?? new AutoTunerRuntimeOptions();
-        _processController = processController ?? new OwnedProcessController();
+        _processController = processController;
+        _runtimeOptions = runtimeOptions;
     }
 
     public IAutoTunerRuntime Create(BlueStacksInstance instance)
     {
         ArgumentNullException.ThrowIfNull(instance);
         var platform = new BlueStacksAutoTunerPlatform(_blueStacks, _automation, _presentMon, _processController);
-        return new BlueStacksAutoTunerRuntime(instance, platform, _options);
+        return new BlueStacksAutoTunerRuntime(instance, platform, _runtimeOptions);
     }
 }
 
@@ -44,30 +55,30 @@ public sealed record AutoTunerSessionResult(
     int CandidateCount,
     bool ProfilesPersisted);
 
-public sealed class AutoTunerSessionService
+public sealed class AutoTunerSessionService : IAutoTunerSessionRunner
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> InstanceGates = new(StringComparer.OrdinalIgnoreCase);
     private readonly AutoTunerEngine _engine;
     private readonly IAutoTunerRuntimeFactory _runtimeFactory;
     private readonly ProfileService _profiles;
     private readonly HistoryService _history;
-    private readonly AutoTunerValidationPolicy _validation;
-    private readonly SemaphoreSlim _runGate = new(1, 1);
+    private readonly AutoTunerValidationPolicy? _validationPolicy;
 
     public AutoTunerSessionService(
         AutoTunerEngine engine,
         IAutoTunerRuntimeFactory runtimeFactory,
         ProfileService profiles,
         HistoryService history,
-        AutoTunerValidationPolicy? validation = null)
+        AutoTunerValidationPolicy? validationPolicy = null)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         _runtimeFactory = runtimeFactory ?? throw new ArgumentNullException(nameof(runtimeFactory));
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _history = history ?? throw new ArgumentNullException(nameof(history));
-        _validation = validation ?? new AutoTunerValidationPolicy();
+        _validationPolicy = validationPolicy;
     }
 
-    public async Task<AutoTunerSessionResult> RunGeneratedAsync(
+    public Task<AutoTunerSessionResult> RunGeneratedAsync(
         EnvironmentSnapshot environment,
         BlueStacksInstance instance,
         GameKind game,
@@ -78,7 +89,7 @@ public sealed class AutoTunerSessionService
         ArgumentNullException.ThrowIfNull(environment);
         ArgumentNullException.ThrowIfNull(instance);
         var candidates = _engine.GenerateCandidates(environment, instance, mode);
-        return await RunCandidatesAsync(instance, game, mode, candidates, progress, cancellationToken).ConfigureAwait(false);
+        return RunCandidatesAsync(instance, game, mode, candidates, progress, cancellationToken);
     }
 
     public async Task<AutoTunerSessionResult> RunCandidatesAsync(
@@ -91,80 +102,57 @@ public sealed class AutoTunerSessionService
     {
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(candidates);
-        if (string.IsNullOrWhiteSpace(instance.Name))
-            throw new ArgumentException("Selected BlueStacks instance does not have a stable name.", nameof(instance));
-        if (game is not (GameKind.FreeFire or GameKind.FreeFireMax))
-            throw new ArgumentOutOfRangeException(nameof(game), game, "Auto Tuner requires Free Fire or Free Fire MAX.");
-        if (candidates.Count == 0)
-            throw new ArgumentException("Auto Tuner requires at least one candidate.", nameof(candidates));
+        if (string.IsNullOrWhiteSpace(instance.Name)) throw new ArgumentException("A named BlueStacks instance is required for a persistent tuning session.", nameof(instance));
+        if (game is not (GameKind.FreeFire or GameKind.FreeFireMax)) throw new ArgumentOutOfRangeException(nameof(game), "Select Free Fire or Free Fire MAX.");
 
-        if (!await _runGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
-            throw new InvalidOperationException("Another Auto Tuner session is already running. Restart-required tuning sessions cannot overlap.");
-
+        var gate = InstanceGates.GetOrAdd(instance.Name, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var runtime = _runtimeFactory.Create(instance);
-            var coordinator = new AutoTunerRunCoordinator(_engine, runtime, _validation);
+            var coordinator = new AutoTunerRunCoordinator(_engine, runtime, _validationPolicy);
             var tuning = await coordinator.RunAsync(game, mode, candidates, progress, cancellationToken).ConfigureAwait(false);
-
-            var boundWinners = tuning.Winners
-                .Select(profile => profile with { InstanceName = instance.Name })
-                .ToList();
-            var boundTuning = tuning with { Winners = boundWinners };
-
+            var boundTuning = BindInstance(tuning, instance.Name);
             var persisted = false;
-            if (boundWinners.Count > 0)
-            {
-                if (boundWinners.Any(profile => profile.Evidence != EvidenceLevel.Validated))
-                    throw new InvalidOperationException("Auto Tuner returned an unvalidated winner; refusing to persist the generated winner set.");
 
-                await _profiles.ReplaceAutoTunerWinnersAsync(game, instance.Name, boundWinners, cancellationToken).ConfigureAwait(false);
+            if (boundTuning.Winners.Count > 0 && boundTuning.Winners.All(x => x.Evidence == EvidenceLevel.Validated))
+            {
+                await _profiles.ReplaceAutoTunerWinnersAsync(game, instance.Name, boundTuning.Winners, CancellationToken.None).ConfigureAwait(false);
                 persisted = true;
             }
-
-            var summary = persisted
-                ? $"{boundWinners.Count} vencedor(es) validados · modo {mode} · instância {instance.Name} · {candidates.Count} candidato(s) explorado(s)."
-                : $"0 vencedores validados · modo {mode} · instância {instance.Name} · {candidates.Count} candidato(s) explorado(s); perfis conhecidos foram preservados.";
 
             await _history.AppendAsync(new HistoryEvent
             {
                 Kind = HistoryEventKind.Optimization,
-                Title = $"Auto Tuner concluído: {DisplayGame(game)}",
-                Summary = summary,
-                DetailsJson = JsonSerializer.Serialize(new
+                Title = persisted ? "Auto Tuner optimization completed" : "Auto Tuner optimization inconclusive",
+                Summary = persisted
+                    ? $"{boundTuning.Winners.Count} validated winner roles persisted for {game} on instance {instance.Name} from {candidates.Count} candidate(s)."
+                    : $"No validated winner set replaced the known-good profiles for {game} on instance {instance.Name}. {candidates.Count} candidate(s) evaluated.",
+                DetailsJson = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    game = game.ToString(),
-                    mode = mode.ToString(),
+                    game,
+                    mode,
                     instance = instance.Name,
                     candidates = candidates.Count,
-                    evidence = boundTuning.Evidence.Count,
-                    validatedEvidence = boundTuning.Evidence.Count(x => x.Evidence == EvidenceLevel.Validated),
-                    winners = boundWinners.Select(x => new
-                    {
-                        kind = x.Kind.ToString(),
-                        x.Name,
-                        x.Confidence,
-                        x.AverageFps,
-                        x.OnePercentLow,
-                        x.LatencyMs,
-                        x.StutterPercent
-                    }).ToArray(),
-                    profilesPersisted = persisted
+                    winnerKinds = boundTuning.Winners.Select(x => x.Kind.ToString()).ToArray(),
+                    persisted
                 })
-            }, cancellationToken).ConfigureAwait(false);
+            }, CancellationToken.None).ConfigureAwait(false);
 
-            return new(boundTuning, instance.Name, candidates.Count, persisted);
+            return new AutoTunerSessionResult(boundTuning, instance.Name, candidates.Count, persisted);
         }
         finally
         {
-            _runGate.Release();
+            gate.Release();
         }
     }
 
-    private static string DisplayGame(GameKind game) => game switch
+    private static TuningResult BindInstance(TuningResult tuning, string instanceName)
     {
-        GameKind.FreeFire => "Free Fire",
-        GameKind.FreeFireMax => "Free Fire MAX",
-        _ => game.ToString()
-    };
+        if (tuning.Winners.Count == 0) return tuning;
+        return tuning with
+        {
+            Winners = tuning.Winners.Select(profile => profile with { InstanceName = instanceName }).ToList()
+        };
+    }
 }
