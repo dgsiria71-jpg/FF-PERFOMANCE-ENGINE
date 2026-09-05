@@ -17,4 +17,17 @@ public partial class App : Application
         MainWindow = main;
         main.Show();
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try
+        {
+            if (Services is not null)
+                Services.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        finally
+        {
+            base.OnExit(e);
+        }
+    }
 }
