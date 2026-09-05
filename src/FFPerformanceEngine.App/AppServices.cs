@@ -28,6 +28,7 @@ public sealed class AppServices : IAsyncDisposable
     public GuardianSupervisorFactory GuardianSupervisorFactory { get; }
     public GuardianLiveSessionService GuardianLiveSession { get; }
     public GuardianSessionHost GuardianHost { get; }
+    public PerformanceCaptureCoordinator PerformanceCapture { get; }
     public BlueStacksAutoTunerRuntimeFactory AutoTunerRuntimeFactory { get; }
     public AutoTunerSessionService AutoTunerSession { get; }
     public OptimizeSystemProbe OptimizeSystem { get; }
@@ -57,6 +58,8 @@ public sealed class AppServices : IAsyncDisposable
             GuardianBinding,
             GuardianSupervisorFactory);
         GuardianHost = new GuardianSessionHost(GuardianLiveSession);
+        PerformanceCapture = new PerformanceCaptureCoordinator(
+            (processId, duration, cancellationToken) => PresentMon.CaptureProcessAsync(processId, duration, cancellationToken));
 
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
         AutoTunerSession = new AutoTunerSessionService(AutoTuner, AutoTunerRuntimeFactory, Profiles, History);
