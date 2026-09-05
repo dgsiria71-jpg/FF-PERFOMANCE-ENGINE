@@ -59,6 +59,7 @@ public sealed class AutoTunerEngine
             Confidence = item.Confidence,
             AverageFps = item.Sample.Fps,
             OnePercentLow = item.Sample.OnePercentLow,
+            FrameTimeMs = item.Sample.FrameTimeMs,
             LatencyMs = item.Sample.LatencyMs,
             StutterPercent = item.Sample.StutterPercent,
             GpuTemperatureC = item.Sample.GpuTemperatureC
