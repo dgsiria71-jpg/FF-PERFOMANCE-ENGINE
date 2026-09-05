@@ -81,6 +81,7 @@ try
     // Persistence tests perform real async file I/O. Run them here, after process startup,
     // rather than under a CLR module initializer/loader context.
     await AutoTunerSessionPersistenceSelfTests.RunAsync();
+    await OptimizeWorkflowSelfTests.RunAsync();
 }
 finally
 {
