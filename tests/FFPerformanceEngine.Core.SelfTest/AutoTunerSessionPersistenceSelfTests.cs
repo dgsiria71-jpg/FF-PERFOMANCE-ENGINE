@@ -1,16 +1,9 @@
-using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 
 internal static class AutoTunerSessionPersistenceSelfTests
 {
-    [ModuleInitializer]
-    internal static void Run()
-    {
-        RunAsync().GetAwaiter().GetResult();
-    }
-
-    private static async Task RunAsync()
+    internal static async Task RunAsync()
     {
         await ReplacesOnlyMatchingGeneratedWinnerSet();
         await PersistsValidatedSessionWinnersWithInstanceBinding();
