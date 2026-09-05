@@ -76,7 +76,7 @@ public static class AutoTunerPresentation
         var fps = recommended.AverageFps is double averageFps
             ? averageFps.ToString("0.#", CultureInfo.InvariantCulture)
             : "indisponível";
-        var confidence = recommended.Confidence.ToString("P0", CultureInfo.InvariantCulture);
+        var confidence = $"{Math.Round(Math.Clamp(recommended.Confidence, 0, 1) * 100, MidpointRounding.AwayFromZero):0}%";
 
         return $"Recomendado · {fps} FPS · confiança {confidence} · instância {session.InstanceName}. " +
                $"{winners.Count} perfil(is) vencedor(es) validado(s) em {session.CandidateCount} candidato(s).";
