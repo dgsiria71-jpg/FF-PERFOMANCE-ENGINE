@@ -50,4 +50,7 @@ public sealed class AppServices
         Guardian.Mode = settings.GuardianMode;
         await SettingsService.SaveAsync(settings);
     }
+
+    // Compatibility entry point used by existing pages while the app service graph evolves.
+    public Task UpdateSettingsAsync(AppSettings settings) => SaveSettingsAsync(settings);
 }
