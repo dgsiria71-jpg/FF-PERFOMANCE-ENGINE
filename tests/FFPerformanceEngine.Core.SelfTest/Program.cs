@@ -83,6 +83,7 @@ try
     await AutoTunerSessionPersistenceSelfTests.RunAsync();
     await OptimizeWorkflowSelfTests.RunAsync();
     await GuardianSupervisorSelfTests.RunAsync();
+    await GuardianLiveSessionSelfTests.RunAsync();
 }
 finally
 {
