@@ -77,6 +77,10 @@ try
     var historyService = new HistoryService(Path.Combine(tempRoot, "history.json"));
     await historyService.AppendAsync(new HistoryEvent { Kind = HistoryEventKind.Benchmark, Title = "Benchmark", Summary = "Validated" });
     Check("history append", (await historyService.LoadAsync()).Count == 1);
+
+    // Persistence tests perform real async file I/O. Run them here, after process startup,
+    // rather than under a CLR module initializer/loader context.
+    await AutoTunerSessionPersistenceSelfTests.RunAsync();
 }
 finally
 {
