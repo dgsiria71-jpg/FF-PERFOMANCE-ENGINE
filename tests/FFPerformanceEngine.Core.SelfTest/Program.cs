@@ -89,6 +89,7 @@ try
     GuardianPresentationSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
+    PerformancePresentationSelfTests.Run();
 }
 finally
 {
