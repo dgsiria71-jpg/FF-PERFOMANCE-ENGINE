@@ -20,6 +20,10 @@ public sealed class AppServices
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public GuardianCanaryService GuardianCanary { get; }
+    public BlueStacksAutoTunerRuntimeFactory AutoTunerRuntimeFactory { get; }
+    public AutoTunerSessionService AutoTunerSession { get; }
+    public OptimizeSystemProbe OptimizeSystem { get; }
+    public OptimizeWorkflowService OptimizeWorkflow { get; }
     public AppSettings Settings { get; private set; } = new();
 
     public AppServices()
@@ -28,6 +32,10 @@ public sealed class AppServices
         BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         GuardianCanary = new GuardianCanaryService(Guardian, ProcessTuning, GuardianKnowledge, History);
+        AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
+        AutoTunerSession = new AutoTunerSessionService(AutoTuner, AutoTunerRuntimeFactory, Profiles, History);
+        OptimizeSystem = new OptimizeSystemProbe(Environment, BlueStacks, PresentMon);
+        OptimizeWorkflow = new OptimizeWorkflowService(AutoTuner, AutoTunerSession, OptimizeSystem);
     }
 
     public async Task InitializeAsync()
@@ -36,7 +44,7 @@ public sealed class AppServices
         Guardian.Mode = Settings.GuardianMode;
     }
 
-    public async Task UpdateSettingsAsync(AppSettings settings)
+    public async Task SaveSettingsAsync(AppSettings settings)
     {
         Settings = settings;
         Guardian.Mode = settings.GuardianMode;
