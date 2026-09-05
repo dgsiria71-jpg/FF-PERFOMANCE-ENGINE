@@ -90,6 +90,7 @@ try
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
+    PerformanceTimelineSelfTests.Run();
 }
 finally
 {
