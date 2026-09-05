@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Services;
 
 namespace FFPerformanceEngine.App.Pages;
 
@@ -8,137 +10,325 @@ public partial class OptimizePage : UserControl
 {
     private AutoTunerMode _mode;
     private GameKind _game;
-    private IReadOnlyList<TuningCandidate> _candidates = Array.Empty<TuningCandidate>();
+    private CancellationTokenSource? _tuningCts;
+    private bool _isRunning;
+    private bool _initializing = true;
 
     public OptimizePage()
     {
         InitializeComponent();
-        _mode = App.Services.Settings.KeepDeepAsDefault ? AutoTunerMode.Deep : App.Services.Settings.DefaultTunerMode;
-        _game = App.Services.Settings.PreferredGame == GameKind.None ? GameKind.FreeFireMax : App.Services.Settings.PreferredGame;
-        Loaded += (_, _) => Refresh();
+
+        _mode = App.Services.Settings.KeepDeepAsDefault
+            ? AutoTunerMode.Deep
+            : App.Services.Settings.DefaultTunerMode;
+        _game = App.Services.Settings.PreferredGame is GameKind.FreeFire or GameKind.FreeFireMax
+            ? App.Services.Settings.PreferredGame
+            : GameKind.FreeFireMax;
+
+        KeepDeepCheck.IsChecked = App.Services.Settings.KeepDeepAsDefault;
+        Loaded += OptimizePage_Loaded;
+        ApplyChoiceVisuals();
+        _initializing = false;
     }
 
-    private void Adaptive_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void OptimizePage_Loaded(object sender, RoutedEventArgs e)
     {
+        LoadEnvironmentSelection();
+        RefreshReadiness();
+    }
+
+    private void LoadEnvironmentSelection()
+    {
+        _initializing = true;
+        try
+        {
+            var environment = App.Services.Environment.Capture();
+            if (App.Services.Settings.PreferredGame == GameKind.None &&
+                environment.ActiveGame is GameKind.FreeFire or GameKind.FreeFireMax)
+            {
+                _game = environment.ActiveGame;
+            }
+
+            var previousInstance = InstanceCombo.SelectedItem as string;
+            var names = environment.Instances.Select(instance => instance.Name).ToList();
+            InstanceCombo.ItemsSource = names;
+
+            if (!string.IsNullOrWhiteSpace(previousInstance) && names.Contains(previousInstance, StringComparer.OrdinalIgnoreCase))
+                InstanceCombo.SelectedItem = names.First(name => string.Equals(name, previousInstance, StringComparison.OrdinalIgnoreCase));
+            else if (names.Count > 0)
+                InstanceCombo.SelectedIndex = 0;
+
+            ApplyChoiceVisuals();
+        }
+        finally
+        {
+            _initializing = false;
+        }
+    }
+
+    private void AdaptiveMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
         _mode = AutoTunerMode.Adaptive;
-        Refresh();
+        ApplyChoiceVisuals();
+        RefreshReadiness();
     }
 
-    private void Deep_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void DeepMode_Click(object sender, RoutedEventArgs e)
     {
+        if (_isRunning) return;
         _mode = AutoTunerMode.Deep;
-        Refresh();
+        ApplyChoiceVisuals();
+        RefreshReadiness();
     }
 
     private void FreeFire_Click(object sender, RoutedEventArgs e)
     {
+        if (_isRunning) return;
         _game = GameKind.FreeFire;
-        Refresh();
+        ApplyChoiceVisuals();
+        RefreshReadiness();
     }
 
     private void FreeFireMax_Click(object sender, RoutedEventArgs e)
     {
+        if (_isRunning) return;
         _game = GameKind.FreeFireMax;
-        Refresh();
+        ApplyChoiceVisuals();
+        RefreshReadiness();
     }
 
-    private void Refresh()
+    private void InstanceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var environment = App.Services.Environment.Capture();
-        if (App.Services.Settings.PreferredGame == GameKind.None && environment.ActiveGame != GameKind.None)
-            _game = environment.ActiveGame;
-
-        var instance = environment.Instances.FirstOrDefault();
-        ModeText.Text = $"Modo: {_mode}";
-        GameText.Text = $"Jogo: {DisplayGame(_game)}";
-        EnvironmentText.Text = environment.BlueStacksDetected
-            ? $"BlueStacks detectado · {instance?.Name ?? "instância não identificada"}"
-            : "BlueStacks não detectado";
-        _candidates = App.Services.AutoTuner.GenerateCandidates(environment, instance, _mode);
-        CandidateText.Text = $"{_candidates.Count} candidatos seguros gerados para exploração.";
+        if (_initializing || _isRunning) return;
+        RefreshReadiness();
     }
 
-    private void Generate_Click(object sender, RoutedEventArgs e)
+    private async void KeepDeepCheck_Changed(object sender, RoutedEventArgs e)
     {
-        Refresh();
-        ResultText.Text = $"Gerados {_candidates.Count} candidatos. Nenhum vencedor será escolhido antes de benchmark real.";
-        Progress.Value = 15;
-    }
+        if (_initializing || _isRunning) return;
 
-    private async void Prepare_Click(object sender, RoutedEventArgs e)
-    {
-        var environment = App.Services.Environment.Capture();
-        var instance = environment.Instances.FirstOrDefault();
-        if (instance is null)
+        var keepDeep = KeepDeepCheck.IsChecked == true;
+        if (keepDeep)
+            _mode = AutoTunerMode.Deep;
+
+        ApplyChoiceVisuals();
+        RefreshReadiness();
+
+        var updated = App.Services.Settings with
         {
-            ResultText.Text = "Nenhuma instância BlueStacks foi detectada. Abra o Multi-instance Manager ou configure uma instância e tente novamente.";
-            Progress.Value = 0;
-            return;
-        }
+            KeepDeepAsDefault = keepDeep,
+            DefaultTunerMode = keepDeep ? AutoTunerMode.Deep : _mode
+        };
 
-        if (instance.AdbPort is null)
-        {
-            ResultText.Text = $"A instância {instance.Name} não expõe uma porta ADB no bluestacks.conf. O modo assistido será necessário para abrir {DisplayGame(_game)}.";
-            Progress.Value = 0;
-            return;
-        }
-
-        Progress.IsIndeterminate = true;
-        ResultText.Text = $"Preparando {instance.Name} e abrindo {DisplayGame(_game)}...";
         try
         {
-            var result = await App.Services.BlueStacksAutomation.PrepareGameAsync(
-                instance,
-                _game,
-                foregroundTimeout: TimeSpan.FromSeconds(45),
-                startupDelay: TimeSpan.FromSeconds(8),
-                pollInterval: TimeSpan.FromMilliseconds(750));
+            await App.Services.SaveSettingsAsync(updated);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ReadinessStatusText.Text = "Não foi possível salvar a preferência";
+            ReadinessDetailText.Text = ex.Message;
+        }
+    }
 
-            ResultText.Text = result.Success
-                ? $"{DisplayGame(_game)} está em primeiro plano. Ambiente pronto para estabilização e benchmark real."
-                : $"Automação não concluída: {result.Message} Você pode continuar em modo assistido sem perder o estado atual.";
-            Progress.Value = result.Success ? 35 : 0;
+    private void RefreshReadiness()
+    {
+        if (_initializing || _isRunning) return;
+
+        var selectedInstance = InstanceCombo.SelectedItem as string;
+        OptimizeReadiness readiness;
+        try
+        {
+            readiness = App.Services.OptimizeWorkflow.Analyze(_game, _mode, selectedInstance);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            ReadinessStatusText.Text = "Não foi possível analisar o ambiente";
+            ReadinessDetailText.Text = ex.Message;
+            InstanceStatusText.Text = "Instância: —";
+            TelemetryStatusText.Text = "PresentMon: —";
+            CandidateCountText.Text = "0 candidatos";
+            StartButton.IsEnabled = false;
+            return;
+        }
+
+        ReadinessStatusText.Text = readiness.CanStart ? "Pronto para otimizar" : "Atenção necessária";
+        ReadinessDetailText.Text = readiness.Message;
+        InstanceStatusText.Text = readiness.Instance is null
+            ? "Instância: —"
+            : $"Instância: {readiness.Instance.Name}";
+        TelemetryStatusText.Text = App.Services.PresentMon.FindExecutable() is null
+            ? "PresentMon: ausente"
+            : "PresentMon: pronto";
+        CandidateCountText.Text = $"{readiness.Candidates.Count} candidato(s)";
+        StartButton.IsEnabled = readiness.CanStart;
+    }
+
+    private async void Start_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+
+        var selectedInstance = InstanceCombo.SelectedItem as string;
+        var readiness = App.Services.OptimizeWorkflow.Analyze(_game, _mode, selectedInstance);
+        if (!readiness.CanStart || readiness.Instance is null)
+        {
+            ReadinessStatusText.Text = "Atenção necessária";
+            ReadinessDetailText.Text = readiness.Message;
+            StartButton.IsEnabled = false;
+            return;
+        }
+
+        _tuningCts = new CancellationTokenSource();
+        _isRunning = true;
+        SetRunningState(true);
+        ResultCard.Visibility = Visibility.Collapsed;
+        RunCard.Visibility = Visibility.Visible;
+        ApplyProgress(new AutoTunerProgressPresentation(0, "Preparando", "Otimizando seu sistema", "Criando snapshot e preparando a primeira medição segura."));
+
+        try
+        {
+            var result = await App.Services.OptimizeWorkflow.RunAsync(
+                _game,
+                _mode,
+                readiness.Instance.Name,
+                visual => Dispatcher.BeginInvoke(new Action(() => ApplyProgress(visual))),
+                _tuningCts.Token);
+
+            ShowResult(result);
         }
         catch (OperationCanceledException)
         {
-            ResultText.Text = "Preparação cancelada. Nenhuma configuração de benchmark foi aplicada.";
-            Progress.Value = 0;
+            StageLabelText.Text = "CANCELADO";
+            RunTitleText.Text = "Otimização cancelada com segurança";
+            RunDetailText.Text = "A solicitação foi concluída somente após a restauração obrigatória da configuração de referência.";
+        }
+        catch (Exception ex)
+        {
+            StageLabelText.Text = "INTERROMPIDO";
+            RunTitleText.Text = "Sessão encerrada";
+            RunDetailText.Text = $"{ex.Message} Verifique History antes de iniciar outra sessão.";
         }
         finally
         {
-            Progress.IsIndeterminate = false;
+            _tuningCts.Dispose();
+            _tuningCts = null;
+            _isRunning = false;
+            SetRunningState(false);
+            LoadEnvironmentSelection();
+            RefreshReadiness();
         }
     }
 
-    private async void Capture_Click(object sender, RoutedEventArgs e)
+    private void Cancel_Click(object sender, RoutedEventArgs e)
     {
-        Progress.IsIndeterminate = true;
-        ResultText.Text = "Capturando 12 segundos de frame telemetry via PresentMon...";
-        var sample = await App.Services.PresentMon.CaptureAsync(TimeSpan.FromSeconds(12));
-        Progress.IsIndeterminate = false;
-        if (sample is null)
-        {
-            ResultText.Text = App.Services.PresentMon.FindExecutable() is null
-                ? "PresentMon não está instalado. Execute scripts/Get-PresentMon.ps1 e tente novamente."
-                : "Não foi possível medir frames. Inicie uma instância BlueStacks ativa e tente novamente.";
-            Progress.Value = 0;
-            return;
-        }
+        if (!_isRunning || _tuningCts is null) return;
 
-        ResultText.Text = $"FPS {sample.Fps:0.0} · 1% Low {sample.OnePercentLow:0.0} · Frame Time {sample.FrameTimeMs:0.00} ms · Latência {(sample.LatencyMs?.ToString("0.0") ?? "—")} ms. Evidência registrada; execute candidatos adicionais para comparar.";
-        Progress.Value = 100;
-        await App.Services.History.AppendAsync(new HistoryEvent
-        {
-            Kind = HistoryEventKind.Benchmark,
-            Title = "Benchmark real",
-            Summary = ResultText.Text
-        });
+        CancelButton.IsEnabled = false;
+        StageLabelText.Text = "CANCELANDO";
+        RunTitleText.Text = "Cancelando com segurança";
+        RunDetailText.Text = "A solicitação foi recebida. O rollback obrigatório terminará antes de a sessão ser encerrada.";
+        _tuningCts.Cancel();
     }
 
-    private static string DisplayGame(GameKind game) => game switch
+    private void SetRunningState(bool running)
     {
-        GameKind.FreeFire => "Free Fire",
-        GameKind.FreeFireMax => "Free Fire MAX",
-        _ => "Free Fire MAX"
-    };
+        AdaptiveModeButton.IsEnabled = !running;
+        DeepModeButton.IsEnabled = !running;
+        FreeFireButton.IsEnabled = !running;
+        FreeFireMaxButton.IsEnabled = !running;
+        InstanceCombo.IsEnabled = !running;
+        KeepDeepCheck.IsEnabled = !running;
+        StartButton.IsEnabled = !running;
+        CancelButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+        CancelButton.IsEnabled = running;
+    }
+
+    private void ApplyProgress(AutoTunerProgressPresentation visual)
+    {
+        RunCard.Visibility = Visibility.Visible;
+        StageLabelText.Text = visual.StageLabel.ToUpperInvariant();
+        RunTitleText.Text = visual.Title;
+        RunDetailText.Text = visual.Detail;
+        RunProgress.Value = visual.Percent;
+        ProgressPercentText.Text = $"{visual.Percent}%";
+        RunPercentHero.Text = $"{visual.Percent}%";
+    }
+
+    private void ShowResult(OptimizeWorkflowResult result)
+    {
+        ApplyProgress(new AutoTunerProgressPresentation(
+            100,
+            result.Session.ProfilesPersisted ? "Concluído e salvo" : "Concluído",
+            result.Session.ProfilesPersisted ? "Otimização validada" : "Otimização concluída sem novo vencedor",
+            result.Session.ProfilesPersisted
+                ? "O benchmark terminou, o baseline foi restaurado e os perfis vencedores validados foram persistidos."
+                : "Nenhum resultado inconclusivo substituiu os perfis conhecidos."));
+
+        ResultCard.Visibility = Visibility.Visible;
+        ResultSummaryText.Text = result.Summary;
+        PersistenceStatusText.Text = result.Session.ProfilesPersisted
+            ? "VALIDADO E SALVO"
+            : "PERFIS PRESERVADOS";
+
+        var recommended = result.Recommended;
+        if (recommended is null)
+        {
+            ResultFpsText.Text = "—";
+            ResultLowText.Text = "—";
+            ResultFrameTimeText.Text = "—";
+            ResultLatencyText.Text = "—";
+            ResultConfidenceText.Text = "—";
+            RecommendedConfigText.Text = "Nenhum perfil novo atingiu evidência suficiente para substituir a configuração conhecida.";
+        }
+        else
+        {
+            ResultFpsText.Text = FormatNumber(recommended.AverageFps, "0.0");
+            ResultLowText.Text = FormatNumber(recommended.OnePercentLow, "0.0");
+            ResultFrameTimeText.Text = FormatMetric(recommended.FrameTimeMs, "0.00", "ms");
+            ResultLatencyText.Text = FormatMetric(recommended.LatencyMs, "0.0", "ms");
+            ResultConfidenceText.Text = $"{Math.Round(Math.Clamp(recommended.Confidence, 0, 1) * 100, MidpointRounding.AwayFromZero):0}%";
+            RecommendedConfigText.Text = $"{recommended.CpuCores} cores · {recommended.RamMb / 1024d:0.#} GB RAM · {recommended.Renderer} · alvo {recommended.FpsTarget} FPS · {recommended.Resolution}";
+        }
+
+        var winnerNames = result.Session.Tuning.Winners
+            .Where(profile => profile.Evidence == EvidenceLevel.Validated)
+            .Select(profile => profile.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        WinnersText.Text = winnerNames.Count == 0
+            ? "Nenhum vencedor novo foi persistido; o último conjunto confiável permanece intacto."
+            : $"Vencedores validados: {string.Join(" · ", winnerNames)}";
+    }
+
+    private void ApplyChoiceVisuals()
+    {
+        SetChoice(AdaptiveModeButton, _mode == AutoTunerMode.Adaptive);
+        SetChoice(DeepModeButton, _mode == AutoTunerMode.Deep);
+        SetSmallChoice(FreeFireButton, _game == GameKind.FreeFire);
+        SetSmallChoice(FreeFireMaxButton, _game == GameKind.FreeFireMax);
+    }
+
+    private void SetChoice(Button button, bool selected)
+    {
+        button.Background = (Brush)FindResource(selected ? "GlassStrongBrush" : "GlassBrush");
+        button.BorderBrush = (Brush)FindResource(selected ? "AccentBrush" : "GlassBorderBrush");
+        button.BorderThickness = selected ? new Thickness(2) : new Thickness(1);
+    }
+
+    private void SetSmallChoice(Button button, bool selected)
+    {
+        button.Background = (Brush)FindResource(selected ? "AccentSoftBrush" : "GlassBrush");
+        button.Foreground = (Brush)FindResource("TextBrush");
+        button.BorderBrush = (Brush)FindResource(selected ? "AccentBrush" : "GlassBorderBrush");
+        button.BorderThickness = new Thickness(1);
+    }
+
+    private static string FormatNumber(double? value, string format)
+        => value is double number ? number.ToString(format, System.Globalization.CultureInfo.InvariantCulture) : "—";
+
+    private static string FormatMetric(double? value, string format, string unit)
+        => value is double number
+            ? $"{number.ToString(format, System.Globalization.CultureInfo.InvariantCulture)} {unit}"
+            : "—";
 }
