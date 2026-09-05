@@ -31,7 +31,7 @@ public static class PerformancePresentation
         {
             HasMeasurement = sample is not null,
             Instance = string.IsNullOrWhiteSpace(target.InstanceName) ? "—" : target.InstanceName,
-            ProcessId = target.ProcessId is > 0 processId
+            ProcessId = target.ProcessId is int processId && processId > 0
                 ? processId.ToString(CultureInfo.InvariantCulture)
                 : "—",
             Fps = Metric(sample?.Fps, "0.0", " FPS"),
