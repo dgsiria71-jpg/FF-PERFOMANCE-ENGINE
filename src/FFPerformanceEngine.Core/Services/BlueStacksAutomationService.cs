@@ -12,17 +12,20 @@ public sealed class BlueStacksAutomationService
     private readonly IProcessExecutor _processExecutor;
     private readonly string? _adbExecutableOverride;
     private readonly string? _playerExecutableOverride;
+    private readonly Func<bool> _playerRunningProbe;
 
     public BlueStacksAutomationService(
         BlueStacksService blueStacks,
         IProcessExecutor? processExecutor = null,
         string? adbExecutableOverride = null,
-        string? playerExecutableOverride = null)
+        string? playerExecutableOverride = null,
+        Func<bool>? playerRunningProbe = null)
     {
         _blueStacks = blueStacks ?? throw new ArgumentNullException(nameof(blueStacks));
         _processExecutor = processExecutor ?? new ProcessExecutor();
         _adbExecutableOverride = adbExecutableOverride;
         _playerExecutableOverride = playerExecutableOverride;
+        _playerRunningProbe = playerRunningProbe ?? _blueStacks.IsPlayerRunning;
     }
 
     public static string PackageFor(GameKind game) => game switch
@@ -111,14 +114,64 @@ public sealed class BlueStacksAutomationService
     }
 
     public async Task<bool> WaitForForegroundGameAsync(BlueStacksInstance instance, GameKind game, TimeSpan timeout, CancellationToken cancellationToken = default)
+        => await WaitForForegroundGameAsync(instance, game, timeout, TimeSpan.FromMilliseconds(750), cancellationToken).ConfigureAwait(false);
+
+    public async Task<AutomationActionResult> PrepareGameAsync(
+        BlueStacksInstance instance,
+        GameKind game,
+        TimeSpan foregroundTimeout,
+        TimeSpan startupDelay,
+        TimeSpan pollInterval,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (game is not (GameKind.FreeFire or GameKind.FreeFireMax))
+            return new(false, "Select Free Fire or Free Fire MAX before preparing the game session.");
+        if (instance.AdbEnabled == false)
+            return new(false, "ADB is disabled for the selected BlueStacks instance. Assisted mode is required.");
+
+        if (!_playerRunningProbe())
+        {
+            var started = StartInstance(instance);
+            if (!started.Success)
+                return new(false, $"BlueStacks instance could not be started: {started.Error ?? "unknown error"}");
+            if (startupDelay > TimeSpan.Zero)
+                await Task.Delay(startupDelay, cancellationToken).ConfigureAwait(false);
+        }
+
+        var connected = await ConnectAsync(instance, cancellationToken).ConfigureAwait(false);
+        if (!connected.Success) return connected;
+
+        var launched = await LaunchGameAsync(instance, game, cancellationToken).ConfigureAwait(false);
+        if (!launched.Success) return launched;
+
+        var foreground = await WaitForForegroundGameAsync(instance, game, foregroundTimeout, pollInterval, cancellationToken).ConfigureAwait(false);
+        return foreground
+            ? new(true, $"{game} is running in the foreground and ready for measurement.")
+            : new(false, $"{game} did not become the foreground app before the preparation timeout.");
+    }
+
+    private async Task<bool> WaitForForegroundGameAsync(
+        BlueStacksInstance instance,
+        GameKind game,
+        TimeSpan timeout,
+        TimeSpan pollInterval,
+        CancellationToken cancellationToken)
+    {
+        if (timeout < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        if (pollInterval < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(pollInterval));
+
         var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+        do
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (await QueryForegroundGameAsync(instance, cancellationToken).ConfigureAwait(false) == game) return true;
-            await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken).ConfigureAwait(false);
+            if (DateTimeOffset.UtcNow >= deadline) break;
+            if (pollInterval > TimeSpan.Zero)
+                await Task.Delay(pollInterval, cancellationToken).ConfigureAwait(false);
         }
+        while (DateTimeOffset.UtcNow < deadline);
+
         return false;
     }
 
