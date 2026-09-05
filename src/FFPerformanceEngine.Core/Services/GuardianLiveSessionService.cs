@@ -302,6 +302,7 @@ public sealed class GuardianSessionHost : IAsyncDisposable
     {
         var runCancellation = _runCancellation;
         var runTask = _runTask;
+        var hadActiveSession = runCancellation is not null || runTask is not null || !string.IsNullOrWhiteSpace(_instanceName);
         _runCancellation = null;
         _runTask = null;
         _instanceName = null;
@@ -322,6 +323,6 @@ public sealed class GuardianSessionHost : IAsyncDisposable
             runCancellation.Dispose();
         }
 
-        if (resetRunner) await _runner.ResetAsync(cancellationToken).ConfigureAwait(false);
+        if (resetRunner && hadActiveSession) await _runner.ResetAsync(cancellationToken).ConfigureAwait(false);
     }
 }
