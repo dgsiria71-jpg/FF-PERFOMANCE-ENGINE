@@ -138,7 +138,7 @@ public interface IBlueStacksAutoTunerPlatform
         GameKind game,
         TimeSpan foregroundTimeout,
         CancellationToken cancellationToken = default);
-    Task<TelemetrySample?> CaptureBenchmarkAsync(TimeSpan duration, CancellationToken cancellationToken = default);
+    Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default);
     Task<OwnedProcessStopResult> StopOwnedPlayerAsync(
         int processId,
         string expectedExecutablePath,
@@ -199,8 +199,8 @@ public sealed class BlueStacksAutoTunerPlatform : IBlueStacksAutoTunerPlatform
             : new(false, $"{game} did not become foreground before the benchmark preparation timeout.");
     }
 
-    public Task<TelemetrySample?> CaptureBenchmarkAsync(TimeSpan duration, CancellationToken cancellationToken = default)
-        => _presentMon.CaptureAsync(duration, cancellationToken);
+    public Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
+        => _presentMon.CaptureProcessAsync(processId, duration, cancellationToken);
 
     public Task<OwnedProcessStopResult> StopOwnedPlayerAsync(
         int processId,
@@ -240,27 +240,27 @@ public sealed class BlueStacksAutoTunerRuntime : IAutoTunerRuntime
         ValidateOptions(_options);
     }
 
-    public async Task<AutoTunerRuntimeResult> ApplyCandidateAsync(TuningCandidate candidate, CancellationToken cancellationToken = default)
+    public Task<AutoTunerRuntimeResult> ApplyCandidateAsync(TuningCandidate candidate, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(candidate);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_ownedProcessId is not null)
-            return AutoTunerRuntimeResult.Fail("The previous managed BlueStacks process has not been cleaned up yet.");
+            return Task.FromResult(AutoTunerRuntimeResult.Fail("The previous managed BlueStacks process has not been cleaned up yet."));
         if (_platform.IsPlayerRunning())
-            return AutoTunerRuntimeResult.Fail("BlueStacks is already running outside this Auto Tuner session. Close the active App Player before starting restart-required tuning; FF Performance Engine will never kill an unowned player.");
+            return Task.FromResult(AutoTunerRuntimeResult.Fail("BlueStacks is already running outside this Auto Tuner session. Close the active App Player before starting restart-required tuning; FF Performance Engine will never kill an unowned player."));
 
         _baselineSettings ??= _platform.CaptureAllowedSettings(_instance.Name);
         if (_baselineSettings.Count == 0)
-            return AutoTunerRuntimeResult.Fail($"No allow-listed BlueStacks settings were captured for instance '{_instance.Name}'.");
+            return Task.FromResult(AutoTunerRuntimeResult.Fail($"No allow-listed BlueStacks settings were captured for instance '{_instance.Name}'."));
 
         var plan = BuildCandidatePlan(candidate, _instance, _baselineSettings);
         if (!plan.CanApply)
-            return AutoTunerRuntimeResult.Fail("Candidate rejected: " + string.Join("; ", plan.UnsupportedChanges));
+            return Task.FromResult(AutoTunerRuntimeResult.Fail("Candidate rejected: " + string.Join("; ", plan.UnsupportedChanges)));
 
         var write = _platform.ApplyInstanceSettings(_instance.Name, plan.Updates);
         if (!write.Success)
-            return AutoTunerRuntimeResult.Fail(write.Message);
+            return Task.FromResult(AutoTunerRuntimeResult.Fail(write.Message));
 
         if (!string.IsNullOrWhiteSpace(write.BackupPath))
         {
@@ -270,9 +270,9 @@ public sealed class BlueStacksAutoTunerRuntime : IAutoTunerRuntime
 
         _candidateActive = true;
         var changed = plan.Updates.Count;
-        return AutoTunerRuntimeResult.Ok(changed == 0
+        return Task.FromResult(AutoTunerRuntimeResult.Ok(changed == 0
             ? "Candidate matches the captured baseline; no restart-required configuration write was necessary."
-            : $"Candidate applied with {changed} allow-listed BlueStacks setting change(s). Exact baseline rollback is armed.");
+            : $"Candidate applied with {changed} allow-listed BlueStacks setting change(s). Exact baseline rollback is armed."));
     }
 
     public async Task<AutoTunerRuntimeResult> PrepareGameAsync(GameKind game, CancellationToken cancellationToken = default)
@@ -310,7 +310,7 @@ public sealed class BlueStacksAutoTunerRuntime : IAutoTunerRuntime
     public Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default)
     {
         if (!_candidateActive || _ownedProcessId is null) return Task.FromResult<TelemetrySample?>(null);
-        return _platform.CaptureBenchmarkAsync(_options.BenchmarkDuration, cancellationToken);
+        return _platform.CaptureBenchmarkAsync(_ownedProcessId.Value, _options.BenchmarkDuration, cancellationToken);
     }
 
     public async Task CompleteCandidateAsync(CancellationToken cancellationToken = default)
