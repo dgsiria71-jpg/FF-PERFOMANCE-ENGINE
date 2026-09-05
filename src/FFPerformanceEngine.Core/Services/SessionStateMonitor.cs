@@ -11,7 +11,7 @@ public sealed record SessionStateObservation
     public TelemetrySample? Telemetry { get; init; }
 }
 
-public sealed class SessionStateMonitor
+public sealed class SessionStateMonitor : IGuardianObservationSource
 {
     private readonly GameStateDetector _detector;
     private readonly Func<bool> _playerRunningProbe;
