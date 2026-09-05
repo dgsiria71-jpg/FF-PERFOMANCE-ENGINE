@@ -84,6 +84,7 @@ try
     await OptimizeWorkflowSelfTests.RunAsync();
     await GuardianSupervisorSelfTests.RunAsync();
     await GuardianLiveSessionSelfTests.RunAsync();
+    await GuardianSessionHostSelfTests.RunAsync();
 }
 finally
 {
