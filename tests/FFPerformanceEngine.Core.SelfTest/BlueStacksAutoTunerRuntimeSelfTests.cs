@@ -54,6 +54,7 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
 
         var sample = await runtime.CaptureBenchmarkAsync();
         Require(sample?.Fps == 120, "Runtime must return the real benchmark sample supplied by the telemetry platform.");
+        Require(platform.Events.Contains("capture:4242:2"), "Benchmark telemetry must target the exact BlueStacks PID owned by the tuning session, never an arbitrary HD-Player process.");
 
         await runtime.CompleteCandidateAsync();
         Require(platform.Events.Contains("stop:4242"), "Only the player PID started by the runtime may be stopped automatically.");
@@ -164,9 +165,9 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
             return Task.FromResult(new AutomationActionResult(true, "prepared"));
         }
 
-        public Task<TelemetrySample?> CaptureBenchmarkAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+        public Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
         {
-            Events.Add($"capture:{duration.TotalSeconds:0}");
+            Events.Add($"capture:{processId}:{duration.TotalSeconds:0}");
             return Task.FromResult<TelemetrySample?>(new TelemetrySample
             {
                 Fps = 120,
