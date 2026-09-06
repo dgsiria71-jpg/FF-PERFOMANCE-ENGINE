@@ -16,6 +16,9 @@ public partial class PerformancePage : UserControl
     private IReadOnlyList<PerformanceGraphSegment> _fpsGraphSegments = Array.Empty<PerformanceGraphSegment>();
     private DateTimeOffset? _graphStart;
     private DateTimeOffset? _graphEnd;
+    private PerformanceIntervalWindowMode _windowMode = PerformanceIntervalWindowMode.Session;
+    private PerformanceIntervalSummary? _currentInterval;
+    private PerformanceIntervalSummary? _baselineInterval;
     private bool _captureInProgress;
 
     public PerformancePage()
@@ -23,6 +26,7 @@ public partial class PerformancePage : UserControl
         InitializeComponent();
         Loaded += (_, _) =>
         {
+            UpdateWindowButtons();
             Refresh();
             _timer.Start();
         };
@@ -97,6 +101,40 @@ public partial class PerformancePage : UserControl
         RefreshTimeline();
     }
 
+    private void SessionWindow_Click(object sender, RoutedEventArgs e)
+    {
+        _windowMode = PerformanceIntervalWindowMode.Session;
+        UpdateWindowButtons();
+        RefreshTimeline();
+    }
+
+    private void RecentWindow_Click(object sender, RoutedEventArgs e)
+    {
+        _windowMode = PerformanceIntervalWindowMode.Recent60Seconds;
+        UpdateWindowButtons();
+        RefreshTimeline();
+    }
+
+    private void PinBaseline_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentInterval is null || !HasFrameEvidence(_currentInterval))
+        {
+            BaselineStatusText.Text = "Baseline não fixado: o intervalo atual não possui evidência de frame suficiente.";
+            return;
+        }
+
+        _baselineInterval = _currentInterval;
+        ClearBaselineButton.IsEnabled = true;
+        RefreshBaselineComparison();
+    }
+
+    private void ClearBaseline_Click(object sender, RoutedEventArgs e)
+    {
+        _baselineInterval = null;
+        ClearBaselineButton.IsEnabled = false;
+        RefreshBaselineComparison();
+    }
+
     private void ApplyPresentation(PerformanceCapturePresentation presentation)
     {
         FpsText.Text = presentation.Fps;
@@ -124,11 +162,23 @@ public partial class PerformancePage : UserControl
         if (snapshot.Count == 0)
         {
             TimelineText.Text = "Nenhum evento sincronizado ainda.";
+            _currentInterval = null;
             ClearGraphPresentation();
+            RefreshBaselineComparison();
             return;
         }
 
-        var summary = PerformanceIntervalAnalysis.Analyze(snapshot, snapshot[0].Timestamp, snapshot[^1].Timestamp);
+        var window = PerformanceIntervalWindowResolver.Resolve(snapshot, _windowMode);
+        if (window is null)
+        {
+            _currentInterval = null;
+            ClearGraphPresentation();
+            RefreshBaselineComparison();
+            return;
+        }
+
+        var summary = PerformanceIntervalAnalysis.Analyze(snapshot, window.Start, window.End);
+        _currentInterval = summary;
         _fpsGraphSegments = PerformanceGraphSeriesBuilder.Build(
             summary.Points,
             PerformanceGraphMetric.Fps,
@@ -136,6 +186,7 @@ public partial class PerformancePage : UserControl
         _graphStart = summary.Start;
         _graphEnd = summary.End;
         ApplyIntervalSummary(summary);
+        RefreshBaselineComparison();
         RenderFpsGraph();
 
         var rows = PerformanceTimelinePresentation.Recent(snapshot, maxRows: 8);
@@ -156,16 +207,54 @@ public partial class PerformancePage : UserControl
         IntervalFrameTimeText.Text = presentation.AverageFrameTime;
         IntervalEvidenceText.Text = presentation.Evidence;
         IntervalEventsText.Text = presentation.Events;
-        GraphRangeText.Text = $"{summary.Start.ToLocalTime():HH:mm:ss} — {summary.End.ToLocalTime():HH:mm:ss}";
+        var modeLabel = _windowMode == PerformanceIntervalWindowMode.Session ? "Sessão" : "Últimos 60 s";
+        GraphRangeText.Text = $"{modeLabel} · {summary.Start.ToLocalTime():HH:mm:ss} — {summary.End.ToLocalTime():HH:mm:ss}";
 
         var measuredPoints = _fpsGraphSegments.Sum(segment => segment.Points.Count);
         GraphStatusText.Text = measuredPoints switch
         {
-            0 => "Nenhuma evidência de FPS disponível para desenhar nesta sessão.",
+            0 => "Nenhuma evidência de FPS disponível para desenhar neste intervalo.",
             1 => "1 ponto de FPS medido. O ponto é exibido sem inventar uma linha contínua.",
             _ => $"{measuredPoints} pontos de FPS medidos · {_fpsGraphSegments.Count} trecho(s) contínuo(s). Lacunas acima de {GraphContinuityWindow.TotalSeconds:0} s ou FPS indisponível não são conectados."
         };
+
+        PinBaselineButton.IsEnabled = HasFrameEvidence(summary);
     }
+
+    private void RefreshBaselineComparison()
+    {
+        if (_baselineInterval is null)
+        {
+            BaselineStatusText.Text = "Nenhum baseline fixado.";
+            BaselineFpsDeltaText.Text = "—";
+            BaselineFrameTimeDeltaText.Text = "—";
+            return;
+        }
+
+        var baseline = _baselineInterval;
+        BaselineStatusText.Text = $"Baseline fixado · {baseline.Start.ToLocalTime():HH:mm:ss} — {baseline.End.ToLocalTime():HH:mm:ss}. Deltas = intervalo atual − baseline.";
+
+        if (_currentInterval is null)
+        {
+            BaselineFpsDeltaText.Text = "—";
+            BaselineFrameTimeDeltaText.Text = "—";
+            return;
+        }
+
+        var presentation = PerformanceIntervalPresentation.FromComparison(
+            PerformanceIntervalAnalysis.Compare(baseline, _currentInterval));
+        BaselineFpsDeltaText.Text = presentation.AverageFpsDelta;
+        BaselineFrameTimeDeltaText.Text = presentation.AverageFrameTimeDelta;
+    }
+
+    private void UpdateWindowButtons()
+    {
+        SessionWindowButton.IsEnabled = _windowMode != PerformanceIntervalWindowMode.Session;
+        RecentWindowButton.IsEnabled = _windowMode != PerformanceIntervalWindowMode.Recent60Seconds;
+    }
+
+    private static bool HasFrameEvidence(PerformanceIntervalSummary summary)
+        => summary.FpsEvidenceSamples > 0 || summary.AverageFrameTimeMs is not null;
 
     private void ClearGraphPresentation()
     {
@@ -174,11 +263,12 @@ public partial class PerformancePage : UserControl
         _graphEnd = null;
         FpsGraphCanvas.Children.Clear();
         GraphRangeText.Text = "Sem intervalo";
-        GraphStatusText.Text = "Nenhuma evidência de FPS nesta sessão.";
+        GraphStatusText.Text = "Nenhuma evidência de FPS neste intervalo.";
         IntervalAverageFpsText.Text = "—";
         IntervalFrameTimeText.Text = "—";
         IntervalEvidenceText.Text = "0/0 amostras com FPS";
         IntervalEventsText.Text = "Guardian 0 · Marcadores 0";
+        PinBaselineButton.IsEnabled = false;
     }
 
     private void FpsGraphCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
