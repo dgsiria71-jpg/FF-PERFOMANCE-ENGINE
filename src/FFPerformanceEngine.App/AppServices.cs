@@ -19,6 +19,7 @@ public sealed class AppServices : IAsyncDisposable
     public ProcessTuningService ProcessTuning { get; } = new();
     public GuardianKnowledgeService GuardianKnowledge { get; } = new();
     public PerformanceTimelineBuffer PerformanceTimeline { get; } = new(capacity: 3600);
+    public PerformanceComparisonSession PerformanceComparison { get; } = new();
     public EnvironmentProbe Environment { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
