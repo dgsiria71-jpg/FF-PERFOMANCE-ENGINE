@@ -248,7 +248,9 @@ public sealed class ProfileChallengeService
 
         var comparisons = await _history.LoadPerformanceComparisonsAsync(cancellationToken).ConfigureAwait(false);
         var rounds = comparisons
-            .Where(record => IsMatchingMeasuredRound(record, incumbent, challenger))
+            .Where(record => record.Baseline.CapturedAt >= challenger.CreatedAt
+                             && record.Candidate.CapturedAt >= challenger.CreatedAt
+                             && IsMatchingMeasuredRound(record, incumbent, challenger))
             .OrderBy(record => record.Candidate.CapturedAt)
             .ToList();
 
