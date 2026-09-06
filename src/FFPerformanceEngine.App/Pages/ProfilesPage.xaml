@@ -4,7 +4,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="4">
             <TextBlock Text="Perfis" FontSize="30" FontWeight="SemiBold" />
-            <TextBlock Text="Vencedores validados e perfis personalizados. A comparação A/B permanece evidência observada até uma validação própria."
+            <TextBlock Text="Vencedores validados e perfis personalizados. Comparações A/B permanecem observadas até uma validação medida separada."
                        Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,18" TextWrapping="Wrap" />
 
             <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
@@ -18,13 +18,25 @@
 
             <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
                 <StackPanel>
-                    <TextBlock Text="Última comparação A/B da sessão" Style="{StaticResource SectionTitle}" />
-                    <TextBlock x:Name="ABComparisonText" Text="Nenhuma comparação A/B capturada nesta sessão."
+                    <TextBlock Text="Comparação A/B ativa" Style="{StaticResource SectionTitle}" />
+                    <TextBlock x:Name="ABComparisonText" Text="Nenhuma comparação A/B ativa."
                                FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    <TextBlock x:Name="ABEvidenceText" Text="A tela Performance pode capturar A e B sem transformar a medição em perfil validado."
+                    <TextBlock x:Name="ABEvidenceText" Text="Performance captura A e B; History pode reabrir comparações antigas."
                                Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                     <TextBlock x:Name="ABDeltaText" Text="—"
                                Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Evidência histórica validada" Style="{StaticResource SectionTitle}" />
+                    <TextBlock x:Name="HistoricalValidationText"
+                               Text="Nenhuma comparação histórica concluiu validação medida separada."
+                               FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="HistoricalValidationMetricsText"
+                               Text="History mantém candidatos observados isolados dos vencedores validados."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
