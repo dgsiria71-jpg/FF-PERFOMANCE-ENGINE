@@ -93,6 +93,41 @@ public sealed class ProfileService
         }
     }
 
+    public async Task ReplaceValidatedWinnerRoleAsync(
+        PerformanceProfile winner,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(winner);
+        if (winner.Kind == ProfileKind.Custom)
+            throw new InvalidOperationException("A Custom profile cannot directly occupy a generated winner role.");
+        if (winner.Kind is not (ProfileKind.Recommended or ProfileKind.MaximumFps or ProfileKind.LowestLatency or ProfileKind.Stability or ProfileKind.Quality))
+            throw new InvalidOperationException($"Profile kind {winner.Kind} is not a generated winner role.");
+        if (winner.Evidence != EvidenceLevel.Validated)
+            throw new InvalidOperationException("Only validated evidence may replace a generated winner role.");
+        if (winner.Game is not (GameKind.FreeFire or GameKind.FreeFireMax))
+            throw new InvalidOperationException("Winner role replacement requires Free Fire or Free Fire MAX.");
+        if (string.IsNullOrWhiteSpace(winner.InstanceName))
+            throw new InvalidOperationException("Winner role replacement requires a BlueStacks instance binding.");
+
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var data = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
+            data.Items.RemoveAll(profile =>
+                profile.Kind == winner.Kind
+                && profile.Game == winner.Game
+                && profile.Kind != ProfileKind.Custom
+                && (string.Equals(profile.InstanceName, winner.InstanceName, StringComparison.OrdinalIgnoreCase)
+                    || string.IsNullOrWhiteSpace(profile.InstanceName)));
+            data.Items.Add(winner);
+            await _store.SaveAsync(data, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     public async Task ReplaceAutoTunerWinnersAsync(
         GameKind game,
         string instanceName,
