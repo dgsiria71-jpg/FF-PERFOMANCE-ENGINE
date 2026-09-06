@@ -66,7 +66,34 @@ internal static class PerformanceABSelfTests
                 && Math.Abs((projection.AverageFps ?? 0) - 131.0) < 0.001,
             "Profiles bridge must project captured A/B evidence as observed metrics without promoting it to validated evidence.");
 
-        Console.WriteLine("PASS Performance named immutable A/B evidence, shared session, and Profiles bridge contract");
+        var staleMetadata = new PerformanceIntervalSummary
+        {
+            Start = start.AddMinutes(3),
+            End = start.AddMinutes(3).AddSeconds(1),
+            TelemetrySamples = 99,
+            FpsEvidenceSamples = 99,
+            AverageFps = 999,
+            AverageFrameTimeMs = 1,
+            Points = Array.Empty<PerformanceTimelinePoint>()
+        };
+        var normalized = PerformanceEvidenceSnapshot.Capture(
+            "A · Metadados obsoletos",
+            staleMetadata,
+            start.AddMinutes(3).AddSeconds(2));
+        Require(normalized.Quality == PerformanceEvidenceQuality.Unavailable
+                && normalized.TelemetrySamples == 0
+                && normalized.FpsEvidenceSamples == 0
+                && normalized.AverageFps is null
+                && normalized.AverageFrameTimeMs is null
+                && normalized.Interval.TelemetrySamples == 0
+                && normalized.Interval.FpsEvidenceSamples == 0
+                && normalized.Interval.AverageFps is null
+                && normalized.Interval.AverageFrameTimeMs is null,
+            "A/B capture must normalize interval aggregate metadata from copied evidence instead of trusting stale precomputed values.");
+        Require(PerformanceABComparison.Create(normalized, candidateSnapshot).Metrics.AverageFpsDelta is null,
+            "A/B comparison must keep a delta unavailable when copied evidence has no FPS, even if stale source metadata claimed an FPS average.");
+
+        Console.WriteLine("PASS Performance named immutable A/B evidence, normalized aggregates, shared session, and Profiles bridge contract");
     }
 
     private static PerformanceTimelineEntry Telemetry(
