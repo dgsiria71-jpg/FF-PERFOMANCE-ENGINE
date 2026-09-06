@@ -25,6 +25,7 @@ public partial class ProfilesPage : UserControl
             : $"{recommended.AverageFps:0} FPS · 1% Low {recommended.OnePercentLow:0} · confiança {recommended.Confidence:P0}";
 
         RefreshABComparison();
+        await RefreshHistoricalValidationAsync();
     }
 
     private void RefreshABComparison()
@@ -32,8 +33,8 @@ public partial class ProfilesPage : UserControl
         var comparison = App.Services.PerformanceComparison.CurrentComparison;
         if (comparison is null)
         {
-            ABComparisonText.Text = "Nenhuma comparação A/B capturada nesta sessão.";
-            ABEvidenceText.Text = "A tela Performance pode capturar A e B sem transformar a medição em perfil validado.";
+            ABComparisonText.Text = "Nenhuma comparação A/B ativa.";
+            ABEvidenceText.Text = "Performance captura A e B; History também pode reabrir comparações antigas sem transformar observação em validação.";
             ABDeltaText.Text = "—";
             return;
         }
@@ -46,6 +47,24 @@ public partial class ProfilesPage : UserControl
             $"Frame Time {candidateEvidence.FrameTimeEvidenceSamples}/{candidateEvidence.TelemetrySamples} · " +
             $"Latência {candidateEvidence.LatencyEvidenceSamples}/{candidateEvidence.TelemetrySamples} · Evidência {candidateEvidence.Evidence}.";
         ABDeltaText.Text = $"B − A · Δ FPS {delta.AverageFpsDelta} · Δ Frame Time {delta.AverageFrameTimeDelta}";
+    }
+
+    private async Task RefreshHistoricalValidationAsync()
+    {
+        var history = await App.Services.History.LoadPerformanceComparisonsAsync();
+        var latestValidated = history.FirstOrDefault(record => record.CanOriginateProfile);
+        if (latestValidated is null)
+        {
+            HistoricalValidationText.Text = "Nenhuma comparação histórica concluiu validação medida separada.";
+            HistoricalValidationMetricsText.Text = "History mantém candidatos observados isolados dos vencedores validados.";
+            return;
+        }
+
+        var evidence = PerformanceProfileEvidenceBridge.FromValidatedRecord(latestValidated);
+        HistoricalValidationText.Text = $"{latestValidated.Label} · Evidência {evidence.Evidence}";
+        HistoricalValidationMetricsText.Text =
+            $"Validação: FPS {Format(evidence.AverageFps)} · Frame Time {Format(evidence.FrameTimeMs)} ms · Latência {Format(evidence.LatencyMs)} ms · " +
+            $"amostras FPS {evidence.FpsEvidenceSamples}/{evidence.TelemetrySamples}. Elegível para origem explícita de perfil; não convertido automaticamente.";
     }
 
     private async void ApplyProfile_Click(object sender, RoutedEventArgs e)
@@ -71,4 +90,7 @@ public partial class ProfilesPage : UserControl
         }
         MessageBox.Show(result.Message, result.Success ? "Perfil aplicado" : "Perfil não aplicado");
     }
+
+    private static string Format(double? value)
+        => value is double number && double.IsFinite(number) ? number.ToString("0.0") : "—";
 }
