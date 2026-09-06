@@ -24,6 +24,7 @@ public sealed class AppServices : IAsyncDisposable
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public ProfileChallengeService ProfileChallenges { get; }
+    public ProfileChallengeProgressService ProfileChallengeProgress { get; }
     public GuardianCanaryService GuardianCanary { get; }
     public BlueStacksPlayerProcessProbe GuardianProcessProbe { get; }
     public WindowsRecentInputProbe GuardianRecentInput { get; }
@@ -45,6 +46,7 @@ public sealed class AppServices : IAsyncDisposable
         BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         ProfileChallenges = new ProfileChallengeService(Profiles, History);
+        ProfileChallengeProgress = new ProfileChallengeProgressService(Profiles, History);
         GuardianCanary = new GuardianCanaryService(Guardian, ProcessTuning, GuardianKnowledge, History);
 
         GuardianProcessProbe = new BlueStacksPlayerProcessProbe();
