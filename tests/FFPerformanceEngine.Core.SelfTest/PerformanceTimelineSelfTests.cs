@@ -26,7 +26,27 @@ internal static class PerformanceTimelineSelfTests
         Require(interval.Count == 1 && interval[0].Kind == PerformanceTimelineKind.Telemetry && interval[0].Telemetry?.Fps == 118,
             "Interval queries must return only entries inside the requested synchronized time window.");
 
-        Console.WriteLine("PASS Performance bounded synchronized timeline contract");
+        var rows = PerformanceTimelinePresentation.Recent(snapshot, maxRows: 3);
+        Require(rows.Count == 3 && rows[0].Detail == "Observando" && rows[^1].Detail == "Percebi uma queda",
+            "Timeline presentation must preserve chronological Guardian and user-marker details.");
+        Require(rows.Single(row => row.Kind == PerformanceTimelineKind.Telemetry).Metrics.Contains("118.0 FPS", StringComparison.Ordinal)
+                && rows.Single(row => row.Kind == PerformanceTimelineKind.Telemetry).Metrics.Contains("8.47 ms", StringComparison.Ordinal),
+            "Timeline presentation must expose only the measured frame evidence stored in the telemetry entry.");
+
+        var unavailable = PerformanceTimelinePresentation.Recent(
+            [new PerformanceTimelineEntry
+            {
+                Timestamp = start.AddSeconds(4),
+                Kind = PerformanceTimelineKind.Telemetry,
+                Title = "Telemetry",
+                Detail = "Partial",
+                Telemetry = new TelemetrySample { Timestamp = start.AddSeconds(4), DataQuality = "Partial" }
+            }],
+            maxRows: 1).Single();
+        Require(unavailable.Metrics == "—",
+            "Timeline presentation must render missing frame metrics as unavailable instead of inventing zero-valued evidence.");
+
+        Console.WriteLine("PASS Performance bounded synchronized timeline and evidence-only presentation contract");
     }
 
     private static void Require(bool condition, string message)
