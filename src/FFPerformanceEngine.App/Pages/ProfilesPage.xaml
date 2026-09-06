@@ -43,16 +43,25 @@
                     </Grid>
 
                     <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,14,0,0">
-                        <TextBlock TextWrapping="Wrap">
-                            <Run Text="Fluxo controlado: " FontWeight="SemiBold" />
-                            <Run Text="aplique o vencedor escolhido e capture A em Performance; aplique o Custom e capture B; salve a comparação em History. Depois repita A/B uma segunda vez. O botão abaixo só promove se as duas rodadas corresponderem exatamente às configurações dos dois perfis e o Custom vencer as duas." />
-                        </TextBlock>
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap">
+                                <Run Text="Fluxo controlado: " FontWeight="SemiBold" />
+                                <Run Text="aplique o vencedor escolhido e capture A em Performance; aplique o Custom e capture B; salve a comparação em History. Depois repita A/B uma segunda vez. A evidência é apenas inspecionada até você pedir explicitamente a promoção." />
+                            </TextBlock>
+                            <TextBlock x:Name="ChallengeRoundsText"
+                                       Text="0/2 rodadas elegíveis"
+                                       Margin="0,10,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </StackPanel>
                     </Border>
 
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                         <Button x:Name="RunChallengeButton" Style="{StaticResource PrimaryButton}"
-                                Content="Validar 2 rodadas e promover se vencer"
+                                Content="Promover vencedor"
                                 Click="RunChallenge_Click" IsEnabled="False" />
+                        <Button x:Name="RefreshChallengeButton"
+                                Content="Atualizar evidência"
+                                Margin="10,0,0,0" Padding="14,8"
+                                Click="RefreshChallenge_Click" />
                     </StackPanel>
                     <TextBlock x:Name="ChallengeStatusText"
                                Text="Selecione um Custom validado e o papel que ele deve desafiar."
