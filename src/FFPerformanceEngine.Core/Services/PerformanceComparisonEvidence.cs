@@ -204,8 +204,12 @@ public sealed record PerformanceComparisonHistoryRecord
 public sealed class PerformanceComparisonSession
 {
     private readonly object _gate = new();
+    private readonly Func<PerformanceConfigurationSnapshot?>? _configurationProvider;
     private PerformanceEvidenceSnapshot? _baseline;
     private PerformanceEvidenceSnapshot? _candidate;
+
+    public PerformanceComparisonSession(Func<PerformanceConfigurationSnapshot?>? configurationProvider = null)
+        => _configurationProvider = configurationProvider;
 
     public PerformanceEvidenceSnapshot? Baseline
     {
@@ -232,7 +236,7 @@ public sealed class PerformanceComparisonSession
 
     public PerformanceEvidenceSnapshot SetBaseline(string name, PerformanceIntervalSummary interval)
     {
-        var snapshot = PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow);
+        var snapshot = CaptureWithCurrentConfiguration(name, interval);
         lock (_gate) _baseline = snapshot;
         return snapshot;
     }
@@ -249,7 +253,7 @@ public sealed class PerformanceComparisonSession
 
     public PerformanceEvidenceSnapshot SetCandidate(string name, PerformanceIntervalSummary interval)
     {
-        var snapshot = PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow);
+        var snapshot = CaptureWithCurrentConfiguration(name, interval);
         lock (_gate) _candidate = snapshot;
         return snapshot;
     }
@@ -295,6 +299,16 @@ public sealed class PerformanceComparisonSession
             _baseline = null;
             _candidate = null;
         }
+    }
+
+    private PerformanceEvidenceSnapshot CaptureWithCurrentConfiguration(
+        string name,
+        PerformanceIntervalSummary interval)
+    {
+        var configuration = _configurationProvider?.Invoke();
+        return configuration is null
+            ? PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow)
+            : PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow, configuration);
     }
 }
 
