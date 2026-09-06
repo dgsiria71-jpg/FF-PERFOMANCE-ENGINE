@@ -93,6 +93,7 @@ try
     PerformanceTimelineSelfTests.Run();
     PerformanceABSelfTests.Run();
     await PerformanceHistorySelfTests.RunAsync();
+    await ValidatedProfileOriginSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
