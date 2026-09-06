@@ -90,6 +90,29 @@ internal static class PerformanceTimelineSelfTests
                 && comparisonPresentation.AverageFrameTimeDelta == "-1.90 ms",
             "Interval comparison presentation must preserve the measured candidate-minus-baseline direction.");
 
+        var graphPoints = new PerformanceTimelinePoint[]
+        {
+            new() { Timestamp = start.AddMinutes(4), Fps = 100, FrameTimeMs = 10, DataQuality = "Measured" },
+            new() { Timestamp = start.AddMinutes(4).AddSeconds(1), Fps = 110, FrameTimeMs = 9, DataQuality = "Measured" },
+            new() { Timestamp = start.AddMinutes(4).AddSeconds(2), Fps = null, FrameTimeMs = 8.5, DataQuality = "Partial" },
+            new() { Timestamp = start.AddMinutes(4).AddSeconds(3), Fps = 120, FrameTimeMs = 8, DataQuality = "Measured" },
+            new() { Timestamp = start.AddMinutes(4).AddSeconds(4), Fps = 122, FrameTimeMs = 7.8, DataQuality = "Measured" },
+            new() { Timestamp = start.AddMinutes(4).AddSeconds(12), Fps = 130, FrameTimeMs = 7.4, DataQuality = "Measured" }
+        };
+        var fpsSegments = PerformanceGraphSeriesBuilder.Build(graphPoints, PerformanceGraphMetric.Fps, TimeSpan.FromSeconds(2));
+        Require(fpsSegments.Count == 3
+                && fpsSegments[0].Points.Count == 2
+                && fpsSegments[1].Points.Count == 2
+                && fpsSegments[2].Points.Count == 1,
+            "Graph series must split at missing FPS evidence and at time gaps instead of visually interpolating across unmeasured telemetry.");
+        Require(fpsSegments[0].Points[0].Value == 100
+                && fpsSegments[1].Points[0].Timestamp == start.AddMinutes(4).AddSeconds(3)
+                && fpsSegments[2].Points[0].Value == 130,
+            "Graph segments must preserve the exact measured timestamps and values on each side of a gap.");
+        var frameTimeSegments = PerformanceGraphSeriesBuilder.Build(graphPoints, PerformanceGraphMetric.FrameTime, TimeSpan.FromSeconds(2));
+        Require(frameTimeSegments.Count == 2 && frameTimeSegments[0].Points.Count == 5,
+            "A metric-specific missing FPS value must not create a fake gap in frame-time evidence that is actually present.");
+
         var noFrameEvidence = PerformanceIntervalAnalysis.Analyze(
             [new PerformanceTimelineEntry { Timestamp = start.AddMinutes(3), Kind = PerformanceTimelineKind.Guardian, Title = "Guardian", Detail = "Observando" }],
             start.AddMinutes(3),
@@ -100,7 +123,7 @@ internal static class PerformanceTimelineSelfTests
                 && PerformanceIntervalPresentation.FromComparison(PerformanceIntervalAnalysis.Compare(noFrameEvidence, candidate)).AverageFpsDelta == "—",
             "Interval presentation must keep unavailable frame evidence visibly unavailable instead of fabricating a zero delta.");
 
-        Console.WriteLine("PASS Performance synchronized timeline, evidence-only presentation, and interval comparison contract");
+        Console.WriteLine("PASS Performance synchronized timeline, evidence-only presentation, interval comparison, and graph segmentation contract");
     }
 
     private static void Require(bool condition, string message)
