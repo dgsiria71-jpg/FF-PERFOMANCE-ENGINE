@@ -78,6 +78,26 @@ try
     await historyService.AppendAsync(new HistoryEvent { Kind = HistoryEventKind.Benchmark, Title = "Benchmark", Summary = "Validated" });
     Check("history append", (await historyService.LoadAsync()).Count == 1);
 
+    var challengePresentationType = typeof(ProfileChallengeRoundService).Assembly.GetType(
+        "FFPerformanceEngine.Core.Services.ProfileChallengeAutomationPresentation");
+    Check("automated challenge exposes live phase presentation", challengePresentationType is not null);
+    if (challengePresentationType is not null)
+    {
+        var formatMethod = challengePresentationType.GetMethod("Format", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        Check("automated challenge live phase presentation exposes Format", formatMethod is not null);
+        if (formatMethod is not null)
+        {
+            var formatted = formatMethod.Invoke(null,
+                [new ProfileChallengeAutomationProgress(
+                    ProfileChallengeRoundStage.MeasuringCandidate,
+                    "Medindo Custom: tentativa 2/4.",
+                    AcceptedSamples: 1,
+                    RequiredSamples: 2)]) as string;
+            Check("automated challenge live phase includes side and accepted windows",
+                string.Equals(formatted, "Medindo Custom (B) · 1/2 · Medindo Custom: tentativa 2/4.", StringComparison.Ordinal));
+        }
+    }
+
     // Persistence tests perform real async file I/O. Run them here, after process startup,
     // rather than under a CLR module initializer/loader context.
     await AutoTunerSessionPersistenceSelfTests.RunAsync();
