@@ -39,9 +39,9 @@ public sealed record PerformanceEvidenceSnapshot
         var fps = FiniteValues(copiedPoints.Select(point => point.Fps));
         var frameTimes = FiniteValues(copiedPoints.Select(point => point.FrameTimeMs));
         var latency = FiniteValues(copiedPoints.Select(point => point.LatencyMs));
-        var averageFps = fps.Length == 0 ? null : fps.Average();
-        var averageFrameTime = frameTimes.Length == 0 ? null : frameTimes.Average();
-        var averageLatency = latency.Length == 0 ? null : latency.Average();
+        double? averageFps = fps.Length == 0 ? null : fps.Average();
+        double? averageFrameTime = frameTimes.Length == 0 ? null : frameTimes.Average();
+        double? averageLatency = latency.Length == 0 ? null : latency.Average();
 
         var copiedInterval = interval with
         {
