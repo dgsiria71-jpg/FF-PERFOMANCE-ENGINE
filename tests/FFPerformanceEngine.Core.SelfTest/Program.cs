@@ -92,6 +92,7 @@ try
     PerformancePresentationSelfTests.Run();
     PerformanceTimelineSelfTests.Run();
     PerformanceABSelfTests.Run();
+    await PerformanceHistorySelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
