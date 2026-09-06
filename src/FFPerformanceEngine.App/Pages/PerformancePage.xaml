@@ -84,15 +84,26 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="FPS medido · sessão" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="FPS medido" Style="{StaticResource SectionTitle}" />
                             <TextBlock Text="Cada linha representa somente evidência contínua. FPS ausente ou lacunas temporais interrompem o traçado em vez de serem interpolados."
                                        Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
                         </StackPanel>
-                        <TextBlock x:Name="GraphRangeText" Grid.Column="1" Text="Sem intervalo"
-                                   Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Top" Margin="20,4,0,0" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="20,0,0,0">
+                            <Button x:Name="SessionWindowButton" Content="Sessão" Click="SessionWindow_Click" Margin="0,0,8,0" Padding="14,8" />
+                            <Button x:Name="RecentWindowButton" Content="Últimos 60 s" Click="RecentWindow_Click" Padding="14,8" />
+                        </StackPanel>
                     </Grid>
 
-                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="16" Margin="0,16,0,0" Padding="8">
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="GraphRangeText" Text="Sem intervalo" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="PinBaselineButton" Content="Fixar baseline" Click="PinBaseline_Click" Padding="14,8" Margin="0,0,8,0" />
+                            <Button x:Name="ClearBaselineButton" Content="Limpar baseline" Click="ClearBaseline_Click" Padding="14,8" IsEnabled="False" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="16" Margin="0,14,0,0" Padding="8">
                         <Canvas x:Name="FpsGraphCanvas" Height="220" ClipToBounds="True" SizeChanged="FpsGraphCanvas_SizeChanged" />
                     </Border>
                     <TextBlock x:Name="GraphStatusText" Text="Nenhuma evidência de FPS nesta sessão."
@@ -105,6 +116,19 @@
                         <StackPanel Grid.Column="2" Margin="12,0"><TextBlock Text="Evidência" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalEvidenceText" Text="0/0 amostras com FPS" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
                         <StackPanel Grid.Column="3" Margin="12,0,0,0"><TextBlock Text="Eventos" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalEventsText" Text="Guardian 0 · Marcadores 0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
                     </Grid>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="14" Padding="14" Margin="0,16,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Comparação com baseline" FontWeight="SemiBold" />
+                                <TextBlock x:Name="BaselineStatusText" Text="Nenhum baseline fixado."
+                                           Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="18,0"><TextBlock Text="Δ FPS médio" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="BaselineFpsDeltaText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                            <StackPanel Grid.Column="2" Margin="18,0,0,0"><TextBlock Text="Δ Frame Time" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="BaselineFrameTimeDeltaText" Text="—" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </Border>
 
