@@ -1,0 +1,136 @@
+<UserControl x:Class="FFPerformanceEngine.App.Pages.ProfilesPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="4">
+            <TextBlock Text="Perfis" FontSize="30" FontWeight="SemiBold" />
+            <TextBlock Text="Vencedores validados e perfis personalizados. Comparações A/B permanecem observadas até uma validação medida separada."
+                       Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,18" TextWrapping="Wrap" />
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="★ Recomendado" Style="{StaticResource SectionTitle}" />
+                    <TextBlock x:Name="RecommendedText" Text="Ainda não há um perfil Recomendado validado." FontSize="18" />
+                    <TextBlock Text="O perfil só aparece como vencedor depois de evidência real."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Desafio de vencedor" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="Um Custom validado só pode substituir um vencedor depois de duas rodadas A/B independentes, totalmente medidas e executadas no mesmo ambiente estrutural."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="DESAFIANTE CUSTOM" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <ComboBox x:Name="ChallengeProfileComboBox" Margin="0,6,0,0" MinHeight="34"
+                                      DisplayMemberPath="Name" SelectionChanged="ChallengeSelectionChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="PAPEL VENCEDOR" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <ComboBox x:Name="ChallengeRoleComboBox" Margin="0,6,0,0" MinHeight="34"
+                                      DisplayMemberPath="Name" SelectionChanged="ChallengeSelectionChanged" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap">
+                                <Run Text="Fluxo controlado: " FontWeight="SemiBold" />
+                                <Run Text="uma rodada automática aplica o vencedor como A, abre/prepara o mesmo Free Fire, mede duas janelas PresentMon aceitas, encerra e restaura a sessão controlada, aplica o Custom como B e mede outras duas janelas. A comparação é salva como Observed e nunca promove sozinha." />
+                            </TextBlock>
+                            <TextBlock x:Name="ChallengeRoundsText"
+                                       Text="0/2 rodadas elegíveis"
+                                       Margin="0,10,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="RODADA A/B AUTOMÁTICA" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock x:Name="ChallengeAutomationText"
+                                       Text="Nenhuma rodada automática em execução."
+                                       Margin="0,7,0,0" TextWrapping="Wrap" />
+                            <ProgressBar x:Name="ChallengeAutomationProgressBar"
+                                         Minimum="0" Maximum="2" Value="0"
+                                         Height="6" Margin="0,10,0,0" />
+                            <Button x:Name="RunAutomatedChallengeButton"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Content="Executar 1 rodada A/B automática"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,12,0,0"
+                                    Click="RunAutomatedChallenge_Click"
+                                    IsEnabled="False" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button x:Name="RunChallengeButton" Style="{StaticResource PrimaryButton}"
+                                Content="Promover vencedor"
+                                Click="RunChallenge_Click" IsEnabled="False" />
+                        <Button x:Name="RefreshChallengeButton"
+                                Content="Atualizar evidência"
+                                Margin="10,0,0,0" Padding="14,8"
+                                Click="RefreshChallenge_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="ChallengeStatusText"
+                               Text="Selecione um Custom validado e o papel que ele deve desafiar."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,10,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Comparação A/B ativa" Style="{StaticResource SectionTitle}" />
+                    <TextBlock x:Name="ABComparisonText" Text="Nenhuma comparação A/B ativa."
+                               FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ABEvidenceText" Text="Performance captura A e B; History pode reabrir comparações antigas."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ABDeltaText" Text="—"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Evidência histórica validada" Style="{StaticResource SectionTitle}" />
+                    <TextBlock x:Name="HistoricalValidationText"
+                               Text="Nenhuma comparação histórica concluiu validação medida separada."
+                               FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="HistoricalValidationMetricsText"
+                               Text="History mantém candidatos observados isolados dos vencedores validados."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <ItemsControl x:Name="ProfilesList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource GlassCard}" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Evidence}" Foreground="{DynamicResource MutedTextBrush}" />
+                                    <TextBlock Text="{Binding Confidence, StringFormat=Confiança {0:P0}}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="Usar perfil"
+                                        Click="ApplyProfile_Click" Tag="{Binding Id}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,35 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ main, build/** ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Configure native
+        run: cmake -S src/FFPerformanceEngine.Native -B build/native -A x64
+      - name: Build native
+        run: cmake --build build/native --config Release
+      - name: Test native
+        run: ctest --test-dir build/native -C Release --output-on-failure
+      - name: Build managed
+        run: dotnet build FFPerformanceEngine.sln -c Release
+      - name: Core self-tests
+        run: dotnet run --project tests/FFPerformanceEngine.Core.SelfTest/FFPerformanceEngine.Core.SelfTest.csproj -c Release
+      - name: Publish app
+        shell: pwsh
+        run: |
+          dotnet publish src/FFPerformanceEngine.App/FFPerformanceEngine.App.csproj -c Release -r win-x64 --self-contained false -o artifacts/FFPerformanceEngine
+          Copy-Item build/native/Release/ffpe_native.dll artifacts/FFPerformanceEngine/ffpe_native.dll -Force
+      - name: Upload application
+        uses: actions/upload-artifact@v4
+        with:
+          name: FFPerformanceEngine-win-x64
+          path: artifacts/FFPerformanceEngine
