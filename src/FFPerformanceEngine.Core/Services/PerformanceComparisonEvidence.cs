@@ -9,6 +9,13 @@ public enum PerformanceEvidenceQuality
     Measured
 }
 
+public enum PerformanceComparisonValidationStatus
+{
+    Observed,
+    PendingValidation,
+    Validated
+}
+
 public sealed record PerformanceEvidenceSnapshot
 {
     public required string Name { get; init; }
@@ -78,6 +85,12 @@ public sealed record PerformanceEvidenceSnapshot
         };
     }
 
+    public static PerformanceEvidenceSnapshot Rehydrate(PerformanceEvidenceSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        return Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt);
+    }
+
     private static double[] FiniteValues(IEnumerable<double?> values)
         => values
             .Where(value => value is double number && double.IsFinite(number))
@@ -98,11 +111,67 @@ public sealed record PerformanceABComparison
         ArgumentNullException.ThrowIfNull(baseline);
         ArgumentNullException.ThrowIfNull(candidate);
 
+        var normalizedBaseline = PerformanceEvidenceSnapshot.Rehydrate(baseline);
+        var normalizedCandidate = PerformanceEvidenceSnapshot.Rehydrate(candidate);
         return new PerformanceABComparison
         {
+            Baseline = normalizedBaseline,
+            Candidate = normalizedCandidate,
+            Metrics = PerformanceIntervalAnalysis.Compare(normalizedBaseline.Interval, normalizedCandidate.Interval)
+        };
+    }
+}
+
+public sealed record PerformanceComparisonHistoryRecord
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public string Label { get; init; } = string.Empty;
+    public DateTimeOffset SavedAt { get; init; } = DateTimeOffset.UtcNow;
+    public required PerformanceEvidenceSnapshot Baseline { get; init; }
+    public required PerformanceEvidenceSnapshot Candidate { get; init; }
+    public PerformanceComparisonValidationStatus ValidationStatus { get; init; } = PerformanceComparisonValidationStatus.Observed;
+    public PerformanceEvidenceSnapshot? ValidationEvidence { get; init; }
+    public DateTimeOffset? ValidatedAt { get; init; }
+
+    public PerformanceIntervalComparison Metrics
+        => PerformanceIntervalAnalysis.Compare(Baseline.Interval, Candidate.Interval);
+
+    public bool CanOriginateProfile
+        => ValidationStatus == PerformanceComparisonValidationStatus.Validated
+           && ValidationEvidence?.Quality == PerformanceEvidenceQuality.Measured;
+
+    public PerformanceABComparison AsComparison()
+        => PerformanceABComparison.Create(Baseline, Candidate);
+
+    public PerformanceComparisonHistoryRecord Rehydrate()
+    {
+        if (string.IsNullOrWhiteSpace(Label))
+            throw new InvalidDataException("Historical comparison label is missing.");
+
+        var baseline = PerformanceEvidenceSnapshot.Rehydrate(Baseline);
+        var candidate = PerformanceEvidenceSnapshot.Rehydrate(Candidate);
+        var validation = ValidationEvidence is null
+            ? null
+            : PerformanceEvidenceSnapshot.Rehydrate(ValidationEvidence);
+
+        var status = ValidationStatus;
+        var validatedAt = ValidatedAt;
+        if (status == PerformanceComparisonValidationStatus.Validated
+            && validation?.Quality != PerformanceEvidenceQuality.Measured)
+        {
+            status = PerformanceComparisonValidationStatus.PendingValidation;
+            validatedAt = null;
+            validation = null;
+        }
+
+        return this with
+        {
+            Label = Label.Trim(),
             Baseline = baseline,
             Candidate = candidate,
-            Metrics = PerformanceIntervalAnalysis.Compare(baseline.Interval, candidate.Interval)
+            ValidationStatus = status,
+            ValidationEvidence = validation,
+            ValidatedAt = validatedAt
         };
     }
 }
@@ -150,6 +219,20 @@ public sealed class PerformanceComparisonSession
         return snapshot;
     }
 
+    public PerformanceEvidenceSnapshot SetBaseline(PerformanceEvidenceSnapshot snapshot)
+    {
+        var normalized = PerformanceEvidenceSnapshot.Rehydrate(snapshot);
+        lock (_gate) _baseline = normalized;
+        return normalized;
+    }
+
+    public PerformanceEvidenceSnapshot SetCandidate(PerformanceEvidenceSnapshot snapshot)
+    {
+        var normalized = PerformanceEvidenceSnapshot.Rehydrate(snapshot);
+        lock (_gate) _candidate = normalized;
+        return normalized;
+    }
+
     public void ClearBaseline()
     {
         lock (_gate) _baseline = null;
@@ -192,24 +275,39 @@ public static class PerformanceProfileEvidenceBridge
     public static PerformanceProfileEvidenceProjection FromSnapshot(PerformanceEvidenceSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        var normalized = PerformanceEvidenceSnapshot.Rehydrate(snapshot);
 
         return new PerformanceProfileEvidenceProjection
         {
-            SourceName = snapshot.Name,
-            Quality = snapshot.Quality,
-            Evidence = snapshot.Quality == PerformanceEvidenceQuality.Unavailable
+            SourceName = normalized.Name,
+            Quality = normalized.Quality,
+            Evidence = normalized.Quality == PerformanceEvidenceQuality.Unavailable
                 ? EvidenceLevel.Unknown
                 : EvidenceLevel.Observed,
-            CapturedAt = snapshot.CapturedAt,
-            Start = snapshot.Interval.Start,
-            End = snapshot.Interval.End,
-            TelemetrySamples = snapshot.TelemetrySamples,
-            FpsEvidenceSamples = snapshot.FpsEvidenceSamples,
-            FrameTimeEvidenceSamples = snapshot.FrameTimeEvidenceSamples,
-            LatencyEvidenceSamples = snapshot.LatencyEvidenceSamples,
-            AverageFps = snapshot.AverageFps,
-            FrameTimeMs = snapshot.AverageFrameTimeMs,
-            LatencyMs = snapshot.AverageLatencyMs
+            CapturedAt = normalized.CapturedAt,
+            Start = normalized.Interval.Start,
+            End = normalized.Interval.End,
+            TelemetrySamples = normalized.TelemetrySamples,
+            FpsEvidenceSamples = normalized.FpsEvidenceSamples,
+            FrameTimeEvidenceSamples = normalized.FrameTimeEvidenceSamples,
+            LatencyEvidenceSamples = normalized.LatencyEvidenceSamples,
+            AverageFps = normalized.AverageFps,
+            FrameTimeMs = normalized.AverageFrameTimeMs,
+            LatencyMs = normalized.AverageLatencyMs
+        };
+    }
+
+    public static PerformanceProfileEvidenceProjection FromValidatedRecord(PerformanceComparisonHistoryRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        var normalized = record.Rehydrate();
+        if (!normalized.CanOriginateProfile || normalized.ValidationEvidence is null)
+            throw new InvalidOperationException("Historical comparison has not completed explicit measured validation.");
+
+        return FromSnapshot(normalized.ValidationEvidence) with
+        {
+            SourceName = $"{normalized.Label} · validação",
+            Evidence = EvidenceLevel.Validated
         };
     }
 }
