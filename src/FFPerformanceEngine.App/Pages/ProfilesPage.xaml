@@ -46,11 +46,31 @@
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap">
                                 <Run Text="Fluxo controlado: " FontWeight="SemiBold" />
-                                <Run Text="aplique o vencedor escolhido e capture A em Performance; aplique o Custom e capture B; salve a comparação em History. Depois repita A/B uma segunda vez. A evidência é apenas inspecionada até você pedir explicitamente a promoção." />
+                                <Run Text="uma rodada automática aplica o vencedor como A, abre/prepara o mesmo Free Fire, mede duas janelas PresentMon aceitas, encerra e restaura a sessão controlada, aplica o Custom como B e mede outras duas janelas. A comparação é salva como Observed e nunca promove sozinha." />
                             </TextBlock>
                             <TextBlock x:Name="ChallengeRoundsText"
                                        Text="0/2 rodadas elegíveis"
                                        Margin="0,10,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="RODADA A/B AUTOMÁTICA" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock x:Name="ChallengeAutomationText"
+                                       Text="Nenhuma rodada automática em execução."
+                                       Margin="0,7,0,0" TextWrapping="Wrap" />
+                            <ProgressBar x:Name="ChallengeAutomationProgressBar"
+                                         Minimum="0" Maximum="2" Value="0"
+                                         Height="6" Margin="0,10,0,0" />
+                            <Button x:Name="RunAutomatedChallengeButton"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Content="Executar 1 rodada A/B automática"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,12,0,0"
+                                    Click="RunAutomatedChallenge_Click"
+                                    IsEnabled="False" />
                         </StackPanel>
                     </Border>
 
