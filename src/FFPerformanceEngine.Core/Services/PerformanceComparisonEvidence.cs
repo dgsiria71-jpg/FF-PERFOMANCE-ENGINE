@@ -29,11 +29,29 @@ public sealed record PerformanceEvidenceSnapshot
     public double? AverageFps { get; init; }
     public double? AverageFrameTimeMs { get; init; }
     public double? AverageLatencyMs { get; init; }
+    public PerformanceConfigurationSnapshot? Configuration { get; init; }
 
     public static PerformanceEvidenceSnapshot Capture(
         string name,
         PerformanceIntervalSummary interval,
         DateTimeOffset capturedAt)
+        => CaptureCore(name, interval, capturedAt, null);
+
+    public static PerformanceEvidenceSnapshot Capture(
+        string name,
+        PerformanceIntervalSummary interval,
+        DateTimeOffset capturedAt,
+        PerformanceConfigurationSnapshot configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        return CaptureCore(name, interval, capturedAt, configuration.Rehydrate());
+    }
+
+    private static PerformanceEvidenceSnapshot CaptureCore(
+        string name,
+        PerformanceIntervalSummary interval,
+        DateTimeOffset capturedAt,
+        PerformanceConfigurationSnapshot? configuration)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("A comparison snapshot name is required.", nameof(name));
@@ -81,14 +99,18 @@ public sealed record PerformanceEvidenceSnapshot
             LatencyEvidenceSamples = latency.Length,
             AverageFps = averageFps,
             AverageFrameTimeMs = averageFrameTime,
-            AverageLatencyMs = averageLatency
+            AverageLatencyMs = averageLatency,
+            Configuration = configuration
         };
     }
 
     public static PerformanceEvidenceSnapshot Rehydrate(PerformanceEvidenceSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        return Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt);
+        var configuration = snapshot.Configuration?.Rehydrate();
+        return configuration is null
+            ? Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt)
+            : Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt, configuration);
     }
 
     private static double[] FiniteValues(IEnumerable<double?> values)
@@ -138,7 +160,10 @@ public sealed record PerformanceComparisonHistoryRecord
 
     public bool CanOriginateProfile
         => ValidationStatus == PerformanceComparisonValidationStatus.Validated
-           && ValidationEvidence?.Quality == PerformanceEvidenceQuality.Measured;
+           && ValidationEvidence?.Quality == PerformanceEvidenceQuality.Measured
+           && Candidate.Configuration is { } candidateConfiguration
+           && ValidationEvidence.Configuration is { } validationConfiguration
+           && candidateConfiguration.IsEquivalentTo(validationConfiguration);
 
     public PerformanceABComparison AsComparison()
         => PerformanceABComparison.Create(Baseline, Candidate);
@@ -212,9 +237,29 @@ public sealed class PerformanceComparisonSession
         return snapshot;
     }
 
+    public PerformanceEvidenceSnapshot SetBaseline(
+        string name,
+        PerformanceIntervalSummary interval,
+        PerformanceConfigurationSnapshot configuration)
+    {
+        var snapshot = PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow, configuration);
+        lock (_gate) _baseline = snapshot;
+        return snapshot;
+    }
+
     public PerformanceEvidenceSnapshot SetCandidate(string name, PerformanceIntervalSummary interval)
     {
         var snapshot = PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow);
+        lock (_gate) _candidate = snapshot;
+        return snapshot;
+    }
+
+    public PerformanceEvidenceSnapshot SetCandidate(
+        string name,
+        PerformanceIntervalSummary interval,
+        PerformanceConfigurationSnapshot configuration)
+    {
+        var snapshot = PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow, configuration);
         lock (_gate) _candidate = snapshot;
         return snapshot;
     }
@@ -301,7 +346,8 @@ public static class PerformanceProfileEvidenceBridge
     {
         ArgumentNullException.ThrowIfNull(record);
         var normalized = record.Rehydrate();
-        if (!normalized.CanOriginateProfile || normalized.ValidationEvidence is null)
+        if (normalized.ValidationStatus != PerformanceComparisonValidationStatus.Validated
+            || normalized.ValidationEvidence?.Quality != PerformanceEvidenceQuality.Measured)
             throw new InvalidOperationException("Historical comparison has not completed explicit measured validation.");
 
         return FromSnapshot(normalized.ValidationEvidence) with
