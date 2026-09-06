@@ -25,6 +25,7 @@ public sealed class AppServices : IAsyncDisposable
     public ProfileApplicationService ProfileApplication { get; }
     public ProfileChallengeService ProfileChallenges { get; }
     public ProfileChallengeProgressService ProfileChallengeProgress { get; }
+    public ProfileChallengeRoundService ProfileChallengeRounds { get; }
     public GuardianCanaryService GuardianCanary { get; }
     public BlueStacksPlayerProcessProbe GuardianProcessProbe { get; }
     public WindowsRecentInputProbe GuardianRecentInput { get; }
@@ -73,6 +74,7 @@ public sealed class AppServices : IAsyncDisposable
             PerformanceTimeline);
 
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
+        ProfileChallengeRounds = new ProfileChallengeRoundService(Profiles, History, AutoTunerRuntimeFactory);
         AutoTunerSession = new AutoTunerSessionService(AutoTuner, AutoTunerRuntimeFactory, Profiles, History);
         OptimizeSystem = new OptimizeSystemProbe(Environment, BlueStacks, PresentMon);
         OptimizeWorkflow = new OptimizeWorkflowService(AutoTuner, AutoTunerSession, OptimizeSystem);
