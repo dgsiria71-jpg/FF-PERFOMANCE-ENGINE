@@ -67,6 +67,7 @@ public sealed record PerformanceEnvironmentFingerprint
         var left = Rehydrate();
         var right = other.Rehydrate();
         return string.Equals(left.MachineName, right.MachineName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(left.WindowsDescription, right.WindowsDescription, StringComparison.OrdinalIgnoreCase)
             && left.LogicalProcessors == right.LogicalProcessors
             && MemoryMatches(left.MemoryTotalMb, right.MemoryTotalMb)
             && left.Is64BitOs == right.Is64BitOs
@@ -84,7 +85,9 @@ public sealed record PerformanceEnvironmentFingerprint
         if (instance is null) return false;
 
         var currentMemory = ToMemoryMb(current.MemoryTotalGb);
+        var currentWindowsDescription = current.WindowsDescription?.Trim() ?? string.Empty;
         return string.Equals(stored.MachineName, current.MachineName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(stored.WindowsDescription, currentWindowsDescription, StringComparison.OrdinalIgnoreCase)
             && stored.LogicalProcessors == current.LogicalProcessors
             && MemoryMatches(stored.MemoryTotalMb, currentMemory)
             && stored.Is64BitOs == current.Is64BitOs
