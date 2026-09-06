@@ -98,6 +98,7 @@ try
     await ProfileChallengeFreshnessSelfTests.RunAsync();
     await ProfileChallengeIncumbentFreshnessSelfTests.RunAsync();
     await ProfileChallengeProgressSelfTests.RunAsync();
+    await ProfileChallengeRoundSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
