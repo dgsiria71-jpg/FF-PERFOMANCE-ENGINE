@@ -11,7 +11,9 @@ public partial class ProfilesPage : UserControl
     private sealed record ChallengeRoleOption(ProfileKind Kind, string Name);
 
     private IReadOnlyList<PerformanceProfile> _profiles = Array.Empty<PerformanceProfile>();
+    private ProfileChallengeProgress? _challengeProgress;
     private bool _challengeRunning;
+    private int _challengeProgressRevision;
 
     public ProfilesPage()
     {
@@ -47,7 +49,7 @@ public partial class ProfilesPage : UserControl
             ? custom.FirstOrDefault(profile => profile.Id == id) ?? custom.FirstOrDefault()
             : custom.FirstOrDefault();
         RefreshChallengeRoles();
-        UpdateChallengeButton();
+        await RefreshChallengeProgressAsync();
     }
 
     private void RefreshABComparison()
@@ -89,20 +91,23 @@ public partial class ProfilesPage : UserControl
             $"amostras FPS {evidence.FpsEvidenceSamples}/{evidence.TelemetrySamples}. Elegível para origem explícita de perfil; não convertido automaticamente.";
     }
 
-    private void ChallengeSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void ChallengeSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender == ChallengeProfileComboBox) RefreshChallengeRoles();
-        UpdateChallengeButton();
+        await RefreshChallengeProgressAsync();
     }
 
     private void RefreshChallengeRoles()
     {
+        _challengeProgress = null;
         var selectedCustom = ChallengeProfileComboBox.SelectedItem as PerformanceProfile;
         if (selectedCustom is null)
         {
             ChallengeRoleComboBox.ItemsSource = Array.Empty<ChallengeRoleOption>();
             ChallengeRoleComboBox.SelectedItem = null;
+            ChallengeRoundsText.Text = "0/2 rodadas elegíveis";
             ChallengeStatusText.Text = "Nenhum Custom validado com procedência auditável está disponível para desafiar vencedores.";
+            UpdateChallengeButton();
             return;
         }
 
@@ -127,28 +132,79 @@ public partial class ProfilesPage : UserControl
         ChallengeRoleComboBox.SelectedItem = previous is ProfileKind previousKind
             ? roles.FirstOrDefault(option => option.Kind == previousKind) ?? roles.FirstOrDefault()
             : roles.FirstOrDefault();
+        ChallengeRoundsText.Text = "Lendo evidência...";
         ChallengeStatusText.Text = roles.Count == 0
             ? "Este Custom não possui um vencedor validado compatível para desafiar nesta instância/jogo."
-            : "Faça duas rodadas A/B completas em Performance e salve cada uma em History. Nenhuma promoção ocorre apenas por selecionar os perfis.";
+            : "Verificando as rodadas A/B salvas em History sem modificar nenhum perfil.";
+        UpdateChallengeButton();
+    }
+
+    private async Task RefreshChallengeProgressAsync()
+    {
+        var revision = ++_challengeProgressRevision;
+        _challengeProgress = null;
+        UpdateChallengeButton();
+
+        if (ChallengeProfileComboBox.SelectedItem is not PerformanceProfile challenger
+            || ChallengeRoleComboBox.SelectedItem is not ChallengeRoleOption role)
+        {
+            ChallengeRoundsText.Text = "0/2 rodadas elegíveis";
+            UpdateChallengeButton();
+            return;
+        }
+
+        ChallengeRoundsText.Text = "Lendo evidência...";
+        ChallengeStatusText.Text = $"Verificando {challenger.Name} contra {role.Name}...";
+        try
+        {
+            var progress = await App.Services.ProfileChallengeProgress.GetAsync(
+                challenger.Id,
+                role.Kind,
+                App.Services.Environment.Capture());
+            if (revision != _challengeProgressRevision) return;
+
+            _challengeProgress = progress;
+            ChallengeRoundsText.Text = FormatChallengeRounds(progress);
+            ChallengeStatusText.Text = $"{ProgressStatusName(progress.Status)} · {progress.Message}";
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or KeyNotFoundException or IOException or UnauthorizedAccessException or ArgumentOutOfRangeException)
+        {
+            if (revision != _challengeProgressRevision) return;
+            _challengeProgress = null;
+            ChallengeRoundsText.Text = "Evidência indisponível";
+            ChallengeStatusText.Text = $"Não foi possível avaliar o desafio: {exception.Message}";
+        }
+        finally
+        {
+            if (revision == _challengeProgressRevision) UpdateChallengeButton();
+        }
     }
 
     private void UpdateChallengeButton()
     {
         RunChallengeButton.IsEnabled = !_challengeRunning
+                                       && _challengeProgress?.CanPromote == true
                                        && ChallengeProfileComboBox.SelectedItem is PerformanceProfile
                                        && ChallengeRoleComboBox.SelectedItem is ChallengeRoleOption;
+        RefreshChallengeButton.IsEnabled = !_challengeRunning
+                                           && ChallengeProfileComboBox.SelectedItem is PerformanceProfile
+                                           && ChallengeRoleComboBox.SelectedItem is ChallengeRoleOption;
     }
+
+    private async void RefreshChallenge_Click(object sender, RoutedEventArgs e)
+        => await RefreshChallengeProgressAsync();
 
     private async void RunChallenge_Click(object sender, RoutedEventArgs e)
     {
         if (_challengeRunning
+            || _challengeProgress?.CanPromote != true
             || ChallengeProfileComboBox.SelectedItem is not PerformanceProfile challenger
             || ChallengeRoleComboBox.SelectedItem is not ChallengeRoleOption role)
             return;
 
         _challengeRunning = true;
         UpdateChallengeButton();
-        ChallengeStatusText.Text = $"Analisando as rodadas medidas de {challenger.Name} contra {role.Name}...";
+        ChallengeStatusText.Text = $"Confirmando as duas rodadas medidas de {challenger.Name} contra {role.Name}...";
         try
         {
             var result = await App.Services.ProfileChallenges.AssessAndPromoteLatestAsync(
@@ -163,6 +219,10 @@ public partial class ProfilesPage : UserControl
                 MessageBox.Show(
                     result.Message + "\n\nO Custom de origem foi preservado e o History registrou a promoção.",
                     "Desafio de vencedor");
+            }
+            else
+            {
+                await RefreshChallengeProgressAsync();
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException or KeyNotFoundException or IOException or UnauthorizedAccessException or ArgumentOutOfRangeException)
@@ -200,6 +260,38 @@ public partial class ProfilesPage : UserControl
         }
         MessageBox.Show(result.Message, result.Success ? "Perfil aplicado" : "Perfil não aplicado");
     }
+
+    private static string FormatChallengeRounds(ProfileChallengeProgress progress)
+    {
+        var prefix = progress.EligibleRounds <= 2
+            ? $"{progress.EligibleRounds}/2 rodadas elegíveis"
+            : $"{progress.EligibleRounds} rodadas elegíveis · usando as 2 mais recentes";
+        if (progress.RecentRounds.Count == 0) return prefix;
+
+        var rounds = string.Join(" · ", progress.RecentRounds.Select((round, index) =>
+            $"R{index + 1} {VerdictName(round.Verdict)}"));
+        return $"{prefix} · {rounds}";
+    }
+
+    private static string ProgressStatusName(ProfileChallengeProgressStatus status)
+        => status switch
+        {
+            ProfileChallengeProgressStatus.AwaitingEvidence => "Aguardando evidência",
+            ProfileChallengeProgressStatus.EnvironmentDrift => "Ambiente alterado",
+            ProfileChallengeProgressStatus.Inconclusive => "Inconclusivo",
+            ProfileChallengeProgressStatus.IncumbentHeld => "Vencedor atual mantido",
+            ProfileChallengeProgressStatus.ReadyToPromote => "Pronto para promoção",
+            _ => status.ToString()
+        };
+
+    private static string VerdictName(ProfileChallengeVerdict verdict)
+        => verdict switch
+        {
+            ProfileChallengeVerdict.ChallengerWins => "Custom venceu",
+            ProfileChallengeVerdict.IncumbentHolds => "vencedor manteve",
+            ProfileChallengeVerdict.Inconclusive => "inconclusiva",
+            _ => verdict.ToString()
+        };
 
     private static string RoleName(ProfileKind kind)
         => kind switch
