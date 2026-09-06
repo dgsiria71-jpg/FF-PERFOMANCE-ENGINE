@@ -102,6 +102,7 @@ public sealed class BlueStacksService
             Renderer = ReadString(kvp.Value, "graphics_renderer") ?? ReadString(kvp.Value, "graphics_engine"),
             Fps = ReadInt(kvp.Value, "max_fps") ?? ReadInt(kvp.Value, "fps"),
             Resolution = ReadResolution(kvp.Value),
+            Dpi = ReadInt(kvp.Value, "dpi"),
             AdbPort = ReadInt(kvp.Value, "adb_port"),
             AdbEnabled = ReadBool(kvp.Value, "enable_adb")
         }).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
