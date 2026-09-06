@@ -91,6 +91,7 @@ try
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
     PerformanceTimelineSelfTests.Run();
+    PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
 {
