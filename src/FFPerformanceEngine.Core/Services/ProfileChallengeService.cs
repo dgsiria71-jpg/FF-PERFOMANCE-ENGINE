@@ -246,10 +246,13 @@ public sealed class ProfileChallengeService
         if (incumbent is null)
             throw new InvalidOperationException($"There is no validated {targetKind} winner for the challenger's game and BlueStacks instance.");
 
+        var evidenceNotBefore = challenger.CreatedAt > incumbent.CreatedAt
+            ? challenger.CreatedAt
+            : incumbent.CreatedAt;
         var comparisons = await _history.LoadPerformanceComparisonsAsync(cancellationToken).ConfigureAwait(false);
         var rounds = comparisons
-            .Where(record => record.Baseline.CapturedAt >= challenger.CreatedAt
-                             && record.Candidate.CapturedAt >= challenger.CreatedAt
+            .Where(record => record.Baseline.CapturedAt >= evidenceNotBefore
+                             && record.Candidate.CapturedAt >= evidenceNotBefore
                              && IsMatchingMeasuredRound(record, incumbent, challenger))
             .OrderBy(record => record.Candidate.CapturedAt)
             .ToList();
