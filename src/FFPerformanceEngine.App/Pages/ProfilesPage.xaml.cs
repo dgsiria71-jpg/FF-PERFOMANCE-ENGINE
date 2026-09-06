@@ -182,17 +182,113 @@ public partial class ProfilesPage : UserControl
 
     private void UpdateChallengeButton()
     {
+        var hasSelection = ChallengeProfileComboBox.SelectedItem is PerformanceProfile
+                           && ChallengeRoleComboBox.SelectedItem is ChallengeRoleOption;
         RunChallengeButton.IsEnabled = !_challengeRunning
                                        && _challengeProgress?.CanPromote == true
-                                       && ChallengeProfileComboBox.SelectedItem is PerformanceProfile
-                                       && ChallengeRoleComboBox.SelectedItem is ChallengeRoleOption;
-        RefreshChallengeButton.IsEnabled = !_challengeRunning
-                                           && ChallengeProfileComboBox.SelectedItem is PerformanceProfile
-                                           && ChallengeRoleComboBox.SelectedItem is ChallengeRoleOption;
+                                       && hasSelection;
+        RefreshChallengeButton.IsEnabled = !_challengeRunning && hasSelection;
+
+        if (FindName("RunAutomatedChallengeButton") is Button automatedButton)
+        {
+            automatedButton.IsEnabled = !_challengeRunning
+                                        && _challengeProgress?.CanPromote != true
+                                        && hasSelection;
+        }
     }
 
     private async void RefreshChallenge_Click(object sender, RoutedEventArgs e)
         => await RefreshChallengeProgressAsync();
+
+    private async void RunAutomatedChallenge_Click(object sender, RoutedEventArgs e)
+    {
+        if (_challengeRunning
+            || _challengeProgress?.CanPromote == true
+            || ChallengeProfileComboBox.SelectedItem is not PerformanceProfile challenger
+            || ChallengeRoleComboBox.SelectedItem is not ChallengeRoleOption role)
+            return;
+
+        var environment = App.Services.Environment.Capture();
+        var instance = environment.Instances.FirstOrDefault(item =>
+            string.Equals(item.Name, challenger.InstanceName, StringComparison.OrdinalIgnoreCase));
+        if (instance is null)
+        {
+            ChallengeStatusText.Text = "A rodada automática não pode iniciar porque a instância BlueStacks do Custom não está disponível.";
+            SetChallengeAutomationText("Instância BlueStacks compatível não encontrada.");
+            return;
+        }
+
+        _challengeRunning = true;
+        UpdateChallengeButton();
+        ChallengeStatusText.Text = $"Executando 1 rodada A/B automática de {challenger.Name} contra {role.Name}.";
+        SetChallengeAutomationText("Iniciando rodada controlada A/B...");
+        SetChallengeAutomationProgress(indeterminate: true, value: 0, maximum: 2);
+
+        try
+        {
+            var result = await App.Services.ProfileChallengeRounds.RunAsync(
+                challenger.Id,
+                role.Kind,
+                environment,
+                instance,
+                ReportChallengeAutomationProgress);
+
+            SetChallengeAutomationProgress(indeterminate: false, value: result.Success ? 2 : 0, maximum: 2);
+            SetChallengeAutomationText(result.Success
+                ? $"Rodada concluída · A {result.BaselineAcceptedSamples}/2 · B {result.CandidateAcceptedSamples}/2. {result.Message}"
+                : $"Rodada interrompida com rollback seguro · A {result.BaselineAcceptedSamples}/2 · B {result.CandidateAcceptedSamples}/2. {result.Message}");
+            ChallengeStatusText.Text = result.Success
+                ? "Rodada A/B medida e salva no History. Atualizando automaticamente o progresso do desafio..."
+                : $"A rodada A/B não gerou evidência elegível. {result.Message}";
+
+            RefreshABComparison();
+            await RefreshHistoricalValidationAsync();
+            await RefreshChallengeProgressAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or KeyNotFoundException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetChallengeAutomationProgress(indeterminate: false, value: 0, maximum: 2);
+            SetChallengeAutomationText($"Rodada não executada: {exception.Message}");
+            ChallengeStatusText.Text = $"Rodada automática não executada: {exception.Message}";
+            MessageBox.Show(exception.Message, "Rodada A/B automática");
+        }
+        finally
+        {
+            _challengeRunning = false;
+            UpdateChallengeButton();
+        }
+    }
+
+    private void ReportChallengeAutomationProgress(ProfileChallengeAutomationProgress progress)
+    {
+        void Update()
+        {
+            SetChallengeAutomationText(ProfileChallengeAutomationPresentation.Format(progress));
+            var measuring = progress.Stage is ProfileChallengeRoundStage.MeasuringBaseline
+                or ProfileChallengeRoundStage.MeasuringCandidate;
+            SetChallengeAutomationProgress(
+                indeterminate: !measuring && progress.Stage != ProfileChallengeRoundStage.Completed,
+                value: measuring ? progress.AcceptedSamples : progress.Stage == ProfileChallengeRoundStage.Completed ? progress.RequiredSamples : 0,
+                maximum: Math.Max(1, progress.RequiredSamples));
+        }
+
+        if (Dispatcher.CheckAccess()) Update();
+        else Dispatcher.BeginInvoke(new Action(Update));
+    }
+
+    private void SetChallengeAutomationText(string text)
+    {
+        if (FindName("ChallengeAutomationText") is TextBlock statusText)
+            statusText.Text = text;
+    }
+
+    private void SetChallengeAutomationProgress(bool indeterminate, int value, int maximum)
+    {
+        if (FindName("ChallengeAutomationProgressBar") is not ProgressBar progressBar) return;
+        progressBar.Maximum = Math.Max(1, maximum);
+        progressBar.IsIndeterminate = indeterminate;
+        if (!indeterminate) progressBar.Value = Math.Clamp(value, 0, maximum);
+    }
 
     private async void RunChallenge_Click(object sender, RoutedEventArgs e)
     {
