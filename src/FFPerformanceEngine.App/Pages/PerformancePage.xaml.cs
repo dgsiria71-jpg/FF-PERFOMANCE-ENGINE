@@ -47,6 +47,7 @@ public partial class PerformancePage : UserControl
         }
 
         MeasureButton.IsEnabled = !_captureInProgress && presentMonAvailable && target.CanCapture;
+        RefreshTimeline();
     }
 
     private async void Measure_Click(object sender, RoutedEventArgs e)
@@ -81,6 +82,14 @@ public partial class PerformancePage : UserControl
         }
     }
 
+    private void MarkMoment_Click(object sender, RoutedEventArgs e)
+    {
+        App.Services.PerformanceTimelineEvents.RecordUserMarker(
+            DateTimeOffset.UtcNow,
+            "Momento marcado manualmente pelo usuário.");
+        RefreshTimeline();
+    }
+
     private void ApplyPresentation(PerformanceCapturePresentation presentation)
     {
         FpsText.Text = presentation.Fps;
@@ -96,5 +105,29 @@ public partial class PerformancePage : UserControl
 
         if (presentation.ProcessId != "—" && presentation.Instance != "—")
             TargetText.Text = $"Instância {presentation.Instance} · PID {presentation.ProcessId}";
+    }
+
+    private void RefreshTimeline()
+    {
+        var snapshot = App.Services.PerformanceTimeline.Snapshot();
+        TimelineCountText.Text = snapshot.Count == 1
+            ? "1 evento nesta sessão"
+            : $"{snapshot.Count} eventos nesta sessão";
+
+        if (snapshot.Count == 0)
+        {
+            TimelineText.Text = "Nenhum evento sincronizado ainda.";
+            return;
+        }
+
+        var rows = PerformanceTimelinePresentation.Recent(snapshot, maxRows: 8);
+        TimelineText.Text = string.Join(
+            Environment.NewLine,
+            rows.Select(row =>
+            {
+                var detail = string.IsNullOrWhiteSpace(row.Detail) ? string.Empty : $" · {row.Detail}";
+                var metrics = row.Metrics == "—" ? string.Empty : $" · {row.Metrics}";
+                return $"{row.Timestamp.ToLocalTime():HH:mm:ss} · {row.Title}{detail}{metrics}";
+            }));
     }
 }
