@@ -13,9 +13,15 @@ public sealed record PerformanceCaptureResult
 public sealed class PerformanceCaptureCoordinator
 {
     private readonly Func<int, TimeSpan, CancellationToken, Task<TelemetrySample?>> _capture;
+    private readonly PerformanceTimelineBuffer? _timeline;
 
-    public PerformanceCaptureCoordinator(Func<int, TimeSpan, CancellationToken, Task<TelemetrySample?>> capture)
-        => _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+    public PerformanceCaptureCoordinator(
+        Func<int, TimeSpan, CancellationToken, Task<TelemetrySample?>> capture,
+        PerformanceTimelineBuffer? timeline = null)
+    {
+        _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        _timeline = timeline;
+    }
 
     public async Task<PerformanceCaptureResult> CaptureAsync(
         GuardianLiveSessionStatus? guardianStatus,
@@ -35,6 +41,8 @@ public sealed class PerformanceCaptureCoordinator
         }
 
         var sample = await _capture(processId, duration, cancellationToken).ConfigureAwait(false);
+        if (sample is not null) _timeline?.AppendTelemetry(sample);
+
         return new PerformanceCaptureResult
         {
             Target = target,
