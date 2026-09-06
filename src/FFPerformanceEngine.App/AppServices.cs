@@ -19,7 +19,7 @@ public sealed class AppServices : IAsyncDisposable
     public ProcessTuningService ProcessTuning { get; } = new();
     public GuardianKnowledgeService GuardianKnowledge { get; } = new();
     public PerformanceTimelineBuffer PerformanceTimeline { get; } = new(capacity: 3600);
-    public PerformanceComparisonSession PerformanceComparison { get; } = new();
+    public PerformanceComparisonSession PerformanceComparison { get; }
     public EnvironmentProbe Environment { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
@@ -61,6 +61,7 @@ public sealed class AppServices : IAsyncDisposable
             GuardianBinding,
             GuardianSupervisorFactory);
         GuardianHost = new GuardianSessionHost(GuardianLiveSession);
+        PerformanceComparison = new PerformanceComparisonSession(CapturePerformanceConfiguration);
         PerformanceTimelineEvents = new PerformanceTimelineEventRecorder(PerformanceTimeline);
         GuardianHost.StatusChanged += GuardianHost_StatusChanged;
         PerformanceCapture = new PerformanceCaptureCoordinator(
@@ -99,6 +100,19 @@ public sealed class AppServices : IAsyncDisposable
 
     // Compatibility entry point used by existing pages while the app service graph evolves.
     public Task UpdateSettingsAsync(AppSettings settings) => SaveSettingsAsync(settings);
+
+    private PerformanceConfigurationSnapshot? CapturePerformanceConfiguration()
+    {
+        var target = PerformanceCaptureTargetPolicy.FromGuardianStatus(GuardianHost.CurrentStatus);
+        if (!target.CanCapture || string.IsNullOrWhiteSpace(target.InstanceName)) return null;
+
+        var environment = Environment.Capture();
+        var instance = environment.Instances.FirstOrDefault(item =>
+            string.Equals(item.Name, target.InstanceName, StringComparison.OrdinalIgnoreCase));
+        return instance is null
+            ? null
+            : PerformanceConfigurationSnapshot.Capture(environment, instance, environment.ActiveGame);
+    }
 
     private void GuardianHost_StatusChanged(object? sender, GuardianLiveSessionStatus status)
         => PerformanceTimelineEvents.RecordGuardianStatus(status);
