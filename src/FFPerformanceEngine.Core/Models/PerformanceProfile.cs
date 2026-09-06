@@ -22,5 +22,7 @@ public sealed record PerformanceProfile
     public double? LatencyMs { get; init; }
     public double? StutterPercent { get; init; }
     public double? GpuTemperatureC { get; init; }
+    public Guid? SourceComparisonId { get; init; }
+    public string EnvironmentFingerprint { get; init; } = string.Empty;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }
