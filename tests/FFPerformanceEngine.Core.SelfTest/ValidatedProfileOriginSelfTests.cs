@@ -142,8 +142,9 @@ internal static class ValidatedProfileOriginSelfTests
 
             var createdObject = await InvokeTaskResultAsync(
                 originMethod!, profiles, validated, environment, "Validated A/B Custom", CancellationToken.None);
-            Require(createdObject is PerformanceProfile created,
+            Require(createdObject is PerformanceProfile,
                 "Explicit origin must return the persisted PerformanceProfile.");
+            var created = (PerformanceProfile)createdObject!;
             Require(created.Kind == ProfileKind.Custom
                     && created.Evidence == EvidenceLevel.Validated
                     && created.Game == GameKind.FreeFireMax
