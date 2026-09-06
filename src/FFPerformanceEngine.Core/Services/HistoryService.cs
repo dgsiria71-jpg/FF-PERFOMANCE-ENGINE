@@ -151,6 +151,12 @@ public sealed class HistoryService
                 throw new InvalidOperationException("Historical comparison must explicitly enter PendingValidation before validation can complete.");
             if (normalizedValidation.CapturedAt <= existing.Candidate.CapturedAt)
                 throw new InvalidOperationException("Validation evidence must come from a later independent capture, not the original candidate snapshot.");
+            if (existing.Candidate.Configuration is null)
+                throw new InvalidOperationException("The original candidate has no exact configuration snapshot. Capture a new B before requesting profile validation.");
+            if (normalizedValidation.Configuration is null)
+                throw new InvalidOperationException("Validation evidence has no exact configuration snapshot. Re-capture B with a bound BlueStacks configuration.");
+            if (!existing.Candidate.Configuration.IsEquivalentTo(normalizedValidation.Configuration))
+                throw new InvalidOperationException("Validation was measured under a different BlueStacks tuning configuration or structurally different environment.");
 
             var validated = existing with
             {
@@ -163,8 +169,8 @@ public sealed class HistoryService
             {
                 Kind = HistoryEventKind.Benchmark,
                 Title = "Comparação A/B validada",
-                Summary = $"{validated.Label} · nova captura medida confirmada · evidência elegível para originar perfil.",
-                DetailsJson = $"{{\"comparisonId\":\"{validated.Id:D}\",\"validationStatus\":\"{validated.ValidationStatus}\"}}"
+                Summary = $"{validated.Label} · nova captura medida confirmou a mesma configuração · evidência elegível para originar perfil.",
+                DetailsJson = $"{{\"comparisonId\":\"{validated.Id:D}\",\"validationStatus\":\"{validated.ValidationStatus}\",\"environmentFingerprint\":\"{validated.Candidate.Configuration.Environment.Id}\"}}"
             });
             await _store.SaveAsync(data, cancellationToken).ConfigureAwait(false);
             return validated;
