@@ -31,6 +31,68 @@ public sealed class ProfileService
         }
     }
 
+    public async Task<PerformanceProfile> CreateCustomFromValidatedComparisonAsync(
+        PerformanceComparisonHistoryRecord record,
+        EnvironmentSnapshot currentEnvironment,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(currentEnvironment);
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Custom profile name is required.", nameof(name));
+
+        var normalized = record.Rehydrate();
+        if (!normalized.CanOriginateProfile
+            || normalized.Candidate.Configuration is null
+            || normalized.ValidationEvidence is null)
+            throw new InvalidOperationException("Only a comparison with separate measured validation and matching exact configuration can originate a profile.");
+
+        var configuration = normalized.Candidate.Configuration.Rehydrate();
+        if (!configuration.Environment.IsStructurallyCompatible(currentEnvironment))
+            throw new InvalidOperationException("The current machine or BlueStacks instance no longer matches the environment that produced this validated candidate.");
+
+        var validation = PerformanceEvidenceSnapshot.Rehydrate(normalized.ValidationEvidence);
+        var created = new PerformanceProfile
+        {
+            Name = name.Trim(),
+            Kind = ProfileKind.Custom,
+            Game = configuration.Game,
+            InstanceName = configuration.InstanceName,
+            CpuCores = configuration.CpuCores,
+            RamMb = configuration.RamMb,
+            Renderer = configuration.Renderer,
+            FpsTarget = configuration.FpsTarget,
+            Resolution = configuration.Resolution,
+            Dpi = configuration.Dpi,
+            Evidence = EvidenceLevel.Validated,
+            AverageFps = validation.AverageFps,
+            FrameTimeMs = validation.AverageFrameTimeMs,
+            LatencyMs = validation.AverageLatencyMs,
+            SourceComparisonId = normalized.Id,
+            EnvironmentFingerprint = configuration.Environment.Id,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var data = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
+            var existing = data.Items.FirstOrDefault(profile =>
+                profile.Kind == ProfileKind.Custom
+                && profile.SourceComparisonId == normalized.Id);
+            if (existing is not null) return existing;
+
+            data.Items.Add(created);
+            await _store.SaveAsync(data, cancellationToken).ConfigureAwait(false);
+            return created;
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     public async Task ReplaceAutoTunerWinnersAsync(
         GameKind game,
         string instanceName,
