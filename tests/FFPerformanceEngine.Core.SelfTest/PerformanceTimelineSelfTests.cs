@@ -79,12 +79,26 @@ internal static class PerformanceTimelineSelfTests
                 && Math.Abs((comparison.AverageFrameTimeDeltaMs ?? 0) + 1.9) < 0.001,
             "Interval comparison must report candidate-minus-baseline deltas from measured evidence only.");
 
+        var baselinePresentation = PerformanceIntervalPresentation.FromSummary(baseline);
+        Require(baselinePresentation.AverageFps == "110.0 FPS"
+                && baselinePresentation.AverageFrameTime == "9.00 ms"
+                && baselinePresentation.Evidence == "2/3 amostras com FPS"
+                && baselinePresentation.Events == "Guardian 1 · Marcadores 1",
+            "Interval presentation must format measured evidence and synchronized event counts without recomputing values.");
+        var comparisonPresentation = PerformanceIntervalPresentation.FromComparison(comparison);
+        Require(comparisonPresentation.AverageFpsDelta == "+21.0 FPS"
+                && comparisonPresentation.AverageFrameTimeDelta == "-1.90 ms",
+            "Interval comparison presentation must preserve the measured candidate-minus-baseline direction.");
+
         var noFrameEvidence = PerformanceIntervalAnalysis.Analyze(
             [new PerformanceTimelineEntry { Timestamp = start.AddMinutes(3), Kind = PerformanceTimelineKind.Guardian, Title = "Guardian", Detail = "Observando" }],
             start.AddMinutes(3),
             start.AddMinutes(3));
         Require(PerformanceIntervalAnalysis.Compare(noFrameEvidence, candidate).AverageFpsDelta is null,
             "Interval comparison must keep deltas unavailable when either side lacks frame evidence.");
+        Require(PerformanceIntervalPresentation.FromSummary(noFrameEvidence).AverageFps == "—"
+                && PerformanceIntervalPresentation.FromComparison(PerformanceIntervalAnalysis.Compare(noFrameEvidence, candidate)).AverageFpsDelta == "—",
+            "Interval presentation must keep unavailable frame evidence visibly unavailable instead of fabricating a zero delta.");
 
         Console.WriteLine("PASS Performance synchronized timeline, evidence-only presentation, and interval comparison contract");
     }
