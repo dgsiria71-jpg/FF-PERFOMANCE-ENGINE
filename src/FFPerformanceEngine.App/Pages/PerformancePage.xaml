@@ -76,6 +76,28 @@
                 </Border>
             </Grid>
 
+            <Border Style="{StaticResource GlassCard}" Margin="0,16,0,0">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Timeline sincronizada" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="Capturas medidas, mudanças relevantes do Guardian e marcadores manuais na mesma linha do tempo."
+                                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="MarkMomentButton" Grid.Column="1" Content="Marcar momento"
+                                Click="MarkMoment_Click" Margin="20,0,0,0" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock x:Name="TimelineCountText" Text="0 eventos nesta sessão"
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,14,0,8" />
+                    <TextBlock x:Name="TimelineText" Text="Nenhum evento sincronizado ainda."
+                               TextWrapping="Wrap" LineHeight="22" />
+                </StackPanel>
+            </Border>
+
             <Grid Margin="0,16,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource GlassCard}" Margin="0,0,8,0"><StackPanel><TextBlock Text="CPU" /><TextBlock x:Name="CpuText" Text="—" Style="{StaticResource MetricValue}" /></StackPanel></Border>
