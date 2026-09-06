@@ -94,6 +94,7 @@ try
     PerformanceABSelfTests.Run();
     await PerformanceHistorySelfTests.RunAsync();
     await ValidatedProfileOriginSelfTests.RunAsync();
+    await ProfileChallengePromotionSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
