@@ -23,6 +23,7 @@ public sealed record BlueStacksInstance
     public string? Renderer { get; init; }
     public int? Fps { get; init; }
     public string? Resolution { get; init; }
+    public int? Dpi { get; init; }
     public int? AdbPort { get; init; }
     public bool? AdbEnabled { get; init; }
 }
