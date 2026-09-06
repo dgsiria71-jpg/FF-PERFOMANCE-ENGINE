@@ -39,9 +39,16 @@ public sealed record PerformanceEvidenceSnapshot
         var fps = FiniteValues(copiedPoints.Select(point => point.Fps));
         var frameTimes = FiniteValues(copiedPoints.Select(point => point.FrameTimeMs));
         var latency = FiniteValues(copiedPoints.Select(point => point.LatencyMs));
+        var averageFps = fps.Length == 0 ? null : fps.Average();
+        var averageFrameTime = frameTimes.Length == 0 ? null : frameTimes.Average();
+        var averageLatency = latency.Length == 0 ? null : latency.Average();
 
         var copiedInterval = interval with
         {
+            TelemetrySamples = copiedPoints.Length,
+            FpsEvidenceSamples = fps.Length,
+            AverageFps = averageFps,
+            AverageFrameTimeMs = averageFrameTime,
             Points = Array.AsReadOnly(copiedPoints)
         };
 
@@ -65,9 +72,9 @@ public sealed record PerformanceEvidenceSnapshot
             FpsEvidenceSamples = fps.Length,
             FrameTimeEvidenceSamples = frameTimes.Length,
             LatencyEvidenceSamples = latency.Length,
-            AverageFps = fps.Length == 0 ? null : fps.Average(),
-            AverageFrameTimeMs = frameTimes.Length == 0 ? null : frameTimes.Average(),
-            AverageLatencyMs = latency.Length == 0 ? null : latency.Average()
+            AverageFps = averageFps,
+            AverageFrameTimeMs = averageFrameTime,
+            AverageLatencyMs = averageLatency
         };
     }
 
