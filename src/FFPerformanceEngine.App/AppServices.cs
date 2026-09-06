@@ -18,6 +18,7 @@ public sealed class AppServices : IAsyncDisposable
     public GuardianEngine Guardian { get; } = new();
     public ProcessTuningService ProcessTuning { get; } = new();
     public GuardianKnowledgeService GuardianKnowledge { get; } = new();
+    public PerformanceTimelineBuffer PerformanceTimeline { get; } = new(capacity: 3600);
     public EnvironmentProbe Environment { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
@@ -28,6 +29,7 @@ public sealed class AppServices : IAsyncDisposable
     public GuardianSupervisorFactory GuardianSupervisorFactory { get; }
     public GuardianLiveSessionService GuardianLiveSession { get; }
     public GuardianSessionHost GuardianHost { get; }
+    public PerformanceTimelineEventRecorder PerformanceTimelineEvents { get; }
     public PerformanceCaptureCoordinator PerformanceCapture { get; }
     public BlueStacksAutoTunerRuntimeFactory AutoTunerRuntimeFactory { get; }
     public AutoTunerSessionService AutoTunerSession { get; }
@@ -58,8 +60,11 @@ public sealed class AppServices : IAsyncDisposable
             GuardianBinding,
             GuardianSupervisorFactory);
         GuardianHost = new GuardianSessionHost(GuardianLiveSession);
+        PerformanceTimelineEvents = new PerformanceTimelineEventRecorder(PerformanceTimeline);
+        GuardianHost.StatusChanged += GuardianHost_StatusChanged;
         PerformanceCapture = new PerformanceCaptureCoordinator(
-            (processId, duration, cancellationToken) => PresentMon.CaptureProcessAsync(processId, duration, cancellationToken));
+            (processId, duration, cancellationToken) => PresentMon.CaptureProcessAsync(processId, duration, cancellationToken),
+            PerformanceTimeline);
 
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
         AutoTunerSession = new AutoTunerSessionService(AutoTuner, AutoTunerRuntimeFactory, Profiles, History);
@@ -87,11 +92,15 @@ public sealed class AppServices : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        GuardianHost.StatusChanged -= GuardianHost_StatusChanged;
         await GuardianHost.DisposeAsync().ConfigureAwait(false);
     }
 
     // Compatibility entry point used by existing pages while the app service graph evolves.
     public Task UpdateSettingsAsync(AppSettings settings) => SaveSettingsAsync(settings);
+
+    private void GuardianHost_StatusChanged(object? sender, GuardianLiveSessionStatus status)
+        => PerformanceTimelineEvents.RecordGuardianStatus(status);
 
     private async Task ReconcileGuardianHostAsync(AppSettings settings)
     {
