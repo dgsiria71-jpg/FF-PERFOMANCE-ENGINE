@@ -20,7 +20,7 @@ public enum ProfileChallengeRoundStage
     Completed
 }
 
-public sealed record ProfileChallengeRoundProgress(
+public sealed record ProfileChallengeAutomationProgress(
     ProfileChallengeRoundStage Stage,
     string Message,
     int AcceptedSamples = 0,
@@ -87,7 +87,7 @@ public sealed class ProfileChallengeRoundService
         ProfileKind targetKind,
         EnvironmentSnapshot environment,
         BlueStacksInstance instance,
-        Action<ProfileChallengeRoundProgress>? progress,
+        Action<ProfileChallengeAutomationProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(environment);
@@ -213,7 +213,7 @@ public sealed class ProfileChallengeRoundService
         ProfileChallengeRoundStage preparingStage,
         ProfileChallengeRoundStage measuringStage,
         ProfileChallengeRoundStage cleaningStage,
-        Action<ProfileChallengeRoundProgress>? progress,
+        Action<ProfileChallengeAutomationProgress>? progress,
         CancellationToken cancellationToken)
     {
         var applied = false;
