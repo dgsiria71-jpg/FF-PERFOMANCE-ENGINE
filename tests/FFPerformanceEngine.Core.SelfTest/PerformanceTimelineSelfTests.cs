@@ -46,7 +46,47 @@ internal static class PerformanceTimelineSelfTests
         Require(unavailable.Metrics == "—",
             "Timeline presentation must render missing frame metrics as unavailable instead of inventing zero-valued evidence.");
 
-        Console.WriteLine("PASS Performance bounded synchronized timeline and evidence-only presentation contract");
+        var analysisEntries = new PerformanceTimelineEntry[]
+        {
+            new() { Timestamp = start.AddMinutes(1), Kind = PerformanceTimelineKind.Telemetry, Title = "Telemetry", Detail = "Measured", Telemetry = new TelemetrySample { Timestamp = start.AddMinutes(1), Fps = 100, FrameTimeMs = 10, DataQuality = "Measured" } },
+            new() { Timestamp = start.AddMinutes(1).AddSeconds(1), Kind = PerformanceTimelineKind.Guardian, Title = "Guardian", Detail = "Observando" },
+            new() { Timestamp = start.AddMinutes(1).AddSeconds(2), Kind = PerformanceTimelineKind.Telemetry, Title = "Telemetry", Detail = "Measured", Telemetry = new TelemetrySample { Timestamp = start.AddMinutes(1).AddSeconds(2), Fps = 120, FrameTimeMs = 8, DataQuality = "Measured" } },
+            new() { Timestamp = start.AddMinutes(1).AddSeconds(3), Kind = PerformanceTimelineKind.UserMarker, Title = "Marcador", Detail = "Combate" },
+            new() { Timestamp = start.AddMinutes(1).AddSeconds(4), Kind = PerformanceTimelineKind.Telemetry, Title = "Telemetry", Detail = "Partial", Telemetry = new TelemetrySample { Timestamp = start.AddMinutes(1).AddSeconds(4), FrameTimeMs = 9, DataQuality = "Partial" } }
+        };
+        var baseline = PerformanceIntervalAnalysis.Analyze(
+            analysisEntries,
+            start.AddMinutes(1),
+            start.AddMinutes(1).AddSeconds(4));
+        Require(baseline.TelemetrySamples == 3 && baseline.FpsEvidenceSamples == 2 && baseline.Points.Count == 3,
+            "Interval analysis must count real telemetry separately from available FPS evidence and preserve graph points with null metrics.");
+        Require(Math.Abs((baseline.AverageFps ?? 0) - 110) < 0.001 && Math.Abs((baseline.AverageFrameTimeMs ?? 0) - 9) < 0.001,
+            "Interval analysis must aggregate only finite measured values inside the selected window.");
+        Require(baseline.GuardianEvents == 1 && baseline.UserMarkers == 1 && baseline.Points[^1].Fps is null,
+            "Interval analysis must keep synchronized event counts and missing metric evidence explicit.");
+
+        var candidateEntries = new PerformanceTimelineEntry[]
+        {
+            new() { Timestamp = start.AddMinutes(2), Kind = PerformanceTimelineKind.Telemetry, Title = "Telemetry", Detail = "Measured", Telemetry = new TelemetrySample { Timestamp = start.AddMinutes(2), Fps = 130, FrameTimeMs = 7.0, DataQuality = "Measured" } },
+            new() { Timestamp = start.AddMinutes(2).AddSeconds(1), Kind = PerformanceTimelineKind.Telemetry, Title = "Telemetry", Detail = "Measured", Telemetry = new TelemetrySample { Timestamp = start.AddMinutes(2).AddSeconds(1), Fps = 132, FrameTimeMs = 7.2, DataQuality = "Measured" } }
+        };
+        var candidate = PerformanceIntervalAnalysis.Analyze(
+            candidateEntries,
+            start.AddMinutes(2),
+            start.AddMinutes(2).AddSeconds(1));
+        var comparison = PerformanceIntervalAnalysis.Compare(baseline, candidate);
+        Require(Math.Abs((comparison.AverageFpsDelta ?? 0) - 21) < 0.001
+                && Math.Abs((comparison.AverageFrameTimeDeltaMs ?? 0) + 1.9) < 0.001,
+            "Interval comparison must report candidate-minus-baseline deltas from measured evidence only.");
+
+        var noFrameEvidence = PerformanceIntervalAnalysis.Analyze(
+            [new PerformanceTimelineEntry { Timestamp = start.AddMinutes(3), Kind = PerformanceTimelineKind.Guardian, Title = "Guardian", Detail = "Observando" }],
+            start.AddMinutes(3),
+            start.AddMinutes(3));
+        Require(PerformanceIntervalAnalysis.Compare(noFrameEvidence, candidate).AverageFpsDelta is null,
+            "Interval comparison must keep deltas unavailable when either side lacks frame evidence.");
+
+        Console.WriteLine("PASS Performance synchronized timeline, evidence-only presentation, and interval comparison contract");
     }
 
     private static void Require(bool condition, string message)
