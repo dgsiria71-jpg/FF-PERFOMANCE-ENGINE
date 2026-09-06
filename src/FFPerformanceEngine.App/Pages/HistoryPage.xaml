@@ -4,7 +4,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="4">
             <TextBlock Text="History" FontSize="30" FontWeight="SemiBold" />
-            <TextBlock Text="Memória local de mudanças, benchmarks e comparações A/B. Evidência observada só se torna elegível para perfil após uma validação medida separada."
+            <TextBlock Text="Memória local de mudanças, benchmarks e comparações A/B. Evidência observada só pode originar perfil quando uma segunda captura medida confirma exatamente a mesma configuração e ambiente estrutural."
                        Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,18" TextWrapping="Wrap" />
 
             <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
@@ -72,6 +72,15 @@
                                             <TextBlock Text="{Binding Candidate.AverageFps, StringFormat=FPS {0:0.0}}" Margin="0,5,0,0" />
                                             <TextBlock Text="{Binding Candidate.AverageFrameTimeMs, StringFormat=Frame Time {0:0.00} ms}" />
                                             <TextBlock Text="{Binding Candidate.AverageLatencyMs, StringFormat=Latência {0:0.00} ms}" />
+                                            <TextBlock Text="CONFIGURAÇÃO VINCULADA" FontSize="11" FontWeight="SemiBold" Margin="0,9,0,2"
+                                                       Foreground="{DynamicResource MutedTextBrush}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.InstanceName, StringFormat=Instância {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.CpuCores, StringFormat=CPU {0} cores}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.RamMb, StringFormat=RAM {0} MB}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Renderer, StringFormat=Renderer {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.FpsTarget, StringFormat=Target {0} FPS}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Resolution, StringFormat=Resolução {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Dpi, StringFormat=DPI {0}}" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -82,6 +91,9 @@
                                     <Button Content="Usar B como B" Click="UseCandidateAsCandidate_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
                                     <Button Content="Solicitar validação" Click="RequestValidation_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
                                     <Button Content="Validar com B atual" Click="CompleteValidation_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Criar perfil candidato" Click="CreateCandidateProfile_Click" Tag="{Binding Id}"
+                                            IsEnabled="{Binding CanOriginateProfile}" Style="{StaticResource PrimaryButton}"
+                                            Padding="13,7" Margin="0,0,8,8" />
                                 </WrapPanel>
                             </StackPanel>
                         </Border>
