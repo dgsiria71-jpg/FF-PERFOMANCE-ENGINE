@@ -84,6 +84,38 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
+                            <TextBlock Text="FPS medido · sessão" Style="{StaticResource SectionTitle}" />
+                            <TextBlock Text="Cada linha representa somente evidência contínua. FPS ausente ou lacunas temporais interrompem o traçado em vez de serem interpolados."
+                                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock x:Name="GraphRangeText" Grid.Column="1" Text="Sem intervalo"
+                                   Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Top" Margin="20,4,0,0" />
+                    </Grid>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="16" Margin="0,16,0,0" Padding="8">
+                        <Canvas x:Name="FpsGraphCanvas" Height="220" ClipToBounds="True" SizeChanged="FpsGraphCanvas_SizeChanged" />
+                    </Border>
+                    <TextBlock x:Name="GraphStatusText" Text="Nenhuma evidência de FPS nesta sessão."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,10,0,0" TextWrapping="Wrap" />
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,12,0"><TextBlock Text="FPS médio" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalAverageFpsText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel>
+                        <StackPanel Grid.Column="1" Margin="12,0"><TextBlock Text="Frame Time médio" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalFrameTimeText" Text="—" FontSize="20" FontWeight="SemiBold" /></StackPanel>
+                        <StackPanel Grid.Column="2" Margin="12,0"><TextBlock Text="Evidência" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalEvidenceText" Text="0/0 amostras com FPS" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
+                        <StackPanel Grid.Column="3" Margin="12,0,0,0"><TextBlock Text="Eventos" Foreground="{DynamicResource MutedTextBrush}" /><TextBlock x:Name="IntervalEventsText" Text="Guardian 0 · Marcadores 0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" /></StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,16,0,0">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
                             <TextBlock Text="Timeline sincronizada" Style="{StaticResource SectionTitle}" />
                             <TextBlock Text="Capturas medidas, mudanças relevantes do Guardian e marcadores manuais na mesma linha do tempo."
                                        Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />

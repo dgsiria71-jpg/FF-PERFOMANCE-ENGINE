@@ -1,6 +1,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using FFPerformanceEngine.Core.Services;
 
@@ -8,7 +10,12 @@ namespace FFPerformanceEngine.App.Pages;
 
 public partial class PerformancePage : UserControl
 {
+    private static readonly TimeSpan GraphContinuityWindow = TimeSpan.FromSeconds(12);
+
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private IReadOnlyList<PerformanceGraphSegment> _fpsGraphSegments = Array.Empty<PerformanceGraphSegment>();
+    private DateTimeOffset? _graphStart;
+    private DateTimeOffset? _graphEnd;
     private bool _captureInProgress;
 
     public PerformancePage()
@@ -117,8 +124,19 @@ public partial class PerformancePage : UserControl
         if (snapshot.Count == 0)
         {
             TimelineText.Text = "Nenhum evento sincronizado ainda.";
+            ClearGraphPresentation();
             return;
         }
+
+        var summary = PerformanceIntervalAnalysis.Analyze(snapshot, snapshot[0].Timestamp, snapshot[^1].Timestamp);
+        _fpsGraphSegments = PerformanceGraphSeriesBuilder.Build(
+            summary.Points,
+            PerformanceGraphMetric.Fps,
+            GraphContinuityWindow);
+        _graphStart = summary.Start;
+        _graphEnd = summary.End;
+        ApplyIntervalSummary(summary);
+        RenderFpsGraph();
 
         var rows = PerformanceTimelinePresentation.Recent(snapshot, maxRows: 8);
         TimelineText.Text = string.Join(
@@ -129,5 +147,139 @@ public partial class PerformancePage : UserControl
                 var metrics = row.Metrics == "—" ? string.Empty : $" · {row.Metrics}";
                 return $"{row.Timestamp.ToLocalTime():HH:mm:ss} · {row.Title}{detail}{metrics}";
             }));
+    }
+
+    private void ApplyIntervalSummary(PerformanceIntervalSummary summary)
+    {
+        var presentation = PerformanceIntervalPresentation.FromSummary(summary);
+        IntervalAverageFpsText.Text = presentation.AverageFps;
+        IntervalFrameTimeText.Text = presentation.AverageFrameTime;
+        IntervalEvidenceText.Text = presentation.Evidence;
+        IntervalEventsText.Text = presentation.Events;
+        GraphRangeText.Text = $"{summary.Start.ToLocalTime():HH:mm:ss} — {summary.End.ToLocalTime():HH:mm:ss}";
+
+        var measuredPoints = _fpsGraphSegments.Sum(segment => segment.Points.Count);
+        GraphStatusText.Text = measuredPoints switch
+        {
+            0 => "Nenhuma evidência de FPS disponível para desenhar nesta sessão.",
+            1 => "1 ponto de FPS medido. O ponto é exibido sem inventar uma linha contínua.",
+            _ => $"{measuredPoints} pontos de FPS medidos · {_fpsGraphSegments.Count} trecho(s) contínuo(s). Lacunas acima de {GraphContinuityWindow.TotalSeconds:0} s ou FPS indisponível não são conectados."
+        };
+    }
+
+    private void ClearGraphPresentation()
+    {
+        _fpsGraphSegments = Array.Empty<PerformanceGraphSegment>();
+        _graphStart = null;
+        _graphEnd = null;
+        FpsGraphCanvas.Children.Clear();
+        GraphRangeText.Text = "Sem intervalo";
+        GraphStatusText.Text = "Nenhuma evidência de FPS nesta sessão.";
+        IntervalAverageFpsText.Text = "—";
+        IntervalFrameTimeText.Text = "—";
+        IntervalEvidenceText.Text = "0/0 amostras com FPS";
+        IntervalEventsText.Text = "Guardian 0 · Marcadores 0";
+    }
+
+    private void FpsGraphCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+        => RenderFpsGraph();
+
+    private void RenderFpsGraph()
+    {
+        FpsGraphCanvas.Children.Clear();
+
+        var points = _fpsGraphSegments.SelectMany(segment => segment.Points).ToArray();
+        if (points.Length == 0 || _graphStart is not DateTimeOffset start || _graphEnd is not DateTimeOffset end)
+            return;
+
+        var width = FpsGraphCanvas.ActualWidth;
+        var height = FpsGraphCanvas.ActualHeight;
+        if (width <= 2 || height <= 2) return;
+
+        const double padding = 14;
+        var plotWidth = Math.Max(1, width - padding * 2);
+        var plotHeight = Math.Max(1, height - padding * 2);
+        var minValue = points.Min(point => point.Value);
+        var maxValue = points.Max(point => point.Value);
+        if (Math.Abs(maxValue - minValue) < 0.0001)
+        {
+            var pad = Math.Max(1, Math.Abs(maxValue) * 0.05);
+            minValue -= pad;
+            maxValue += pad;
+        }
+
+        for (var i = 0; i <= 3; i++)
+        {
+            var y = padding + plotHeight * i / 3d;
+            var gridLine = new Line
+            {
+                X1 = padding,
+                X2 = padding + plotWidth,
+                Y1 = y,
+                Y2 = y,
+                StrokeThickness = 1,
+                Opacity = 0.28
+            };
+            gridLine.SetResourceReference(Shape.StrokeProperty, "AccentSoftBrush");
+            FpsGraphCanvas.Children.Add(gridLine);
+        }
+
+        foreach (var segment in _fpsGraphSegments)
+        {
+            if (segment.Points.Count >= 2)
+            {
+                var line = new Polyline
+                {
+                    StrokeThickness = 2.2,
+                    StrokeLineJoin = PenLineJoin.Round,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    SnapsToDevicePixels = true
+                };
+                line.SetResourceReference(Shape.StrokeProperty, "AccentBrush");
+
+                foreach (var point in segment.Points)
+                    line.Points.Add(ToCanvasPoint(point, start, end, minValue, maxValue, padding, plotWidth, plotHeight));
+
+                FpsGraphCanvas.Children.Add(line);
+            }
+
+            foreach (var point in segment.Points)
+            {
+                var canvasPoint = ToCanvasPoint(point, start, end, minValue, maxValue, padding, plotWidth, plotHeight);
+                var dot = new Ellipse
+                {
+                    Width = 6,
+                    Height = 6,
+                    ToolTip = $"{point.Timestamp.ToLocalTime():HH:mm:ss} · {point.Value:0.0} FPS · {point.DataQuality}"
+                };
+                dot.SetResourceReference(Shape.FillProperty, "AccentBrush");
+                Canvas.SetLeft(dot, canvasPoint.X - 3);
+                Canvas.SetTop(dot, canvasPoint.Y - 3);
+                FpsGraphCanvas.Children.Add(dot);
+            }
+        }
+    }
+
+    private static Point ToCanvasPoint(
+        PerformanceGraphPoint point,
+        DateTimeOffset start,
+        DateTimeOffset end,
+        double minValue,
+        double maxValue,
+        double padding,
+        double plotWidth,
+        double plotHeight)
+    {
+        var timeRangeMs = Math.Max(0, (end - start).TotalMilliseconds);
+        var xRatio = timeRangeMs <= 0
+            ? 0.5
+            : Math.Clamp((point.Timestamp - start).TotalMilliseconds / timeRangeMs, 0, 1);
+        var valueRange = Math.Max(double.Epsilon, maxValue - minValue);
+        var yRatio = Math.Clamp((point.Value - minValue) / valueRange, 0, 1);
+
+        return new Point(
+            padding + plotWidth * xRatio,
+            padding + plotHeight * (1 - yRatio));
     }
 }
