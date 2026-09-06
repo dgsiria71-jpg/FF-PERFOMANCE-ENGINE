@@ -18,6 +18,50 @@
 
             <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
                 <StackPanel>
+                    <TextBlock Text="Desafio de vencedor" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="Um Custom validado só pode substituir um vencedor depois de duas rodadas A/B independentes, totalmente medidas e executadas no mesmo ambiente estrutural."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="DESAFIANTE CUSTOM" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <ComboBox x:Name="ChallengeProfileComboBox" Margin="0,6,0,0" MinHeight="34"
+                                      DisplayMemberPath="Name" SelectionChanged="ChallengeSelectionChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="PAPEL VENCEDOR" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <ComboBox x:Name="ChallengeRoleComboBox" Margin="0,6,0,0" MinHeight="34"
+                                      DisplayMemberPath="Name" SelectionChanged="ChallengeSelectionChanged" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,14,0,0">
+                        <TextBlock TextWrapping="Wrap">
+                            <Run Text="Fluxo controlado: " FontWeight="SemiBold" />
+                            <Run Text="aplique o vencedor escolhido e capture A em Performance; aplique o Custom e capture B; salve a comparação em History. Depois repita A/B uma segunda vez. O botão abaixo só promove se as duas rodadas corresponderem exatamente às configurações dos dois perfis e o Custom vencer as duas." />
+                        </TextBlock>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button x:Name="RunChallengeButton" Style="{StaticResource PrimaryButton}"
+                                Content="Validar 2 rodadas e promover se vencer"
+                                Click="RunChallenge_Click" IsEnabled="False" />
+                    </StackPanel>
+                    <TextBlock x:Name="ChallengeStatusText"
+                               Text="Selecione um Custom validado e o papel que ele deve desafiar."
+                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,10,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                <StackPanel>
                     <TextBlock Text="Comparação A/B ativa" Style="{StaticResource SectionTitle}" />
                     <TextBlock x:Name="ABComparisonText" Text="Nenhuma comparação A/B ativa."
                                FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
