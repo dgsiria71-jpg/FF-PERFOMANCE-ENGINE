@@ -46,6 +46,7 @@ internal static class ProfileChallengePromotionSelfTests
                 challengerInstance,
                 GameKind.FreeFireMax)!;
 
+            var profileCreatedAt = new DateTimeOffset(2026, 9, 6, 8, 0, 0, TimeSpan.Zero);
             var sourceComparisonId = Guid.NewGuid();
             var incumbent = new PerformanceProfile
             {
@@ -63,7 +64,8 @@ internal static class ProfileChallengePromotionSelfTests
                 Confidence = 0.94,
                 AverageFps = 100,
                 FrameTimeMs = 10,
-                LatencyMs = 12
+                LatencyMs = 12,
+                CreatedAt = profileCreatedAt
             };
             var challenger = new PerformanceProfile
             {
@@ -83,7 +85,8 @@ internal static class ProfileChallengePromotionSelfTests
                 FrameTimeMs = 9,
                 LatencyMs = 10,
                 SourceComparisonId = sourceComparisonId,
-                EnvironmentFingerprint = challengerConfiguration.Environment.Id
+                EnvironmentFingerprint = challengerConfiguration.Environment.Id,
+                CreatedAt = profileCreatedAt
             };
 
             var profilesPath = Path.Combine(tempRoot, "profiles.json");
