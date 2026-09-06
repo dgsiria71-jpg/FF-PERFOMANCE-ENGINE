@@ -12,14 +12,17 @@ internal static class PerformanceHistorySelfTests
         {
             var historyPath = Path.Combine(tempRoot, "history.json");
             var start = new DateTimeOffset(2026, 9, 6, 3, 0, 0, TimeSpan.Zero);
+            var configuration = TestConfiguration();
             var first = Comparison(
                 "A · Sessão 1", 100, 10.0, 14.0,
                 "B · Sessão 1", 120, 8.2, 11.0,
-                start);
+                start,
+                configuration);
             var second = Comparison(
                 "A · Sessão 2", 118, 8.4, 11.5,
                 "B · Sessão 2", 140, 7.1, 9.0,
-                start.AddMinutes(10));
+                start.AddMinutes(10),
+                configuration);
 
             var history = new HistoryService(historyPath);
             var historyType = typeof(HistoryService);
@@ -53,6 +56,10 @@ internal static class PerformanceHistorySelfTests
 
             var candidate1 = Read<PerformanceEvidenceSnapshot>(earliest, "Candidate");
             var candidate2 = Read<PerformanceEvidenceSnapshot>(latest, "Candidate");
+            Require(candidate1.Configuration?.Environment.Id == configuration.Environment.Id
+                    && candidate2.Configuration?.Environment.Id == configuration.Environment.Id,
+                "Historical A/B persistence must preserve the exact candidate configuration and environment fingerprint.");
+
             var session = new PerformanceComparisonSession();
             var snapshotBaseline = typeof(PerformanceComparisonSession).GetMethod(
                 "SetBaseline",
@@ -90,7 +97,8 @@ internal static class PerformanceHistorySelfTests
                 8.0,
                 null,
                 start.AddMinutes(20),
-                "Partial");
+                "Partial",
+                configuration);
             var partialRejected = false;
             try
             {
@@ -109,12 +117,13 @@ internal static class PerformanceHistorySelfTests
                 8.1,
                 10.8,
                 start.AddMinutes(21),
-                "Measured");
+                "Measured",
+                configuration);
             var validated = await InvokeTaskResultAsync(
                 completeValidation!, reopened, recordId, measuredValidation, CancellationToken.None);
             Require(Read<object>(validated!, "ValidationStatus").ToString() == "Validated"
                     && Read<bool>(validated!, "CanOriginateProfile"),
-                "Only a separate fully measured validation capture may make the candidate eligible to originate a profile.");
+                "Only a separate fully measured validation capture under the same exact configuration may make the candidate eligible to originate a profile.");
 
             var bridge = typeof(PerformanceProfileEvidenceBridge).GetMethod(
                 "FromValidatedRecord",
@@ -126,12 +135,40 @@ internal static class PerformanceHistorySelfTests
                     && Read<EvidenceLevel>(validatedProjection, "Evidence") == EvidenceLevel.Validated,
                 "A validated historical record must project Validated evidence only after the explicit validation transition.");
 
-            Console.WriteLine("PASS Performance historical A/B persistence, cross-session reuse, and explicit validation gate");
+            Console.WriteLine("PASS Performance historical A/B persistence, cross-session reuse, exact configuration, and explicit validation gate");
         }
         finally
         {
             try { Directory.Delete(tempRoot, true); } catch { }
         }
+    }
+
+    private static PerformanceConfigurationSnapshot TestConfiguration()
+    {
+        var instance = new BlueStacksInstance
+        {
+            Name = "Pie64",
+            AndroidVersion = "Pie 64-bit",
+            CpuCores = 6,
+            RamMb = 6144,
+            Renderer = "Vulkan",
+            Fps = 120,
+            Resolution = "1920x1080",
+            Dpi = 320
+        };
+        var environment = new EnvironmentSnapshot
+        {
+            MachineName = "FFPE-HISTORY-TEST",
+            WindowsDescription = "Windows 11 test",
+            LogicalProcessors = 16,
+            MemoryTotalGb = 32,
+            Is64BitOs = true,
+            BlueStacksDetected = true,
+            Instances = [instance],
+            ActiveGame = GameKind.FreeFireMax
+        };
+        return PerformanceConfigurationSnapshot.Capture(environment, instance, GameKind.FreeFireMax)
+            ?? throw new InvalidOperationException("Test configuration must be complete.");
     }
 
     private static PerformanceABComparison Comparison(
@@ -143,10 +180,11 @@ internal static class PerformanceHistorySelfTests
         double candidateFps,
         double candidateFrameTime,
         double candidateLatency,
-        DateTimeOffset start)
+        DateTimeOffset start,
+        PerformanceConfigurationSnapshot configuration)
         => PerformanceABComparison.Create(
             Snapshot(baselineName, baselineFps, baselineFrameTime, baselineLatency, start, "Measured"),
-            Snapshot(candidateName, candidateFps, candidateFrameTime, candidateLatency, start.AddMinutes(1), "Measured"));
+            Snapshot(candidateName, candidateFps, candidateFrameTime, candidateLatency, start.AddMinutes(1), "Measured", configuration));
 
     private static PerformanceEvidenceSnapshot Snapshot(
         string name,
@@ -154,7 +192,8 @@ internal static class PerformanceHistorySelfTests
         double? frameTime,
         double? latency,
         DateTimeOffset start,
-        string quality)
+        string quality,
+        PerformanceConfigurationSnapshot? configuration = null)
     {
         var points = new[]
         {
@@ -175,19 +214,19 @@ internal static class PerformanceHistorySelfTests
                 DataQuality = quality
             }
         };
-        return PerformanceEvidenceSnapshot.Capture(
-            name,
-            new PerformanceIntervalSummary
-            {
-                Start = start,
-                End = start.AddSeconds(1),
-                TelemetrySamples = points.Length,
-                FpsEvidenceSamples = points.Count(point => point.Fps is not null),
-                AverageFps = fps,
-                AverageFrameTimeMs = frameTime,
-                Points = points
-            },
-            start.AddSeconds(2));
+        var interval = new PerformanceIntervalSummary
+        {
+            Start = start,
+            End = start.AddSeconds(1),
+            TelemetrySamples = points.Length,
+            FpsEvidenceSamples = points.Count(point => point.Fps is not null),
+            AverageFps = fps,
+            AverageFrameTimeMs = frameTime,
+            Points = points
+        };
+        return configuration is null
+            ? PerformanceEvidenceSnapshot.Capture(name, interval, start.AddSeconds(2))
+            : PerformanceEvidenceSnapshot.Capture(name, interval, start.AddSeconds(2), configuration);
     }
 
     private static async Task<object?> InvokeTaskResultAsync(MethodInfo method, object? target, params object?[] args)
