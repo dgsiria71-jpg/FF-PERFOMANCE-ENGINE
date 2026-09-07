@@ -39,18 +39,102 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="Auto Tuner" FontSize="34" FontWeight="SemiBold"/>
-                    <TextBlock Text="Meça, valide e encontre os melhores perfis para este computador."
+                    <TextBlock Text="Optimize" FontSize="34" FontWeight="SemiBold"/>
+                    <TextBlock Text="Otimize o Windows de forma persistente ou valide perfis de jogo com evidência real."
                                Foreground="{DynamicResource MutedTextBrush}" FontSize="14" Margin="0,7,0,0"/>
                 </StackPanel>
                 <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="16,10" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="8" Height="8" Fill="{DynamicResource SuccessBrush}" Margin="0,0,8,0"/>
-                        <TextBlock Text="Benchmark híbrido · rollback automático" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Text="Snapshot · rollback · evidência" FontSize="12" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
+            <Border x:Name="PersistentPcCard" Style="{StaticResource GlassCard}" Margin="0,0,0,22">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="OTIMIZAR ESTE PC" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Otimização persistente do Windows" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                            <TextBlock Text="Somente recomendações ligadas a este PC, com proveniência, confiança, estado atual comprovado e rollback transacional."
+                                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,7,28,0"/>
+                        </StackPanel>
+                        <Border Grid.Column="1" Background="{DynamicResource AccentSoftBrush}" CornerRadius="16" Padding="14,8" VerticalAlignment="Top">
+                            <TextBlock Text="PERSISTENTE · REVERSÍVEL" FontSize="11" FontWeight="Bold"/>
+                        </Border>
+                    </Grid>
+
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="PcOptimizationStatusText" Text="Pronto para analisar" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PcOptimizationDetailText"
+                                       Text="A análise é somente leitura. Nenhuma capability é aplicada até você confirmar um preview elegível."
+                                       Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,5,28,0"/>
+                            <TextBlock x:Name="PcOptimizationCountsText" Text="Preview ainda não criado"
+                                       Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,10,0,0"/>
+                            <TextBlock x:Name="PcRestorePointText" Text=""
+                                       Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Width="250" VerticalAlignment="Center">
+                            <Button x:Name="PcAnalyzeButton" Content="ANALISAR ESTE PC" MinHeight="42"/>
+                            <Button x:Name="PcApplyButton" Style="{StaticResource PrimaryButton}" Content="APLICAR PREVIEW" MinHeight="44" Margin="0,8,0,0" IsEnabled="False"/>
+                            <Button x:Name="PcRestoreButton" Content="Desfazer última aplicação" MinHeight="38" Margin="0,8,0,0" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ItemsControl x:Name="PcOptimizationEntries" Margin="0,18,0,0" Visibility="Collapsed">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource GlassStrongBrush}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="14"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1.4*"/>
+                                            <ColumnDefinition Width="1.2*"/>
+                                            <ColumnDefinition Width="1.1*"/>
+                                            <ColumnDefinition Width="1.5*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding CapabilityId}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="ESTADO" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                                            <TextBlock Text="{Binding Status}" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding ChangeText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="EVIDÊNCIA" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                                            <TextBlock Text="{Binding Source}" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding Confidence, StringFormat={}{0:P0}}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3">
+                                            <TextBlock Text="RISCO / DECISÃO" Foreground="{DynamicResource MutedTextBrush}" FontSize="10"/>
+                                            <TextBlock Text="{Binding RiskLevel}" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                                            <TextBlock Text="{Binding Reason}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Auto Tuner · jogo" Style="{StaticResource SectionTitle}" Margin="4,0,0,12"/>
             <TextBlock Text="Modo de otimização" Style="{StaticResource SectionTitle}" Margin="4,0,0,12"/>
             <Grid Margin="0,0,0,18">
                 <Grid.ColumnDefinitions>
