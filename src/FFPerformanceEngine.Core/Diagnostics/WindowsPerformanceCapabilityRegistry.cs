@@ -48,6 +48,59 @@ public sealed class WindowsPerformanceCapabilityRegistry
         capability.CurrentValue = availability == CapabilityAvailability.Available ? currentValue : null;
     }
 
+    public void UpdateRecommendation(
+        string capabilityId,
+        string recommendedValue,
+        CapabilityRecommendationSummary recommendation)
+    {
+        var id = NormalizeId(capabilityId);
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A capability identity is required.", nameof(capabilityId));
+        if (!_capabilities.TryGetValue(id, out var capability))
+            throw new KeyNotFoundException($"Unknown Windows performance capability '{id}'.");
+
+        if (string.IsNullOrWhiteSpace(recommendedValue))
+            throw new ArgumentException("A non-empty recommended capability value is required.", nameof(recommendedValue));
+        ArgumentNullException.ThrowIfNull(recommendation);
+        if (recommendation.Source == CapabilityRecommendationSource.Unknown)
+            throw new ArgumentException("A recommendation requires explicit provenance.", nameof(recommendation));
+        if (!double.IsFinite(recommendation.Confidence)
+            || recommendation.Confidence < 0
+            || recommendation.Confidence > 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(recommendation),
+                recommendation.Confidence,
+                "Recommendation confidence must be finite and within [0, 1].");
+        }
+        if (string.IsNullOrWhiteSpace(recommendation.MachineFingerprintId))
+            throw new ArgumentException("A recommendation requires a machine fingerprint identity.", nameof(recommendation));
+        if (recommendation.GeneratedAt is null)
+            throw new ArgumentException("A recommendation requires a generation timestamp.", nameof(recommendation));
+
+        // Validate everything before mutating the registry so rejected publications
+        // preserve the last known-good recommendation atomically.
+        var accepted = recommendation with
+        {
+            MachineFingerprintId = recommendation.MachineFingerprintId.Trim()
+        };
+
+        capability.RecommendedValue = recommendedValue;
+        capability.Recommendation = accepted;
+    }
+
+    public void ClearRecommendation(string capabilityId)
+    {
+        var id = NormalizeId(capabilityId);
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A capability identity is required.", nameof(capabilityId));
+        if (!_capabilities.TryGetValue(id, out var capability))
+            throw new KeyNotFoundException($"Unknown Windows performance capability '{id}'.");
+
+        capability.RecommendedValue = null;
+        capability.Recommendation = new CapabilityRecommendationSummary();
+    }
+
     public IReadOnlyList<CapabilityGraphIssue> ValidateGraph()
     {
         var issues = new List<CapabilityGraphIssue>();
