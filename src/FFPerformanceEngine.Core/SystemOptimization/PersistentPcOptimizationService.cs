@@ -95,9 +95,20 @@ public sealed class PersistentPcOptimizationService
             }
         }
 
+        // The service-level revalidation is not the final authority. Bind each
+        // approved entry's analyzed current value into the mutation request so
+        // the transaction engine independently performs compare-and-set checks
+        // again during its own Read and Snapshot phases.
+        var guardedMutations = preview.ReadyEntries
+            .Select(entry => new WindowsMutationRequest(
+                entry.CapabilityId,
+                entry.TargetValue!,
+                entry.ExpectedCurrentValue))
+            .ToArray();
+
         return await _transactions.ApplyPersistentAsync(
             $"Otimizar este PC · {preview.PlanId:N}",
-            preview.Mutations,
+            guardedMutations,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -125,11 +136,12 @@ public sealed class PersistentPcOptimizationService
         {
             if (!ready.TryGetValue(mutation.CapabilityId, out var entry)
                 || !entry.IsReady
+                || entry.ExpectedCurrentValue is null
                 || string.IsNullOrWhiteSpace(entry.TargetValue)
                 || !string.Equals(entry.TargetValue, mutation.TargetValue, StringComparison.Ordinal))
             {
                 throw new InvalidDataException(
-                    $"Persistent optimization preview mutation '{mutation.CapabilityId}' is not backed by an identical ready entry.");
+                    $"Persistent optimization preview mutation '{mutation.CapabilityId}' is not backed by an identical ready entry with a proven baseline.");
             }
         }
     }
