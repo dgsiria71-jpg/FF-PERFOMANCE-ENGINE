@@ -6,7 +6,16 @@ public enum SystemOptimizationScope
     Persistent
 }
 
-public sealed record WindowsMutationRequest(string CapabilityId, string TargetValue);
+/// <summary>
+/// Describes one requested Windows capability mutation. ExpectedCurrentValue is
+/// an optional compare-and-set precondition: when supplied, the transaction
+/// engine must prove that exact state again before it may create a durable
+/// restore point or apply the target.
+/// </summary>
+public sealed record WindowsMutationRequest(
+    string CapabilityId,
+    string TargetValue,
+    string? ExpectedCurrentValue = null);
 
 public sealed record WindowsCapabilityReadResult(bool Success, string? Value, string Message)
 {
