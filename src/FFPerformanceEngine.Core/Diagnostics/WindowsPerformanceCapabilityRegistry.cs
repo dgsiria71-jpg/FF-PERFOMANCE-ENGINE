@@ -48,6 +48,38 @@ public sealed class WindowsPerformanceCapabilityRegistry
         capability.CurrentValue = availability == CapabilityAvailability.Available ? currentValue : null;
     }
 
+    public void UpdateRuntimeMetadata(
+        string capabilityId,
+        CapabilityValueSchema valueSchema,
+        IReadOnlyList<string> availableValues)
+    {
+        var id = NormalizeId(capabilityId);
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A capability identity is required.", nameof(capabilityId));
+        if (!_capabilities.TryGetValue(id, out var capability))
+            throw new KeyNotFoundException($"Unknown Windows performance capability '{id}'.");
+
+        ArgumentNullException.ThrowIfNull(valueSchema);
+        ArgumentNullException.ThrowIfNull(availableValues);
+        ValidateValueSchema(valueSchema);
+
+        var acceptedValues = availableValues
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var acceptedAllowedValues = valueSchema.AllowedValues
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        // Metadata describes only the adapter's supported target space. It must
+        // not change runtime availability/current state or recommendation state.
+        capability.ValueSchema = valueSchema with { AllowedValues = acceptedAllowedValues };
+        capability.AvailableValues = acceptedValues;
+    }
+
     public void UpdateRecommendation(
         string capabilityId,
         string recommendedValue,
@@ -231,6 +263,18 @@ public sealed class WindowsPerformanceCapabilityRegistry
         }
         path.Pop();
         state[id] = 2;
+    }
+
+    private static void ValidateValueSchema(CapabilityValueSchema schema)
+    {
+        if (schema.Minimum is double minimum && !double.IsFinite(minimum))
+            throw new ArgumentOutOfRangeException(nameof(schema), "Capability minimum must be finite when provided.");
+        if (schema.Maximum is double maximum && !double.IsFinite(maximum))
+            throw new ArgumentOutOfRangeException(nameof(schema), "Capability maximum must be finite when provided.");
+        if (schema.Step is double step && (!double.IsFinite(step) || step <= 0))
+            throw new ArgumentOutOfRangeException(nameof(schema), "Capability step must be finite and greater than zero when provided.");
+        if (schema.Minimum is double min && schema.Maximum is double max && min > max)
+            throw new ArgumentException("Capability minimum cannot exceed maximum.", nameof(schema));
     }
 
     private static IReadOnlyList<CapabilityGraphIssue> Deduplicate(IEnumerable<CapabilityGraphIssue> issues)
