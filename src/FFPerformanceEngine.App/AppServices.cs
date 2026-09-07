@@ -27,6 +27,8 @@ public sealed class AppServices : IAsyncDisposable
     public WindowsPerformanceCapabilityRegistry WindowsCapabilities { get; }
     public WindowsCapabilityMutationAdapterRegistry WindowsMutationAdapters { get; }
     public WindowsPerformanceCapabilityDiscoveryService WindowsCapabilityDiscovery { get; }
+    public WindowsCapabilityCandidatePlanner WindowsCapabilityCandidates { get; }
+    public WindowsCapabilityPerformanceCostMapService WindowsCapabilityCostMap { get; }
     public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
     public PersistentPcOptimizationPlanner PersistentPcPlanner { get; }
@@ -50,6 +52,9 @@ public sealed class AppServices : IAsyncDisposable
     public ControlledBenchmarkLeaseManager ControlledBenchmarks { get; }
     public PerformanceTimelineEventRecorder PerformanceTimelineEvents { get; }
     public PerformanceCaptureCoordinator PerformanceCapture { get; }
+    public GuardianBoundWindowsCapabilityBenchmarkProbe WindowsCapabilityBenchmarkProbe { get; }
+    public WindowsCapabilityControlledBenchmarkService WindowsCapabilityBenchmarks { get; }
+    public WindowsCapabilityExperimentCoordinator WindowsCapabilityExperiments { get; }
     public BlueStacksAutoTunerRuntimeFactory AutoTunerRuntimeFactory { get; }
     public AutoTunerSessionService AutoTunerSession { get; }
     public OptimizeSystemProbe OptimizeSystem { get; }
@@ -79,6 +84,8 @@ public sealed class AppServices : IAsyncDisposable
         WindowsCapabilityDiscovery = new WindowsPerformanceCapabilityDiscoveryService(
             WindowsCapabilities,
             WindowsMutationAdapters);
+        WindowsCapabilityCandidates = new WindowsCapabilityCandidatePlanner();
+        WindowsCapabilityCostMap = new WindowsCapabilityPerformanceCostMapService();
         SystemOptimizer = new SystemOptimizationTransactionEngine(
             WindowsCapabilities,
             WindowsMutationAdapters,
@@ -144,6 +151,27 @@ public sealed class AppServices : IAsyncDisposable
             (processId, duration, cancellationToken) => PresentMon.CaptureProcessAsync(processId, duration, cancellationToken),
             PerformanceTimeline);
 
+        // Windows controlled experimentation reuses the exact same Guardian binding,
+        // process probe, PresentMon capture, global benchmark lease, transaction
+        // engine and machine fingerprint authorities. No parallel FPS/rollback/
+        // recommendation system is introduced here.
+        WindowsCapabilityBenchmarkProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
+            () => GuardianHost.CurrentStatus,
+            PerformanceCapture,
+            GuardianProcessProbe);
+        WindowsCapabilityBenchmarks = new WindowsCapabilityControlledBenchmarkService(
+            SystemOptimizer,
+            WindowsMutationAdapters,
+            ControlledBenchmarks,
+            WindowsCapabilityBenchmarkProbe);
+        WindowsCapabilityExperiments = new WindowsCapabilityExperimentCoordinator(
+            cancellationToken => WindowsCapabilityDiscovery.RefreshAsync(cancellationToken),
+            WindowsCapabilityCandidates,
+            (candidate, cancellationToken) => WindowsCapabilityBenchmarks.RunAsync(candidate, cancellationToken),
+            WindowsCapabilityCostMap,
+            () => CaptureMachineContext().Fingerprint.Id,
+            CaptureWindowsBenchmarkWorkloadKey);
+
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
         ProfileChallengeRounds = new ProfileChallengeRoundService(
             Profiles,
@@ -191,6 +219,16 @@ public sealed class AppServices : IAsyncDisposable
         CancellationToken cancellationToken = default)
         => WindowsCapabilityDiscovery.RefreshAsync(cancellationToken);
 
+    public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
+        string capabilityId,
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityExperiments.PlanAsync(capabilityId, cancellationToken);
+
+    public Task<WindowsCapabilityExperimentRunResult> RunWindowsCapabilityExperimentAsync(
+        WindowsCapabilityCandidate candidate,
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityExperiments.RunAsync(candidate, cancellationToken);
+
     public Task<CapabilityRecommendationPublicationResult> PublishPersistentRecommendationAsync(
         string capabilityId,
         string targetValue,
@@ -227,6 +265,17 @@ public sealed class AppServices : IAsyncDisposable
         return instance is null
             ? null
             : PerformanceConfigurationSnapshot.Capture(environment, instance, environment.ActiveGame);
+    }
+
+    private string CaptureWindowsBenchmarkWorkloadKey()
+    {
+        var target = PerformanceCaptureTargetPolicy.FromGuardianStatus(GuardianHost.CurrentStatus);
+        if (!target.CanCapture || string.IsNullOrWhiteSpace(target.InstanceName))
+            throw new InvalidOperationException(
+                "Windows capability experiment requires an exact Guardian-bound workload before controlled measurement can start.");
+
+        var environment = Environment.Capture();
+        return $"bluestacks:{target.InstanceName.Trim().ToLowerInvariant()}:{environment.ActiveGame.ToString().ToLowerInvariant()}";
     }
 
     private void GuardianHost_StatusChanged(object? sender, GuardianLiveSessionStatus status)
