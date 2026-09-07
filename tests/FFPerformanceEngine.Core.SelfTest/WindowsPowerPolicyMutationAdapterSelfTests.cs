@@ -1,3 +1,4 @@
+using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.SystemOptimization;
 
@@ -48,7 +49,33 @@ internal static class WindowsPowerPolicyMutationAdapterSelfTests
         Require(!unavailableRead.Success && unavailableRead.Value is null,
             "If powercfg cannot read the active scheme, the adapter must report unavailable state instead of inventing a default.");
 
-        Console.WriteLine("PASS Track 2 real Windows active power policy adapter read/validate/snapshot/apply/verify/rollback contract");
+        // Discovery is the authority that turns Track 1 descriptor metadata into
+        // proven runtime state. Only a successful concrete reader may claim
+        // Available; failed readers become Unavailable and absent readers remain
+        // Unknown instead of receiving guessed defaults.
+        var capabilityRegistry = new WindowsPerformanceCapabilityRegistry();
+        var mutationRegistry = new WindowsCapabilityMutationAdapterRegistry(
+        [
+            adapter,
+            new AlwaysUnavailableAdapter("windows.cpu.scheduler_policy")
+        ]);
+        var discovery = new WindowsPerformanceCapabilityDiscoveryService(capabilityRegistry, mutationRegistry);
+        await discovery.RefreshAsync();
+
+        var discovered = capabilityRegistry.GetAll().ToDictionary(item => item.CapabilityId, StringComparer.OrdinalIgnoreCase);
+        Require(discovered["windows.power.active_policy"].Availability == CapabilityAvailability.Available
+                && string.Equals(discovered["windows.power.active_policy"].CurrentValue, Balanced.ToString("D"), StringComparison.OrdinalIgnoreCase),
+            "A concrete reader that proves current Windows state must mark its capability Available and preserve the exact current value.");
+        Require(discovered["windows.cpu.scheduler_policy"].Availability == CapabilityAvailability.Unavailable
+                && discovered["windows.cpu.scheduler_policy"].CurrentValue is null,
+            "A registered reader that cannot prove current state must mark its capability Unavailable without inventing a value.");
+        Require(discovered["windows.memory.background_pressure"].Availability == CapabilityAvailability.Unknown
+                && discovered["windows.memory.background_pressure"].CurrentValue is null,
+            "A capability without a concrete reader must remain Unknown instead of being treated as available or unavailable by assumption.");
+        Require(discovered["windows.cpu.boost_policy"].Dependencies.Contains("windows.power.active_policy", StringComparer.OrdinalIgnoreCase),
+            "Runtime discovery must update only state and preserve Track 1 capability graph metadata.");
+
+        Console.WriteLine("PASS Track 2 real Windows active power policy adapter read/validate/snapshot/apply/verify/rollback + capability discovery contract");
     }
 
     private static void Require(bool condition, string message)
@@ -106,5 +133,28 @@ internal static class WindowsPowerPolicyMutationAdapterSelfTests
 
         public ProcessStartResult StartDetached(string fileName, IReadOnlyList<string> arguments)
             => new(false, null, "not used");
+    }
+
+    private sealed class AlwaysUnavailableAdapter(string capabilityId) : IWindowsCapabilityMutationAdapter
+    {
+        public string CapabilityId { get; } = capabilityId;
+
+        public Task<WindowsCapabilityReadResult> ReadCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(WindowsCapabilityReadResult.Fail("reader unavailable"));
+
+        public WindowsCapabilityValidationResult Validate(string targetValue, SystemOptimizationScope scope)
+            => WindowsCapabilityValidationResult.Fail("not used");
+
+        public Task<WindowsCapabilityMutationSnapshot> SnapshotAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<WindowsCapabilityApplyResult> ApplyAsync(string targetValue, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<bool> VerifyAsync(string targetValue, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task RollbackAsync(WindowsCapabilityMutationSnapshot snapshot, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 }
