@@ -36,6 +36,7 @@ internal static class ControlledBenchmarkLeaseSelfTests
 
         await GlobalOwnershipIsCrossManagerAndCancellationSafe(defaultConstructor!, acquire!).ConfigureAwait(false);
         await LeaseSuspendsAndRestoresGuardian(guardianConstructor!, acquire!).ConfigureAwait(false);
+        await GuardianLifecycleChangesRemainDeferredDuringLease(guardianConstructor!, acquire!).ConfigureAwait(false);
 
         Require(typeof(AutoTunerRunCoordinator).GetConstructors().Any(ctor =>
                 ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
@@ -47,7 +48,7 @@ internal static class ControlledBenchmarkLeaseSelfTests
                 ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
             "ProfileChallengeRoundService must accept the same controlled benchmark lease authority.");
 
-        Console.WriteLine("PASS global controlled benchmark lease, cancellation release, Guardian suspension/reconciliation, and workload integration contract");
+        Console.WriteLine("PASS global controlled benchmark lease, cancellation release, Guardian suspension/reconciliation, deferred lifecycle changes, and workload integration contract");
     }
 
     private static async Task GlobalOwnershipIsCrossManagerAndCancellationSafe(ConstructorInfo defaultConstructor, MethodInfo acquire)
@@ -105,6 +106,30 @@ internal static class ControlledBenchmarkLeaseSelfTests
         await runner.WaitForStartsAsync(2).ConfigureAwait(false);
         Require(host.IsRunning && string.Equals(host.InstanceName, "Pie64", StringComparison.OrdinalIgnoreCase),
             "Releasing controlled benchmark ownership must reconcile Guardian back to the exact pre-benchmark instance.");
+    }
+
+    private static async Task GuardianLifecycleChangesRemainDeferredDuringLease(ConstructorInfo guardianConstructor, MethodInfo acquire)
+    {
+        var runner = new FakeLiveRunner();
+        await using var host = new GuardianSessionHost(runner);
+        await host.StartAsync("Pie64", TimeSpan.FromMilliseconds(25)).ConfigureAwait(false);
+        await runner.WaitForStartsAsync(1).ConfigureAwait(false);
+
+        var manager = guardianConstructor.Invoke([host]);
+        var lease = await InvokeTaskResultAsync(acquire, manager, "selftest-guardian-lifecycle", CancellationToken.None).ConfigureAwait(false);
+        Require(lease is IAsyncDisposable && !host.IsRunning,
+            "Guardian must be suspended before exercising lifecycle changes during a controlled benchmark.");
+
+        await host.StartAsync("Android11", TimeSpan.FromMilliseconds(40)).ConfigureAwait(false);
+        await Task.Delay(75).ConfigureAwait(false);
+        Require(!host.IsRunning && runner.StartCount == 1,
+            "A settings/lifecycle StartAsync during a controlled benchmark must be deferred instead of contaminating the measurement.");
+
+        await host.StopAsync().ConfigureAwait(false);
+        await ((IAsyncDisposable)lease!).DisposeAsync().ConfigureAwait(false);
+        await Task.Delay(75).ConfigureAwait(false);
+        Require(!host.IsRunning && host.InstanceName is null && runner.StartCount == 1,
+            "If Guardian is explicitly stopped while suspended, lease release must not resurrect the pre-benchmark Guardian session.");
     }
 
     private static async Task RequireCancellationAsync(Task task)
