@@ -33,6 +33,7 @@ public sealed class AppServices : IAsyncDisposable
     public GuardianSupervisorFactory GuardianSupervisorFactory { get; }
     public GuardianLiveSessionService GuardianLiveSession { get; }
     public GuardianSessionHost GuardianHost { get; }
+    public ControlledBenchmarkLeaseManager ControlledBenchmarks { get; }
     public PerformanceTimelineEventRecorder PerformanceTimelineEvents { get; }
     public PerformanceCaptureCoordinator PerformanceCapture { get; }
     public BlueStacksAutoTunerRuntimeFactory AutoTunerRuntimeFactory { get; }
@@ -66,6 +67,12 @@ public sealed class AppServices : IAsyncDisposable
             GuardianBinding,
             GuardianSupervisorFactory);
         GuardianHost = new GuardianSessionHost(GuardianLiveSession);
+
+        // One application-level authority owns every controlled measurement. The
+        // global gate protects machine-wide CPU/GPU/PresentMon evidence, while the
+        // Guardian participant is suspended and reconciled by the same lease.
+        ControlledBenchmarks = new ControlledBenchmarkLeaseManager(GuardianHost);
+
         PerformanceComparison = new PerformanceComparisonSession(CapturePerformanceConfiguration);
         PerformanceTimelineEvents = new PerformanceTimelineEventRecorder(PerformanceTimeline);
         GuardianHost.StatusChanged += GuardianHost_StatusChanged;
@@ -74,8 +81,18 @@ public sealed class AppServices : IAsyncDisposable
             PerformanceTimeline);
 
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
-        ProfileChallengeRounds = new ProfileChallengeRoundService(Profiles, History, AutoTunerRuntimeFactory);
-        AutoTunerSession = new AutoTunerSessionService(AutoTuner, AutoTunerRuntimeFactory, Profiles, History);
+        ProfileChallengeRounds = new ProfileChallengeRoundService(
+            Profiles,
+            History,
+            AutoTunerRuntimeFactory,
+            ControlledBenchmarks);
+        AutoTunerSession = new AutoTunerSessionService(
+            AutoTuner,
+            AutoTunerRuntimeFactory,
+            Profiles,
+            History,
+            validationPolicy: null,
+            benchmarkLeases: ControlledBenchmarks);
         OptimizeSystem = new OptimizeSystemProbe(Environment, BlueStacks, PresentMon);
         OptimizeWorkflow = new OptimizeWorkflowService(AutoTuner, AutoTunerSession, OptimizeSystem);
     }
