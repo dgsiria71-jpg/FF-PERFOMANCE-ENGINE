@@ -69,7 +69,8 @@ public sealed class AppServices : IAsyncDisposable
         WindowsMutationAdapters = new WindowsCapabilityMutationAdapterRegistry(
         [
             new WindowsPowerPolicyMutationAdapter(),
-            new WindowsCpuBoostPolicyMutationAdapter(powerSettingApi)
+            new WindowsCpuBoostPolicyMutationAdapter(powerSettingApi),
+            new WindowsCpuCoreParkingPolicyMutationAdapter(powerSettingApi)
         ]);
         WindowsCapabilityDiscovery = new WindowsPerformanceCapabilityDiscoveryService(
             WindowsCapabilities,
