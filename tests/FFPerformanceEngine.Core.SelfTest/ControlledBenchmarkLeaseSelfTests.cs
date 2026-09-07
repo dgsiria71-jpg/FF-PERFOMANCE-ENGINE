@@ -22,6 +22,9 @@ internal static class ControlledBenchmarkLeaseSelfTests
         var defaultConstructor = leaseManagerType!.GetConstructor(Type.EmptyTypes);
         Require(defaultConstructor is not null,
             "ControlledBenchmarkLeaseManager must support a Core-only default construction for non-UI callers/tests.");
+        var guardianConstructor = leaseManagerType.GetConstructor([guardianInterface]);
+        Require(guardianConstructor is not null,
+            "ControlledBenchmarkLeaseManager must accept the Guardian benchmark participant used by AppServices.");
         var acquire = leaseManagerType.GetMethod(
             "AcquireAsync",
             BindingFlags.Public | BindingFlags.Instance,
@@ -31,13 +34,31 @@ internal static class ControlledBenchmarkLeaseSelfTests
         Require(acquire is not null,
             "ControlledBenchmarkLeaseManager must expose AcquireAsync(owner, cancellationToken).");
 
-        var managerA = defaultConstructor!.Invoke([]);
+        await GlobalOwnershipIsCrossManagerAndCancellationSafe(defaultConstructor!, acquire!).ConfigureAwait(false);
+        await LeaseSuspendsAndRestoresGuardian(guardianConstructor!, acquire!).ConfigureAwait(false);
+
+        Require(typeof(AutoTunerRunCoordinator).GetConstructors().Any(ctor =>
+                ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
+            "AutoTunerRunCoordinator must accept the shared controlled benchmark lease authority.");
+        Require(typeof(AutoTunerSessionService).GetConstructors().Any(ctor =>
+                ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
+            "AutoTunerSessionService must pass the shared benchmark authority into every controlled run.");
+        Require(typeof(ProfileChallengeRoundService).GetConstructors().Any(ctor =>
+                ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
+            "ProfileChallengeRoundService must accept the same controlled benchmark lease authority.");
+
+        Console.WriteLine("PASS global controlled benchmark lease, cancellation release, Guardian suspension/reconciliation, and workload integration contract");
+    }
+
+    private static async Task GlobalOwnershipIsCrossManagerAndCancellationSafe(ConstructorInfo defaultConstructor, MethodInfo acquire)
+    {
+        var managerA = defaultConstructor.Invoke([]);
         var managerB = defaultConstructor.Invoke([]);
-        var leaseA = await InvokeTaskResultAsync(acquire!, managerA, "selftest-auto-tuner", CancellationToken.None);
+        var leaseA = await InvokeTaskResultAsync(acquire, managerA, "selftest-auto-tuner", CancellationToken.None).ConfigureAwait(false);
         Require(leaseA is IAsyncDisposable,
             "AcquireAsync must return an async-disposable lease so every exit path releases ownership.");
 
-        var pendingB = InvokeTask(acquire!, managerB, "selftest-profile-challenge", CancellationToken.None);
+        var pendingB = InvokeTask(acquire, managerB, "selftest-profile-challenge", CancellationToken.None);
         await Task.Delay(75).ConfigureAwait(false);
         Require(!pendingB.IsCompleted,
             "Controlled benchmark ownership must be global across manager instances, not per BlueStacks instance or caller.");
@@ -49,16 +70,53 @@ internal static class ControlledBenchmarkLeaseSelfTests
         var leaseB = ReadTaskResult(pendingB);
         Require(leaseB is IAsyncDisposable,
             "The second controlled workload must receive ownership after the first lease is released.");
+
+        using var cancelled = new CancellationTokenSource();
+        var waitingCancelled = InvokeTask(acquire, managerA, "selftest-cancelled", cancelled.Token);
+        await Task.Delay(50).ConfigureAwait(false);
+        cancelled.Cancel();
+        await RequireCancellationAsync(waitingCancelled).ConfigureAwait(false);
+
         await ((IAsyncDisposable)leaseB!).DisposeAsync().ConfigureAwait(false);
+        var finalLease = await InvokeTaskResultAsync(acquire, managerA, "selftest-after-cancel", CancellationToken.None).ConfigureAwait(false);
+        Require(finalLease is IAsyncDisposable,
+            "A cancelled waiter must never poison or consume the global benchmark lease.");
+        await ((IAsyncDisposable)finalLease!).DisposeAsync().ConfigureAwait(false);
+    }
 
-        Require(typeof(AutoTunerRunCoordinator).GetConstructors().Any(ctor =>
-                ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
-            "AutoTunerRunCoordinator must accept the shared controlled benchmark lease authority.");
-        Require(typeof(ProfileChallengeRoundService).GetConstructors().Any(ctor =>
-                ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
-            "ProfileChallengeRoundService must accept the same controlled benchmark lease authority.");
+    private static async Task LeaseSuspendsAndRestoresGuardian(ConstructorInfo guardianConstructor, MethodInfo acquire)
+    {
+        var runner = new FakeLiveRunner();
+        await using var host = new GuardianSessionHost(runner);
+        await host.StartAsync("Pie64", TimeSpan.FromMilliseconds(25)).ConfigureAwait(false);
+        await runner.WaitForStartsAsync(1).ConfigureAwait(false);
+        Require(host.IsRunning, "Guardian precondition must be an active live-session loop.");
 
-        Console.WriteLine("PASS global controlled benchmark lease contract and Guardian ownership boundary");
+        var manager = guardianConstructor.Invoke([host]);
+        var lease = await InvokeTaskResultAsync(acquire, manager, "selftest-guardian-suspension", CancellationToken.None).ConfigureAwait(false);
+        Require(lease is IAsyncDisposable,
+            "Guardian-connected manager must still return an async-disposable benchmark lease.");
+        Require(!host.IsRunning && runner.CancelledInstances.Contains("Pie64"),
+            "Acquiring controlled benchmark ownership must stop Guardian before benchmark work can start.");
+        Require(runner.ResetCount == 1,
+            "Suspending Guardian must reset the active binding/cooldown runner so benchmark telemetry cannot overlap stale intervention state.");
+
+        await ((IAsyncDisposable)lease!).DisposeAsync().ConfigureAwait(false);
+        await runner.WaitForStartsAsync(2).ConfigureAwait(false);
+        Require(host.IsRunning && string.Equals(host.InstanceName, "Pie64", StringComparison.OrdinalIgnoreCase),
+            "Releasing controlled benchmark ownership must reconcile Guardian back to the exact pre-benchmark instance.");
+    }
+
+    private static async Task RequireCancellationAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+            throw new InvalidOperationException("A cancelled benchmark waiter must complete with cancellation.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private static Task InvokeTask(MethodInfo method, object target, params object?[] args)
@@ -83,5 +141,58 @@ internal static class ControlledBenchmarkLeaseSelfTests
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private sealed class FakeLiveRunner : IGuardianLiveSessionRunner
+    {
+        private readonly object _sync = new();
+        private readonly List<TaskCompletionSource> _startWaiters = [];
+
+        public int StartCount { get; private set; }
+        public int ResetCount { get; private set; }
+        public List<string> CancelledInstances { get; } = [];
+
+        public async Task RunAsync(
+            string instanceName,
+            TimeSpan interval,
+            Action<GuardianLiveSessionStatus> publish,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                StartCount++;
+                foreach (var waiter in _startWaiters) waiter.TrySetResult();
+                _startWaiters.Clear();
+            }
+
+            publish(new GuardianLiveSessionStatus { Message = "live" });
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                CancelledInstances.Add(instanceName);
+            }
+        }
+
+        public Task ResetAsync(CancellationToken cancellationToken = default)
+        {
+            ResetCount++;
+            return Task.CompletedTask;
+        }
+
+        public async Task WaitForStartsAsync(int count)
+        {
+            Task waiter;
+            lock (_sync)
+            {
+                if (StartCount >= count) return;
+                var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _startWaiters.Add(source);
+                waiter = source.Task;
+            }
+            await waiter.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
     }
 }
