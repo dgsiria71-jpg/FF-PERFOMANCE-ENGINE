@@ -172,6 +172,12 @@ public sealed class SystemOptimizationTransactionEngine
             var current = await adapter.ReadCurrentAsync(cancellationToken).ConfigureAwait(false);
             if (!current.Success)
                 throw new InvalidOperationException($"Windows capability '{pair.Key}' current state could not be read: {current.Message}");
+            if (pair.Value.ExpectedCurrentValue is not null
+                && !string.Equals(current.Value, pair.Value.ExpectedCurrentValue, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Windows capability '{pair.Key}' expected-state precondition failed before snapshot. Expected '{pair.Value.ExpectedCurrentValue}', read '{current.Value}'.");
+            }
         }
 
         var plan = _capabilities.ResolvePlan(requested.Keys);
@@ -212,11 +218,18 @@ public sealed class SystemOptimizationTransactionEngine
         foreach (var id in orderedIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var request = requested[id];
             var adapter = _adapters.GetRequired(id);
             var snapshot = await adapter.SnapshotAsync(cancellationToken).ConfigureAwait(false);
             if (!string.Equals(NormalizeId(snapshot.CapabilityId), id, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Adapter '{id}' returned a snapshot for '{snapshot.CapabilityId}'.");
-            entries.Add(new PreparedMutation(requested[id], adapter, snapshot));
+            if (request.ExpectedCurrentValue is not null
+                && !string.Equals(snapshot.OriginalValue, request.ExpectedCurrentValue, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Windows capability '{id}' expected-state precondition changed between read and snapshot. Expected '{request.ExpectedCurrentValue}', snapshot captured '{snapshot.OriginalValue}'.");
+            }
+            entries.Add(new PreparedMutation(request, adapter, snapshot));
         }
 
         var transactionId = Guid.NewGuid();
