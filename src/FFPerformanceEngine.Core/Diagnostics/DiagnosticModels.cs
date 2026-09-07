@@ -121,6 +121,23 @@ public sealed record CapabilityEvidenceSummary
     public DateTimeOffset? LastMeasuredAt { get; init; }
 }
 
+public enum CapabilityRecommendationSource
+{
+    Unknown,
+    Diagnostic,
+    ControlledEvidence,
+    ValidatedEvidence,
+    Manual
+}
+
+public sealed record CapabilityRecommendationSummary
+{
+    public CapabilityRecommendationSource Source { get; init; } = CapabilityRecommendationSource.Unknown;
+    public double Confidence { get; init; }
+    public string MachineFingerprintId { get; init; } = string.Empty;
+    public DateTimeOffset? GeneratedAt { get; init; }
+}
+
 public sealed class WindowsPerformanceCapability
 {
     public string CapabilityId { get; set; } = string.Empty;
@@ -132,6 +149,7 @@ public sealed class WindowsPerformanceCapability
     public IReadOnlyList<string> AvailableValues { get; set; } = Array.Empty<string>();
     public string? DefaultValue { get; set; }
     public string? RecommendedValue { get; set; }
+    public CapabilityRecommendationSummary Recommendation { get; set; } = new();
     public CapabilityValueSchema ValueSchema { get; set; } = new();
     public CapabilityAvailability Availability { get; set; } = CapabilityAvailability.Unknown;
 
@@ -165,6 +183,7 @@ public sealed class WindowsPerformanceCapability
             AvailableValues = AvailableValues.ToArray(),
             DefaultValue = DefaultValue,
             RecommendedValue = RecommendedValue,
+            Recommendation = Recommendation with { },
             ValueSchema = ValueSchema with { AllowedValues = ValueSchema.AllowedValues.ToArray() },
             Availability = Availability,
             WindowsRequirements = WindowsRequirements.ToArray(),
