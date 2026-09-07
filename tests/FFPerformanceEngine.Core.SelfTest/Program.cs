@@ -121,6 +121,7 @@ try
     UniversalDiagnosticFoundationSelfTests.Run();
     CapabilityRecommendationRegistrySelfTests.Run();
     PersistentPcRecommendationCoordinatorSelfTests.Run();
+    await PersistentPcRecommendationServiceSelfTests.RunAsync();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
