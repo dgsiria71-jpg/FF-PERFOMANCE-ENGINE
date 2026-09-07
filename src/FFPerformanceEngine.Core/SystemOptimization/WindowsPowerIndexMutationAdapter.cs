@@ -1,3 +1,5 @@
+using FFPerformanceEngine.Core.Diagnostics;
+
 namespace FFPerformanceEngine.Core.SystemOptimization;
 
 /// <summary>
@@ -6,7 +8,8 @@ namespace FFPerformanceEngine.Core.SystemOptimization;
 /// supplies identity, setting GUID and supported numeric range; this base owns
 /// exact snapshot/restore, apply, reactivation and verification.
 /// </summary>
-public abstract class WindowsPowerIndexMutationAdapter : IWindowsCapabilityMutationAdapter
+public abstract class WindowsPowerIndexMutationAdapter
+    : IWindowsCapabilityMutationAdapter, IWindowsCapabilityMetadataProvider
 {
     private readonly IWindowsPowerSettingApi _api;
     private readonly Guid _subgroup;
@@ -33,9 +36,23 @@ public abstract class WindowsPowerIndexMutationAdapter : IWindowsCapabilityMutat
         _minimum = minimum;
         _maximum = maximum;
         _displayName = string.IsNullOrWhiteSpace(displayName) ? CapabilityId : displayName.Trim();
+
+        ValueSchema = new CapabilityValueSchema
+        {
+            Kind = CapabilityValueKind.Integer,
+            Minimum = minimum,
+            Maximum = maximum,
+            Step = 1,
+            Unit = "index"
+        };
+        AvailableValues = CreateCompactCandidateList(minimum, maximum);
     }
 
     public string CapabilityId { get; }
+
+    public CapabilityValueSchema ValueSchema { get; }
+
+    public IReadOnlyList<string> AvailableValues { get; }
 
     public Task<WindowsCapabilityReadResult> ReadCurrentAsync(CancellationToken cancellationToken = default)
     {
@@ -145,6 +162,19 @@ public abstract class WindowsPowerIndexMutationAdapter : IWindowsCapabilityMutat
         => uint.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out target)
            && target >= _minimum
            && target <= _maximum;
+
+    private static IReadOnlyList<string> CreateCompactCandidateList(uint minimum, uint maximum)
+    {
+        if (maximum - minimum > 16) return Array.Empty<string>();
+
+        var values = new List<string>();
+        for (var value = minimum; value <= maximum; value++)
+        {
+            values.Add(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (value == uint.MaxValue) break;
+        }
+        return values.ToArray();
+    }
 
     private static string FormatCurrent(uint ac, uint dc) => $"ac={ac};dc={dc}";
 
