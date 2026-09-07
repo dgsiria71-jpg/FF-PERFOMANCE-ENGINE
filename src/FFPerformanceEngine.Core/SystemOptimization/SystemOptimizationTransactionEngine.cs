@@ -239,8 +239,8 @@ public sealed class SystemOptimizationTransactionEngine
                 prepared.RestorePointId,
                 rollbackFailures.Count == 0 ? "rollback" : "rollback-incomplete",
                 rollbackFailures.Count == 0
-                    ? $"System optimization transaction rolled back after apply/verification failure: {primaryFailure.Message}"
-                    : $"System optimization rollback incomplete after failure: {primaryFailure.Message}",
+                    ? $"Rollback completed after system optimization apply/verification failure: {primaryFailure.Message}"
+                    : $"Rollback incomplete after system optimization failure: {primaryFailure.Message}",
                 CancellationToken.None).ConfigureAwait(false);
 
             if (rollbackFailures.Count > 0)
