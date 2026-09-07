@@ -33,6 +33,7 @@ public sealed class SystemOptimizationTransactionEngine
         IReadOnlyList<WindowsMutationRequest> mutations,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(mutations);
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -61,6 +62,7 @@ public sealed class SystemOptimizationTransactionEngine
         IReadOnlyList<WindowsMutationRequest> mutations,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(mutations);
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -176,8 +178,16 @@ public sealed class SystemOptimizationTransactionEngine
         if (!plan.IsValid)
             throw new InvalidOperationException("Windows capability graph rejected the transaction: " + string.Join("; ", plan.Issues.Select(issue => issue.Message)));
 
-        var orderedIds = plan.OrderedCapabilities
-            .Select(capability => capability.CapabilityId)
+        // An active session owns not only the values it changes but the dependency
+        // assumptions under which those values were validated. Dependencies stay
+        // unmodified unless explicitly requested; they are only reserved here.
+        var dependencyClosureIds = plan.OrderedCapabilities
+            .Select(capability => NormalizeId(capability.CapabilityId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        EnsureCapabilitiesAreNotOwned(dependencyClosureIds);
+
+        var orderedIds = dependencyClosureIds
             .Where(requested.ContainsKey)
             .ToArray();
         if (orderedIds.Length != requested.Count)
@@ -217,7 +227,7 @@ public sealed class SystemOptimizationTransactionEngine
             },
             cancellationToken).ConfigureAwait(false);
 
-        return new PreparedTransaction(transactionId, restorePoint.Id, label.Trim(), scope, entries, envelope);
+        return new PreparedTransaction(transactionId, restorePoint.Id, label.Trim(), scope, entries, dependencyClosureIds, envelope);
     }
 
     private async Task ApplyPreparedAsync(PreparedTransaction prepared, CancellationToken cancellationToken)
@@ -239,9 +249,6 @@ public sealed class SystemOptimizationTransactionEngine
                     throw new InvalidOperationException($"Windows capability '{entry.Request.CapabilityId}' did not verify the requested state after apply.");
             }
 
-            // Audit persistence is part of the transaction boundary. If the caller cannot
-            // receive a durable "applied" record, a session handle must not be returned
-            // while the external Windows state remains changed.
             await AppendHistoryAsync(
                 prepared.Envelope,
                 prepared.RestorePointId,
@@ -302,8 +309,8 @@ public sealed class SystemOptimizationTransactionEngine
 
     private void AcquireSessionOwnership(PreparedTransaction prepared)
     {
-        var ids = prepared.Entries
-            .Select(entry => NormalizeId(entry.Request.CapabilityId))
+        var ids = prepared.OwnershipCapabilityIds
+            .Select(NormalizeId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         EnsureCapabilitiesAreNotOwned(ids);
         foreach (var id in ids) _activeCapabilityOwners.Add(id, prepared.TransactionId);
@@ -419,6 +426,7 @@ public sealed class SystemOptimizationTransactionEngine
         string Label,
         SystemOptimizationScope Scope,
         IReadOnlyList<PreparedMutation> Entries,
+        IReadOnlyList<string> OwnershipCapabilityIds,
         SystemOptimizationRestoreEnvelope Envelope);
 }
 
