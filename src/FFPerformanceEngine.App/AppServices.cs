@@ -29,6 +29,8 @@ public sealed class AppServices : IAsyncDisposable
     public WindowsPerformanceCapabilityDiscoveryService WindowsCapabilityDiscovery { get; }
     public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
+    public PersistentPcOptimizationPlanner PersistentPcPlanner { get; }
+    public PersistentPcOptimizationService PersistentPcOptimization { get; }
     public UniversalBottleneckAnalyzer BottleneckAnalyzer { get; }
     public UniversalDiagnosticService Diagnostics { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
@@ -82,6 +84,18 @@ public sealed class AppServices : IAsyncDisposable
             History);
 
         MachineContext = new MachineContextService(HardwareDiscovery, WindowsCapabilities);
+
+        // "Otimizar este PC" is a first-class application service over the same
+        // discovery/catalog/transaction graph. The UI never builds its own tweak
+        // list: Analyze produces an evidence-gated preview and Apply revalidates
+        // it before the transactional engine receives guarded mutations.
+        PersistentPcPlanner = new PersistentPcOptimizationPlanner();
+        PersistentPcOptimization = new PersistentPcOptimizationService(
+            PersistentPcPlanner,
+            WindowsCapabilityDiscovery,
+            CaptureMachineContext,
+            SystemOptimizer);
+
         BottleneckAnalyzer = new UniversalBottleneckAnalyzer();
         Diagnostics = new UniversalDiagnosticService(MachineContext, BottleneckAnalyzer);
 
