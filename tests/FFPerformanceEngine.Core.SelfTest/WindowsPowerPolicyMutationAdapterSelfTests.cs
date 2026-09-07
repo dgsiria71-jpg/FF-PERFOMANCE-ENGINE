@@ -75,6 +75,8 @@ internal static class WindowsPowerPolicyMutationAdapterSelfTests
         Require(discovered["windows.cpu.boost_policy"].Dependencies.Contains("windows.power.active_policy", StringComparer.OrdinalIgnoreCase),
             "Runtime discovery must update only state and preserve Track 1 capability graph metadata.");
 
+        await WindowsCpuBoostPolicyMutationAdapterSelfTests.RunAsync();
+
         Console.WriteLine("PASS Track 2 real Windows active power policy adapter read/validate/snapshot/apply/verify/rollback + capability discovery contract");
     }
 
