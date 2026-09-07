@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using FFPerformanceEngine.Core.Models;
 
@@ -45,19 +44,28 @@ public sealed record ProfileChallengeRoundPolicy
 
 public sealed class ProfileChallengeRoundService
 {
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> InstanceGates = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Regex PresentMonFrameCount = new(@"(?<count>\d+)\s+frames?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private readonly ProfileService _profiles;
     private readonly HistoryService _history;
     private readonly IAutoTunerRuntimeFactory _runtimeFactory;
     private readonly ProfileChallengeRoundPolicy _policy;
+    private readonly IControlledBenchmarkLeaseManager _benchmarkLeases;
 
     public ProfileChallengeRoundService(
         ProfileService profiles,
         HistoryService history,
         IAutoTunerRuntimeFactory runtimeFactory)
-        : this(profiles, history, runtimeFactory, new ProfileChallengeRoundPolicy())
+        : this(profiles, history, runtimeFactory, new ProfileChallengeRoundPolicy(), new ControlledBenchmarkLeaseManager())
+    {
+    }
+
+    public ProfileChallengeRoundService(
+        ProfileService profiles,
+        HistoryService history,
+        IAutoTunerRuntimeFactory runtimeFactory,
+        IControlledBenchmarkLeaseManager benchmarkLeases)
+        : this(profiles, history, runtimeFactory, new ProfileChallengeRoundPolicy(), benchmarkLeases)
     {
     }
 
@@ -66,11 +74,22 @@ public sealed class ProfileChallengeRoundService
         HistoryService history,
         IAutoTunerRuntimeFactory runtimeFactory,
         ProfileChallengeRoundPolicy policy)
+        : this(profiles, history, runtimeFactory, policy, new ControlledBenchmarkLeaseManager())
+    {
+    }
+
+    public ProfileChallengeRoundService(
+        ProfileService profiles,
+        HistoryService history,
+        IAutoTunerRuntimeFactory runtimeFactory,
+        ProfileChallengeRoundPolicy policy,
+        IControlledBenchmarkLeaseManager benchmarkLeases)
     {
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _runtimeFactory = runtimeFactory ?? throw new ArgumentNullException(nameof(runtimeFactory));
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
+        _benchmarkLeases = benchmarkLeases ?? throw new ArgumentNullException(nameof(benchmarkLeases));
         ValidatePolicy(_policy);
     }
 
@@ -125,8 +144,12 @@ public sealed class ProfileChallengeRoundService
             || !challengerEnvironment.IsStructurallyCompatible(environment))
             throw new InvalidOperationException("The current machine/Windows/BlueStacks environment no longer matches the validated Custom profile. Revalidate before running a challenge.");
 
-        var gate = InstanceGates.GetOrAdd(instance.Name, static _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        // Profile Challenge shares the same machine-wide benchmark authority as Auto Tuner.
+        // Different BlueStacks instances still contend for CPU/GPU/PresentMon and may not overlap.
+        await using var benchmarkLease = await _benchmarkLeases
+            .AcquireAsync($"Profile Challenge · {targetKind} · {instance.Name}", cancellationToken)
+            .ConfigureAwait(false);
+
         var runtime = _runtimeFactory.Create(instance);
         var baselineAccepted = Array.Empty<TelemetrySample>();
         var candidateAccepted = Array.Empty<TelemetrySample>();
@@ -193,15 +216,8 @@ public sealed class ProfileChallengeRoundService
         }
         finally
         {
-            try
-            {
-                progress?.Invoke(new(ProfileChallengeRoundStage.RestoringBaseline, "Restaurando a configuração original do BlueStacks."));
-                await runtime.RestoreBaselineAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            finally
-            {
-                gate.Release();
-            }
+            progress?.Invoke(new(ProfileChallengeRoundStage.RestoringBaseline, "Restaurando a configuração original do BlueStacks."));
+            await runtime.RestoreBaselineAsync(CancellationToken.None).ConfigureAwait(false);
         }
     }
 
