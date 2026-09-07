@@ -30,6 +30,8 @@ public sealed class AppServices : IAsyncDisposable
     public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
     public PersistentPcOptimizationPlanner PersistentPcPlanner { get; }
+    public PersistentPcRecommendationCoordinator PersistentPcRecommendationCoordinator { get; }
+    public PersistentPcRecommendationService PersistentPcRecommendations { get; }
     public PersistentPcOptimizationService PersistentPcOptimization { get; }
     public UniversalBottleneckAnalyzer BottleneckAnalyzer { get; }
     public UniversalDiagnosticService Diagnostics { get; }
@@ -85,11 +87,18 @@ public sealed class AppServices : IAsyncDisposable
 
         MachineContext = new MachineContextService(HardwareDiscovery, WindowsCapabilities);
 
-        // "Otimizar este PC" is a first-class application service over the same
-        // discovery/catalog/transaction graph. The UI never builds its own tweak
-        // list: Analyze produces an evidence-gated preview and Apply revalidates
-        // it before the transactional engine receives guarded mutations.
+        // "Otimizar este PC" uses one shared recommendation authority and one
+        // shared transactional authority. Producers may propose targets, but only
+        // the recommendation service can publish automatic persistent targets;
+        // it refreshes OS state first and binds evidence to the current machine.
         PersistentPcPlanner = new PersistentPcOptimizationPlanner();
+        PersistentPcRecommendationCoordinator = new PersistentPcRecommendationCoordinator(
+            WindowsCapabilities,
+            WindowsMutationAdapters);
+        PersistentPcRecommendations = new PersistentPcRecommendationService(
+            WindowsCapabilityDiscovery,
+            CaptureMachineContext,
+            PersistentPcRecommendationCoordinator);
         PersistentPcOptimization = new PersistentPcOptimizationService(
             PersistentPcPlanner,
             WindowsCapabilityDiscovery,
@@ -180,6 +189,17 @@ public sealed class AppServices : IAsyncDisposable
     public Task<IReadOnlyList<WindowsPerformanceCapability>> RefreshWindowsCapabilitiesAsync(
         CancellationToken cancellationToken = default)
         => WindowsCapabilityDiscovery.RefreshAsync(cancellationToken);
+
+    public Task<CapabilityRecommendationPublicationResult> PublishPersistentRecommendationAsync(
+        string capabilityId,
+        string targetValue,
+        CapabilityRecommendationSummary recommendation,
+        CancellationToken cancellationToken = default)
+        => PersistentPcRecommendations.PublishAsync(
+            capabilityId,
+            targetValue,
+            recommendation,
+            cancellationToken);
 
     public UniversalDiagnosticSnapshot AnalyzeCurrentMachine(
         TelemetrySample sample,
