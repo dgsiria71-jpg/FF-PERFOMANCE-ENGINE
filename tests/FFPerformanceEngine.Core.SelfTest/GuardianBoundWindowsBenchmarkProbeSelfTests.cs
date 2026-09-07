@@ -7,6 +7,7 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
     internal static async Task RunAsync()
     {
         var source = new MutableStatusSource(Status(4242, "Pie64"));
+        var processProbe = new MutableProcessProbe([4242]);
         var capturedPids = new List<int>();
         var captureIndex = 0;
         var coordinator = new PerformanceCaptureCoordinator(
@@ -29,6 +30,7 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
         var probe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             source.Read,
             coordinator,
+            processProbe,
             new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
             {
                 RequiredSamples = 2,
@@ -53,13 +55,18 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
             "Operational Windows benchmark intervals must preserve source measurement quality/provenance on every point.");
 
         var driftSource = new MutableStatusSource(Status(5001, "Pie64"));
+        var driftProcesses = new MutableProcessProbe([5001]);
         var driftCaptures = 0;
         var driftCoordinator = new PerformanceCaptureCoordinator(
             (pid, duration, token) =>
             {
                 token.ThrowIfCancellationRequested();
                 driftCaptures++;
-                if (driftCaptures == 1) driftSource.Current = Status(5002, "Pie64");
+                if (driftCaptures == 1)
+                {
+                    driftSource.Current = Status(5002, "Pie64");
+                    driftProcesses.ProcessIds = [5002];
+                }
                 return Task.FromResult<TelemetrySample?>(new TelemetrySample
                 {
                     Timestamp = DateTimeOffset.UtcNow,
@@ -71,6 +78,7 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
         var driftProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             driftSource.Read,
             driftCoordinator,
+            driftProcesses,
             new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
             {
                 RequiredSamples = 2,
@@ -89,12 +97,57 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
         Require(driftRejected && driftCaptures == 1,
             "If Guardian-bound PID/instance identity changes between samples, the probe must reject the interval before measuring the new process.");
 
+        // Controlled benchmark leases suspend Guardian, so CurrentStatus can remain
+        // frozen even if the real BlueStacks process exits/restarts. The operational
+        // probe must therefore verify the live process set independently.
+        var frozenSource = new MutableStatusSource(Status(7001, "Pie64"));
+        var frozenProcesses = new MutableProcessProbe([7001]);
+        var frozenCaptures = 0;
+        var frozenCoordinator = new PerformanceCaptureCoordinator(
+            (pid, duration, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                frozenCaptures++;
+                frozenProcesses.ProcessIds = [7002];
+                return Task.FromResult<TelemetrySample?>(new TelemetrySample
+                {
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Fps = 95,
+                    FrameTimeMs = 10.5,
+                    DataQuality = "PresentMon · 450 frames"
+                });
+            });
+        var frozenProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
+            frozenSource.Read,
+            frozenCoordinator,
+            frozenProcesses,
+            new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
+            {
+                RequiredSamples = 2,
+                SampleDuration = TimeSpan.FromSeconds(2)
+            });
+        var frozenRejected = false;
+        try
+        {
+            await frozenProbe.CaptureAsync(Context());
+        }
+        catch (InvalidOperationException exception) when (
+            exception.Message.Contains("process", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("changed", StringComparison.OrdinalIgnoreCase))
+        {
+            frozenRejected = true;
+        }
+        Require(frozenRejected && frozenCaptures == 1,
+            "A frozen Guardian status must not hide a real PID restart while the controlled benchmark lease has Guardian suspended.");
+
         var missingSource = new MutableStatusSource(Status(6001, "Pie64"));
+        var missingProcesses = new MutableProcessProbe([6001]);
         var missingCoordinator = new PerformanceCaptureCoordinator(
             (pid, duration, token) => Task.FromResult<TelemetrySample?>(null));
         var missingProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             missingSource.Read,
             missingCoordinator,
+            missingProcesses,
             new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
             {
                 RequiredSamples = 2,
@@ -112,7 +165,7 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
         Require(missingRejected,
             "A missing PresentMon sample must invalidate the controlled window instead of becoming partial controlled evidence.");
 
-        Console.WriteLine("PASS Guardian-bound repeated PresentMon Windows benchmark probe exact-target/drift/fail-closed contract");
+        Console.WriteLine("PASS Guardian-bound repeated PresentMon Windows benchmark probe exact-target/live-process/drift/fail-closed contract");
     }
 
     private static WindowsCapabilityBenchmarkContext Context()
@@ -136,6 +189,12 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
     {
         public GuardianLiveSessionStatus Current { get; set; } = current;
         public GuardianLiveSessionStatus Read() => Current;
+    }
+
+    private sealed class MutableProcessProbe(IReadOnlyList<int> processIds) : IBlueStacksPlayerProcessProbe
+    {
+        public IReadOnlyList<int> ProcessIds { get; set; } = processIds;
+        public IReadOnlyList<int> GetRunningPlayerProcessIds() => ProcessIds;
     }
 
     private static void Require(bool condition, string message)
