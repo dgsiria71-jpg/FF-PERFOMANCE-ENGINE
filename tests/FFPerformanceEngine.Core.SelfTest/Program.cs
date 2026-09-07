@@ -120,6 +120,7 @@ try
     await ProfileChallengeProgressSelfTests.RunAsync();
     await ProfileChallengeRoundSelfTests.RunAsync();
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
+    UniversalDiagnosticFoundationSelfTests.Run();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
