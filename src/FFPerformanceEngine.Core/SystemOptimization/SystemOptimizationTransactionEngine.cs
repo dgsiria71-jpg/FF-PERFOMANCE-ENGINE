@@ -13,6 +13,8 @@ public sealed class SystemOptimizationTransactionEngine
     private readonly SnapshotService _snapshots;
     private readonly HistoryService _history;
     private readonly SemaphoreSlim _transactionGate = new(1, 1);
+    private readonly Dictionary<string, Guid> _activeCapabilityOwners = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, HashSet<string>> _sessionOwnershipByRestorePoint = new();
 
     public SystemOptimizationTransactionEngine(
         WindowsPerformanceCapabilityRegistry capabilities,
@@ -34,9 +36,19 @@ public sealed class SystemOptimizationTransactionEngine
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
             var prepared = await PrepareAsync(label, SystemOptimizationScope.Session, mutations, cancellationToken).ConfigureAwait(false);
-            await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
-            return new SystemOptimizationSession(this, prepared.TransactionId, prepared.RestorePointId, prepared.Label);
+            AcquireSessionOwnership(prepared);
+            try
+            {
+                await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+                return new SystemOptimizationSession(this, prepared.TransactionId, prepared.RestorePointId, prepared.Label);
+            }
+            catch
+            {
+                ReleaseSessionOwnership(prepared.RestorePointId);
+                throw;
+            }
         }
         finally
         {
@@ -52,6 +64,7 @@ public sealed class SystemOptimizationTransactionEngine
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
             var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
             await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
             return new PersistentOptimizationResult(
@@ -83,6 +96,10 @@ public sealed class SystemOptimizationTransactionEngine
                 throw new InvalidDataException($"Snapshot '{restorePointId:D}' is not a DG system optimization restore point.");
 
             var envelope = SystemOptimizationSnapshotCodec.Decode(payload);
+            var restoringOwnedSession = _sessionOwnershipByRestorePoint.ContainsKey(restorePointId);
+            if (!restoringOwnedSession)
+                EnsureCapabilitiesAreNotOwned(envelope.Entries.Select(entry => entry.CapabilityId));
+
             var failures = await RollbackEnvelopeAsync(envelope).ConfigureAwait(false);
             if (failures.Count > 0)
             {
@@ -95,6 +112,7 @@ public sealed class SystemOptimizationTransactionEngine
                 throw new AggregateException("System optimization restore could not return every capability to its original state.", failures);
             }
 
+            ReleaseSessionOwnership(restorePointId);
             await AppendHistoryAsync(
                 envelope,
                 restorePointId,
@@ -165,7 +183,6 @@ public sealed class SystemOptimizationTransactionEngine
         if (orderedIds.Length != requested.Count)
             throw new InvalidOperationException("Windows capability planner did not resolve every requested mutation.");
 
-        // Critical invariant: collect every original state before applying the first mutation.
         var entries = new List<PreparedMutation>(orderedIds.Length);
         foreach (var id in orderedIds)
         {
@@ -212,10 +229,6 @@ public sealed class SystemOptimizationTransactionEngine
             foreach (var entry in prepared.Entries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                // Treat the step as potentially mutated before calling Apply: an adapter may
-                // change external state and then throw. Rollback to the pre-captured snapshot
-                // is therefore always safe and preferred over assuming nothing happened.
                 applied.Add(entry);
                 var apply = await entry.Adapter.ApplyAsync(entry.Request.TargetValue, cancellationToken).ConfigureAwait(false);
                 if (!apply.Success)
@@ -259,6 +272,33 @@ public sealed class SystemOptimizationTransactionEngine
             "applied",
             $"System optimization '{prepared.Label}' applied and verified as a {prepared.Scope} transaction.",
             CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private void EnsureCapabilitiesAreNotOwned(IEnumerable<string> capabilityIds)
+    {
+        foreach (var capabilityId in capabilityIds)
+        {
+            var id = NormalizeId(capabilityId);
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            if (_activeCapabilityOwners.TryGetValue(id, out var transactionId))
+                throw new InvalidOperationException($"Windows performance capability '{id}' is owned by active session transaction '{transactionId:D}' until that session restores.");
+        }
+    }
+
+    private void AcquireSessionOwnership(PreparedTransaction prepared)
+    {
+        var ids = prepared.Entries
+            .Select(entry => NormalizeId(entry.Request.CapabilityId))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        EnsureCapabilitiesAreNotOwned(ids);
+        foreach (var id in ids) _activeCapabilityOwners.Add(id, prepared.TransactionId);
+        _sessionOwnershipByRestorePoint.Add(prepared.RestorePointId, ids);
+    }
+
+    private void ReleaseSessionOwnership(Guid restorePointId)
+    {
+        if (!_sessionOwnershipByRestorePoint.Remove(restorePointId, out var ids)) return;
+        foreach (var id in ids) _activeCapabilityOwners.Remove(id);
     }
 
     private static async Task<List<Exception>> RollbackPreparedAsync(IReadOnlyList<PreparedMutation> applied)
