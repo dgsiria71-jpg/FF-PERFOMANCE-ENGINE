@@ -10,23 +10,27 @@ public sealed record GuardianBoundWindowsCapabilityBenchmarkProbePolicy
 
 /// <summary>
 /// Operational controlled-benchmark probe for the workload already bound by
-/// Guardian. It deliberately refuses process rediscovery: every repeated sample
-/// must remain on the same exact PID + BlueStacks instance before and after the
-/// capture window, otherwise the interval is discarded.
+/// Guardian. It refuses process rediscovery and independently verifies the live
+/// BlueStacks process set because controlled benchmark leases suspend Guardian's
+/// observation loop. Every repeated sample must remain on the same exact PID +
+/// instance before and after capture, otherwise the interval is discarded.
 /// </summary>
 public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapabilityBenchmarkProbe
 {
     private readonly Func<GuardianLiveSessionStatus?> _statusProvider;
     private readonly PerformanceCaptureCoordinator _capture;
+    private readonly IBlueStacksPlayerProcessProbe _processProbe;
     private readonly GuardianBoundWindowsCapabilityBenchmarkProbePolicy _policy;
 
     public GuardianBoundWindowsCapabilityBenchmarkProbe(
         Func<GuardianLiveSessionStatus?> statusProvider,
         PerformanceCaptureCoordinator capture,
+        IBlueStacksPlayerProcessProbe processProbe,
         GuardianBoundWindowsCapabilityBenchmarkProbePolicy? policy = null)
     {
         _statusProvider = statusProvider ?? throw new ArgumentNullException(nameof(statusProvider));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        _processProbe = processProbe ?? throw new ArgumentNullException(nameof(processProbe));
         _policy = policy ?? new GuardianBoundWindowsCapabilityBenchmarkProbePolicy();
         if (_policy.RequiredSamples < 2)
             throw new ArgumentOutOfRangeException(nameof(policy), "A controlled Windows benchmark requires at least two repeated workload samples per side.");
@@ -42,6 +46,7 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
         var initialStatus = _statusProvider();
         var expected = PerformanceCaptureTargetPolicy.FromGuardianStatus(initialStatus);
         EnsureCaptureTargetAvailable(expected);
+        EnsureLiveProcessIdentity(expected, "before the controlled interval");
 
         var entries = new List<PerformanceTimelineEntry>(_policy.RequiredSamples);
         for (var sampleIndex = 0; sampleIndex < _policy.RequiredSamples; sampleIndex++)
@@ -51,6 +56,7 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
             var beforeStatus = _statusProvider();
             var beforeTarget = PerformanceCaptureTargetPolicy.FromGuardianStatus(beforeStatus);
             EnsureSameTarget(expected, beforeTarget, "before");
+            EnsureLiveProcessIdentity(expected, "before");
 
             var capture = await _capture.CaptureAsync(
                 beforeStatus,
@@ -63,11 +69,12 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
             }
             EnsureSameTarget(expected, capture.Target, "during");
 
-            // A process can restart while PresentMon itself is capturing. Re-read
-            // Guardian's frozen last-known binding after every sample so such a
-            // window is discarded instead of joining two different workloads.
+            // Guardian is intentionally suspended by the global benchmark lease,
+            // therefore CurrentStatus can be stale. Verify both the frozen logical
+            // binding and the actual running process set after PresentMon returns.
             var afterTarget = PerformanceCaptureTargetPolicy.FromGuardianStatus(_statusProvider());
             EnsureSameTarget(expected, afterTarget, "after");
+            EnsureLiveProcessIdentity(expected, "after");
 
             var sample = capture.Sample with { };
             entries.Add(new PerformanceTimelineEntry
@@ -87,6 +94,25 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
             ordered,
             ordered[0].Timestamp,
             ordered[^1].Timestamp);
+    }
+
+    private void EnsureLiveProcessIdentity(PerformanceCaptureTarget expected, string boundary)
+    {
+        var expectedPid = expected.ProcessId!.Value;
+        var processIds = _processProbe.GetRunningPlayerProcessIds()
+            .Where(processId => processId > 0)
+            .Distinct()
+            .OrderBy(processId => processId)
+            .ToArray();
+
+        if (processIds.Length == 1 && processIds[0] == expectedPid) return;
+
+        var observed = processIds.Length == 0
+            ? "none"
+            : string.Join(", ", processIds);
+        throw new InvalidOperationException(
+            $"Guardian-bound workload process changed {boundary} a controlled benchmark sample. " +
+            $"Expected the only running BlueStacks player PID to be {expectedPid}, observed [{observed}].");
     }
 
     private static void EnsureCaptureTargetAvailable(PerformanceCaptureTarget target)
