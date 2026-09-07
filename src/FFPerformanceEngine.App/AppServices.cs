@@ -99,11 +99,6 @@ public sealed class AppServices : IAsyncDisposable
             WindowsCapabilityDiscovery,
             CaptureMachineContext,
             PersistentPcRecommendationCoordinator);
-        PersistentPcOptimization = new PersistentPcOptimizationService(
-            PersistentPcPlanner,
-            WindowsCapabilityDiscovery,
-            CaptureMachineContext,
-            SystemOptimizer);
 
         BottleneckAnalyzer = new UniversalBottleneckAnalyzer();
         Diagnostics = new UniversalDiagnosticService(MachineContext, BottleneckAnalyzer);
@@ -131,10 +126,16 @@ public sealed class AppServices : IAsyncDisposable
             GuardianSupervisorFactory);
         GuardianHost = new GuardianSessionHost(GuardianLiveSession);
 
-        // One application-level authority owns every controlled measurement. The
-        // global gate protects machine-wide CPU/GPU/PresentMon evidence, while the
-        // Guardian participant is suspended and reconciled by the same lease.
+        // One application-level authority owns every controlled measurement and
+        // persistent Windows mutation. The global gate protects machine-wide
+        // CPU/GPU/PresentMon evidence while Guardian is suspended/reconciled.
         ControlledBenchmarks = new ControlledBenchmarkLeaseManager(GuardianHost);
+        PersistentPcOptimization = new PersistentPcOptimizationService(
+            PersistentPcPlanner,
+            WindowsCapabilityDiscovery,
+            CaptureMachineContext,
+            SystemOptimizer,
+            ControlledBenchmarks);
 
         PerformanceComparison = new PerformanceComparisonSession(CapturePerformanceConfiguration);
         PerformanceTimelineEvents = new PerformanceTimelineEventRecorder(PerformanceTimeline);
