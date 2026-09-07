@@ -120,6 +120,7 @@ try
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
     UniversalDiagnosticFoundationSelfTests.Run();
     CapabilityRecommendationRegistrySelfTests.Run();
+    PersistentPcRecommendationCoordinatorSelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
