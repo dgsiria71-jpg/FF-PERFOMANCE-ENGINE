@@ -47,6 +47,8 @@ internal static class WindowsCpuBoostPolicyMutationAdapterSelfTests
         Require(!unavailableRead.Success && unavailableRead.Value is null,
             "If PowrProf cannot prove active scheme/settings, CPU boost must report unavailable instead of inventing a value.");
 
+        await WindowsCpuCoreParkingPolicyMutationAdapterSelfTests.RunAsync();
+
         Console.WriteLine("PASS Track 2 Windows CPU boost policy PowrProf read/snapshot/apply/verify/rollback contract");
     }
 
