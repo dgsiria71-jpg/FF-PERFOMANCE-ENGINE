@@ -110,6 +110,7 @@ try
     PerformancePresentationSelfTests.Run();
     PerformanceTimelineSelfTests.Run();
     PerformanceABSelfTests.Run();
+    PerformanceEvidenceQualitySelfTests.Run();
     await PerformanceHistorySelfTests.RunAsync();
     await ValidatedProfileOriginSelfTests.RunAsync();
     await ProfileChallengePromotionSelfTests.RunAsync();
