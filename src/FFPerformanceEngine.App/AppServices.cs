@@ -1,6 +1,7 @@
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.SystemOptimization;
 
 namespace FFPerformanceEngine.App;
 
@@ -24,6 +25,9 @@ public sealed class AppServices : IAsyncDisposable
     public EnvironmentProbe Environment { get; }
     public HardwareDiscoveryService HardwareDiscovery { get; }
     public WindowsPerformanceCapabilityRegistry WindowsCapabilities { get; }
+    public WindowsCapabilityMutationAdapterRegistry WindowsMutationAdapters { get; }
+    public WindowsPerformanceCapabilityDiscoveryService WindowsCapabilityDiscovery { get; }
+    public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
     public UniversalBottleneckAnalyzer BottleneckAnalyzer { get; }
     public UniversalDiagnosticService Diagnostics { get; }
@@ -57,6 +61,23 @@ public sealed class AppServices : IAsyncDisposable
         // exact discovery, capability, fingerprint and bottleneck services.
         HardwareDiscovery = new HardwareDiscoveryService();
         WindowsCapabilities = new WindowsPerformanceCapabilityRegistry();
+
+        // Track 2 composes one adapter registry for both discovery and mutation.
+        // A capability becomes Available only after its concrete adapter proves
+        // current state; the transaction engine consumes that same proven catalog.
+        WindowsMutationAdapters = new WindowsCapabilityMutationAdapterRegistry(
+        [
+            new WindowsPowerPolicyMutationAdapter()
+        ]);
+        WindowsCapabilityDiscovery = new WindowsPerformanceCapabilityDiscoveryService(
+            WindowsCapabilities,
+            WindowsMutationAdapters);
+        SystemOptimizer = new SystemOptimizationTransactionEngine(
+            WindowsCapabilities,
+            WindowsMutationAdapters,
+            Snapshots,
+            History);
+
         MachineContext = new MachineContextService(HardwareDiscovery, WindowsCapabilities);
         BottleneckAnalyzer = new UniversalBottleneckAnalyzer();
         Diagnostics = new UniversalDiagnosticService(MachineContext, BottleneckAnalyzer);
@@ -115,6 +136,11 @@ public sealed class AppServices : IAsyncDisposable
 
     public async Task InitializeAsync()
     {
+        // Discovery is read-only. It proves which Track 2 capabilities are
+        // actually usable on this Windows installation before any UI/workflow
+        // is allowed to request a mutation.
+        await WindowsCapabilityDiscovery.RefreshAsync().ConfigureAwait(false);
+
         Settings = await SettingsService.LoadAsync().ConfigureAwait(false);
         Guardian.Mode = Settings.GuardianMode;
         await ReconcileGuardianHostAsync(Settings).ConfigureAwait(false);
@@ -133,6 +159,10 @@ public sealed class AppServices : IAsyncDisposable
 
     public MachineContext CaptureMachineContext()
         => MachineContext.Capture(Environment.Capture());
+
+    public Task<IReadOnlyList<WindowsPerformanceCapability>> RefreshWindowsCapabilitiesAsync(
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityDiscovery.RefreshAsync(cancellationToken);
 
     public UniversalDiagnosticSnapshot AnalyzeCurrentMachine(
         TelemetrySample sample,
