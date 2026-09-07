@@ -234,11 +234,19 @@ internal static class SystemOptimizerTransactionSelfTests
         try
         {
             await operation();
-            throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
         }
         catch (TException)
         {
+            return;
         }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(
+                $"Expected {typeof(TException).Name}, but received {exception.GetType().Name}.",
+                exception);
+        }
+
+        throw new InvalidOperationException($"Expected {typeof(TException).Name}, but the operation completed successfully.");
     }
 
     private static void Require(bool condition, string message)
