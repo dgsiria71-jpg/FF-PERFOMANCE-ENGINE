@@ -54,17 +54,36 @@ public sealed class AutoTunerRunCoordinator
     private readonly AutoTunerEngine _engine;
     private readonly IAutoTunerRuntime _runtime;
     private readonly AutoTunerValidationPolicy _validation;
+    private readonly IControlledBenchmarkLeaseManager _benchmarkLeases;
 
     public AutoTunerRunCoordinator(AutoTunerEngine engine, IAutoTunerRuntime runtime)
-        : this(engine, runtime, new AutoTunerValidationPolicy())
+        : this(engine, runtime, new AutoTunerValidationPolicy(), new ControlledBenchmarkLeaseManager())
     {
     }
 
     public AutoTunerRunCoordinator(AutoTunerEngine engine, IAutoTunerRuntime runtime, AutoTunerValidationPolicy validation)
+        : this(engine, runtime, validation, new ControlledBenchmarkLeaseManager())
+    {
+    }
+
+    public AutoTunerRunCoordinator(
+        AutoTunerEngine engine,
+        IAutoTunerRuntime runtime,
+        IControlledBenchmarkLeaseManager benchmarkLeases)
+        : this(engine, runtime, new AutoTunerValidationPolicy(), benchmarkLeases)
+    {
+    }
+
+    public AutoTunerRunCoordinator(
+        AutoTunerEngine engine,
+        IAutoTunerRuntime runtime,
+        AutoTunerValidationPolicy validation,
+        IControlledBenchmarkLeaseManager benchmarkLeases)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
         _validation = validation ?? throw new ArgumentNullException(nameof(validation));
+        _benchmarkLeases = benchmarkLeases ?? throw new ArgumentNullException(nameof(benchmarkLeases));
         ValidatePolicy(_validation);
     }
 
@@ -78,6 +97,12 @@ public sealed class AutoTunerRunCoordinator
         ArgumentNullException.ThrowIfNull(candidates);
         if (game is not (GameKind.FreeFire or GameKind.FreeFireMax))
             throw new ArgumentOutOfRangeException(nameof(game), game, "Auto Tuner requires Free Fire or Free Fire MAX.");
+
+        // Keep machine-wide CPU/GPU/PresentMon evidence uncontaminated for the full
+        // mutate -> measure -> cleanup -> baseline-restore lifecycle.
+        await using var benchmarkLease = await _benchmarkLeases
+            .AcquireAsync($"Auto Tuner · {game}", cancellationToken)
+            .ConfigureAwait(false);
 
         var evidence = new List<CandidateEvidence>(candidates.Count);
         Exception? primaryFailure = null;
