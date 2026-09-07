@@ -76,6 +76,8 @@ internal static class WindowsCapabilityPerformanceCostMapSelfTests
                     && repeated.ObservationCount == 2
                     && repeated.Maturity == WindowsCapabilityCostEvidenceMaturity.Repeated,
                 "Two independent controlled rounds for the exact same machine/workload/target tuple may become Repeated evidence, but not a recommendation.");
+            if (repeated is null)
+                throw new InvalidOperationException("Repeated cost-map summary unexpectedly disappeared after two controlled rounds.");
             Require(repeated.RecommendedValue is null,
                 "The Performance Cost Map must never publish or synthesize a Windows recommendation.");
 
