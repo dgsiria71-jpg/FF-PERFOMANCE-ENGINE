@@ -65,9 +65,11 @@ public sealed class AppServices : IAsyncDisposable
         // Track 2 composes one adapter registry for both discovery and mutation.
         // A capability becomes Available only after its concrete adapter proves
         // current state; the transaction engine consumes that same proven catalog.
+        var powerSettingApi = new WindowsPowerSettingApi();
         WindowsMutationAdapters = new WindowsCapabilityMutationAdapterRegistry(
         [
-            new WindowsPowerPolicyMutationAdapter()
+            new WindowsPowerPolicyMutationAdapter(),
+            new WindowsCpuBoostPolicyMutationAdapter(powerSettingApi)
         ]);
         WindowsCapabilityDiscovery = new WindowsPerformanceCapabilityDiscoveryService(
             WindowsCapabilities,
