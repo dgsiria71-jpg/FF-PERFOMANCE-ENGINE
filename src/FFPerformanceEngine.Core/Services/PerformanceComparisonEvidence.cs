@@ -79,7 +79,7 @@ public sealed record PerformanceEvidenceSnapshot
 
         var hasFrameEvidence = fps.Length > 0 || frameTimes.Length > 0;
         var isFullyMeasured = copiedPoints.Length > 0
-            && copiedPoints.All(point => string.Equals(point.DataQuality, "Measured", StringComparison.OrdinalIgnoreCase))
+            && copiedPoints.All(point => IsDirectMeasuredQuality(point.DataQuality))
             && fps.Length == copiedPoints.Length
             && frameTimes.Length == copiedPoints.Length;
 
@@ -111,6 +111,13 @@ public sealed record PerformanceEvidenceSnapshot
         return configuration is null
             ? Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt)
             : Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt, configuration);
+    }
+
+    private static bool IsDirectMeasuredQuality(string? dataQuality)
+    {
+        if (string.Equals(dataQuality, "Measured", StringComparison.OrdinalIgnoreCase)) return true;
+        return !string.IsNullOrWhiteSpace(dataQuality)
+               && dataQuality.StartsWith("PresentMon · ", StringComparison.OrdinalIgnoreCase);
     }
 
     private static double[] FiniteValues(IEnumerable<double?> values)
