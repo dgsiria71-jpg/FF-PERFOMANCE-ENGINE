@@ -214,6 +214,9 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
     private Task? _runTask;
     private string? _instanceName;
     private TimeSpan? _interval;
+    private string? _desiredInstanceName;
+    private TimeSpan? _desiredInterval;
+    private bool _controlledBenchmarkSuspended;
     private GuardianLiveSessionStatus? _currentStatus;
     private bool _disposed;
 
@@ -246,15 +249,13 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (IsRunning && string.Equals(_instanceName, instanceName, StringComparison.OrdinalIgnoreCase)) return;
+            // Record desired application state even while controlled measurement owns
+            // the machine. The actual Guardian loop remains off until lease release.
+            _desiredInstanceName = instanceName;
+            _desiredInterval = interval;
+            if (_controlledBenchmarkSuspended) return;
 
-            await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
-
-            _instanceName = instanceName;
-            _interval = interval;
-            var runCancellation = new CancellationTokenSource();
-            _runCancellation = runCancellation;
-            _runTask = _runner.RunAsync(instanceName, interval, Publish, runCancellation.Token);
+            await StartCoreAsync(instanceName, interval).ConfigureAwait(false);
         }
         finally
         {
@@ -268,6 +269,8 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            _desiredInstanceName = null;
+            _desiredInterval = null;
             await StopCoreAsync(resetRunner: true, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -282,6 +285,9 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (_controlledBenchmarkSuspended)
+                throw new InvalidOperationException("Guardian is already suspended by a controlled benchmark lease.");
+
             var wasRunning = IsRunning
                              && !string.IsNullOrWhiteSpace(_instanceName)
                              && _interval is TimeSpan interval
@@ -291,7 +297,14 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
                 wasRunning ? _instanceName : null,
                 wasRunning ? _interval!.Value : TimeSpan.Zero);
 
-            if (wasRunning)
+            if (wasRunning && string.IsNullOrWhiteSpace(_desiredInstanceName))
+            {
+                _desiredInstanceName = _instanceName;
+                _desiredInterval = _interval;
+            }
+
+            _controlledBenchmarkSuspended = true;
+            if (IsRunning)
                 await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
 
             return state;
@@ -302,14 +315,29 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
         }
     }
 
-    public Task ResumeAsync(ControlledBenchmarkGuardianState state, CancellationToken cancellationToken = default)
+    public async Task ResumeAsync(ControlledBenchmarkGuardianState state, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (!state.WasRunning) return Task.CompletedTask;
-        if (string.IsNullOrWhiteSpace(state.InstanceName) || state.Interval <= TimeSpan.Zero)
-            throw new InvalidOperationException("A suspended Guardian benchmark state is missing its original instance or interval.");
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
-        return StartAsync(state.InstanceName, state.Interval, cancellationToken);
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_controlledBenchmarkSuspended) return;
+            _controlledBenchmarkSuspended = false;
+
+            // Respect any settings/lifecycle change made while the benchmark was
+            // running. If nothing changed, desired state is the exact pre-benchmark
+            // instance/interval captured when StartAsync originally ran.
+            if (string.IsNullOrWhiteSpace(_desiredInstanceName) || _desiredInterval is not TimeSpan desiredInterval || desiredInterval <= TimeSpan.Zero)
+                return;
+
+            await StartCoreAsync(_desiredInstanceName, desiredInterval).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -319,6 +347,9 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
         try
         {
             if (_disposed) return;
+            _desiredInstanceName = null;
+            _desiredInterval = null;
+            _controlledBenchmarkSuspended = false;
             await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
             _disposed = true;
         }
@@ -327,6 +358,22 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
             _lifecycleGate.Release();
             _lifecycleGate.Dispose();
         }
+    }
+
+    private async Task StartCoreAsync(string instanceName, TimeSpan interval)
+    {
+        if (IsRunning
+            && string.Equals(_instanceName, instanceName, StringComparison.OrdinalIgnoreCase)
+            && _interval == interval)
+            return;
+
+        await StopCoreAsync(resetRunner: true, CancellationToken.None).ConfigureAwait(false);
+
+        _instanceName = instanceName;
+        _interval = interval;
+        var runCancellation = new CancellationTokenSource();
+        _runCancellation = runCancellation;
+        _runTask = _runner.RunAsync(instanceName, interval, Publish, runCancellation.Token);
     }
 
     private void Publish(GuardianLiveSessionStatus status)
