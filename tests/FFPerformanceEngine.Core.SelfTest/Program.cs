@@ -123,6 +123,7 @@ try
     PersistentPcRecommendationCoordinatorSelfTests.Run();
     await PersistentPcRecommendationServiceSelfTests.RunAsync();
     await PersistentPcRecommendationBatchSelfTests.RunAsync();
+    await WindowsCapabilityMetadataDiscoverySelfTests.RunAsync();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
