@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.SystemOptimization;
 
 namespace FFPerformanceEngine.App.Pages;
 
@@ -13,7 +14,12 @@ public partial class OptimizePage : UserControl
     private GameKind _game;
     private CancellationTokenSource? _tuningCts;
     private bool _isRunning;
+    private bool _pcOperationRunning;
     private bool _initializing = true;
+    private PersistentPcOptimizationPreview? _pcPreview;
+    private Guid? _pcRestorePointId;
+
+    private bool IsBusy => _isRunning || _pcOperationRunning;
 
     public OptimizePage()
     {
@@ -27,6 +33,9 @@ public partial class OptimizePage : UserControl
             : GameKind.FreeFireMax;
 
         KeepDeepCheck.IsChecked = App.Services.Settings.KeepDeepAsDefault;
+        PcAnalyzeButton.Click += PcAnalyze_Click;
+        PcApplyButton.Click += PcApply_Click;
+        PcRestoreButton.Click += PcRestore_Click;
         Loaded += OptimizePage_Loaded;
         ApplyChoiceVisuals();
         _initializing = false;
@@ -67,9 +76,157 @@ public partial class OptimizePage : UserControl
         }
     }
 
+    private async void PcAnalyze_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy) return;
+
+        SetPcOperationState(true);
+        PcOptimizationStatusText.Text = "Analisando estado real do Windows";
+        PcOptimizationDetailText.Text = "Atualizando capabilities e construindo o preview a partir do estado atual comprovado.";
+
+        try
+        {
+            var presentation = await RefreshPersistentPcPreviewCoreAsync();
+            PcOptimizationStatusText.Text = presentation.CanApply
+                ? "Preview pronto para revisão"
+                : "Nenhuma alteração persistente elegível";
+            PcOptimizationDetailText.Text = presentation.CanApply
+                ? "Revise cada capability abaixo. Aplicar usa exatamente este preview e revalida tudo antes do primeiro snapshot/mutation."
+                : "O Core manteve todas as capabilities como SKIP. Nenhuma alteração será aplicada até existir recomendação elegível para este PC.";
+        }
+        catch (Exception ex)
+        {
+            ResetPersistentPcPreview();
+            PcOptimizationStatusText.Text = "Não foi possível analisar este PC";
+            PcOptimizationDetailText.Text = ex.Message;
+        }
+        finally
+        {
+            SetPcOperationState(false);
+            RefreshReadiness();
+        }
+    }
+
+    private async void PcApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy || _pcPreview?.CanApply != true) return;
+
+        var preview = _pcPreview;
+        SetPcOperationState(true);
+        PcOptimizationStatusText.Text = "Aplicando preview com proteção transacional";
+        PcOptimizationDetailText.Text = "Aguardando a lease global, revalidando fingerprint/estado e criando restore point antes de qualquer mutation.";
+
+        try
+        {
+            var result = await App.Services.PersistentPcOptimization.ApplyAsync(preview);
+            if (!result.Success)
+                throw new InvalidOperationException(result.Message);
+
+            _pcRestorePointId = result.RestorePointId;
+            PcRestorePointText.Text = $"Restore point: {ShortId(result.RestorePointId)} · disponível para desfazer esta aplicação";
+            PcRestoreButton.Visibility = Visibility.Visible;
+
+            var refreshed = await RefreshPersistentPcPreviewCoreAsync();
+            PcOptimizationStatusText.Text = "Otimização persistente aplicada";
+            PcOptimizationDetailText.Text = refreshed.CanApply
+                ? "A aplicação foi verificada e registrada. O estado mudou novamente durante a atualização do preview; revise antes de qualquer nova aplicação."
+                : "A aplicação foi verificada e registrada no History. O restore point preserva o estado exato anterior.";
+        }
+        catch (PersistentPcOptimizationDriftException ex)
+        {
+            ResetPersistentPcPreview();
+            PcOptimizationStatusText.Text = "Preview ficou desatualizado";
+            PcOptimizationDetailText.Text = $"{ex.Message} Analise este PC novamente antes de aplicar.";
+        }
+        catch (Exception ex)
+        {
+            PcOptimizationStatusText.Text = "Aplicação não concluída";
+            PcOptimizationDetailText.Text = $"{ex.Message} O backend transacional mantém rollback/History como autoridade de recuperação.";
+        }
+        finally
+        {
+            SetPcOperationState(false);
+            RefreshReadiness();
+        }
+    }
+
+    private async void PcRestore_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy || _pcRestorePointId is not Guid restorePointId) return;
+
+        SetPcOperationState(true);
+        PcOptimizationStatusText.Text = "Restaurando estado anterior";
+        PcOptimizationDetailText.Text = "A restauração usa a mesma lease global e o restore point durável criado antes da aplicação.";
+
+        try
+        {
+            var result = await App.Services.PersistentPcOptimization.RestoreAsync(restorePointId);
+            if (!result.Success)
+                throw new InvalidOperationException(result.Message);
+
+            _pcRestorePointId = null;
+            PcRestorePointText.Text = string.Empty;
+            PcRestoreButton.Visibility = Visibility.Collapsed;
+            await RefreshPersistentPcPreviewCoreAsync();
+            PcOptimizationStatusText.Text = "Estado anterior restaurado";
+            PcOptimizationDetailText.Text = "As capabilities do restore point foram verificadas após o rollback. Um novo preview pode ser aplicado somente depois da revalidação atual.";
+        }
+        catch (Exception ex)
+        {
+            PcOptimizationStatusText.Text = "Restauração não concluída";
+            PcOptimizationDetailText.Text = $"{ex.Message} Consulte History para o estado auditado da transação.";
+        }
+        finally
+        {
+            SetPcOperationState(false);
+            RefreshReadiness();
+        }
+    }
+
+    private async Task<PersistentPcOptimizationPresentation> RefreshPersistentPcPreviewCoreAsync()
+    {
+        var preview = await App.Services.PersistentPcOptimization.AnalyzeAsync();
+        _pcPreview = preview;
+
+        var presentation = PersistentPcOptimizationPresentation.Create(preview);
+        PcOptimizationEntries.ItemsSource = presentation.Entries;
+        PcOptimizationEntries.Visibility = presentation.TotalCount > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        PcOptimizationCountsText.Text = $"{presentation.ReadyCount} pronta(s) · {presentation.SkippedCount} ignorada(s) · {presentation.TotalCount} total";
+        PcApplyButton.IsEnabled = presentation.CanApply && !IsBusy;
+        return presentation;
+    }
+
+    private void ResetPersistentPcPreview()
+    {
+        _pcPreview = null;
+        PcOptimizationEntries.ItemsSource = null;
+        PcOptimizationEntries.Visibility = Visibility.Collapsed;
+        PcOptimizationCountsText.Text = "Preview indisponível";
+        PcApplyButton.IsEnabled = false;
+    }
+
+    private void SetPcOperationState(bool running)
+    {
+        _pcOperationRunning = running;
+
+        PcAnalyzeButton.IsEnabled = !running && !_isRunning;
+        PcApplyButton.IsEnabled = !running && !_isRunning && _pcPreview?.CanApply == true;
+        PcRestoreButton.IsEnabled = !running && !_isRunning && _pcRestorePointId.HasValue;
+
+        AdaptiveModeButton.IsEnabled = !running && !_isRunning;
+        DeepModeButton.IsEnabled = !running && !_isRunning;
+        FreeFireButton.IsEnabled = !running && !_isRunning;
+        FreeFireMaxButton.IsEnabled = !running && !_isRunning;
+        InstanceCombo.IsEnabled = !running && !_isRunning;
+        KeepDeepCheck.IsEnabled = !running && !_isRunning;
+        StartButton.IsEnabled = !running && !_isRunning;
+    }
+
     private void AdaptiveMode_Click(object sender, RoutedEventArgs e)
     {
-        if (_isRunning) return;
+        if (IsBusy) return;
         _mode = AutoTunerMode.Adaptive;
         ApplyChoiceVisuals();
         RefreshReadiness();
@@ -77,7 +234,7 @@ public partial class OptimizePage : UserControl
 
     private void DeepMode_Click(object sender, RoutedEventArgs e)
     {
-        if (_isRunning) return;
+        if (IsBusy) return;
         _mode = AutoTunerMode.Deep;
         ApplyChoiceVisuals();
         RefreshReadiness();
@@ -85,7 +242,7 @@ public partial class OptimizePage : UserControl
 
     private void FreeFire_Click(object sender, RoutedEventArgs e)
     {
-        if (_isRunning) return;
+        if (IsBusy) return;
         _game = GameKind.FreeFire;
         ApplyChoiceVisuals();
         RefreshReadiness();
@@ -93,7 +250,7 @@ public partial class OptimizePage : UserControl
 
     private void FreeFireMax_Click(object sender, RoutedEventArgs e)
     {
-        if (_isRunning) return;
+        if (IsBusy) return;
         _game = GameKind.FreeFireMax;
         ApplyChoiceVisuals();
         RefreshReadiness();
@@ -101,13 +258,13 @@ public partial class OptimizePage : UserControl
 
     private void InstanceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_initializing || _isRunning) return;
+        if (_initializing || IsBusy) return;
         RefreshReadiness();
     }
 
     private async void KeepDeepCheck_Changed(object sender, RoutedEventArgs e)
     {
-        if (_initializing || _isRunning) return;
+        if (_initializing || IsBusy) return;
 
         var keepDeep = KeepDeepCheck.IsChecked == true;
         if (keepDeep)
@@ -135,7 +292,7 @@ public partial class OptimizePage : UserControl
 
     private void RefreshReadiness()
     {
-        if (_initializing || _isRunning) return;
+        if (_initializing || IsBusy) return;
 
         var selectedInstance = InstanceCombo.SelectedItem as string;
         OptimizeReadiness readiness;
@@ -163,12 +320,12 @@ public partial class OptimizePage : UserControl
             ? "PresentMon: ausente"
             : "PresentMon: pronto";
         CandidateCountText.Text = $"{readiness.Candidates.Count} candidato(s)";
-        StartButton.IsEnabled = readiness.CanStart;
+        StartButton.IsEnabled = readiness.CanStart && !IsBusy;
     }
 
     private async void Start_Click(object sender, RoutedEventArgs e)
     {
-        if (_isRunning) return;
+        if (IsBusy) return;
 
         var selectedInstance = InstanceCombo.SelectedItem as string;
         var readiness = App.Services.OptimizeWorkflow.Analyze(_game, _mode, selectedInstance);
@@ -234,15 +391,19 @@ public partial class OptimizePage : UserControl
 
     private void SetRunningState(bool running)
     {
-        AdaptiveModeButton.IsEnabled = !running;
-        DeepModeButton.IsEnabled = !running;
-        FreeFireButton.IsEnabled = !running;
-        FreeFireMaxButton.IsEnabled = !running;
-        InstanceCombo.IsEnabled = !running;
-        KeepDeepCheck.IsEnabled = !running;
-        StartButton.IsEnabled = !running;
+        AdaptiveModeButton.IsEnabled = !running && !_pcOperationRunning;
+        DeepModeButton.IsEnabled = !running && !_pcOperationRunning;
+        FreeFireButton.IsEnabled = !running && !_pcOperationRunning;
+        FreeFireMaxButton.IsEnabled = !running && !_pcOperationRunning;
+        InstanceCombo.IsEnabled = !running && !_pcOperationRunning;
+        KeepDeepCheck.IsEnabled = !running && !_pcOperationRunning;
+        StartButton.IsEnabled = !running && !_pcOperationRunning;
         CancelButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
         CancelButton.IsEnabled = running;
+
+        PcAnalyzeButton.IsEnabled = !running && !_pcOperationRunning;
+        PcApplyButton.IsEnabled = !running && !_pcOperationRunning && _pcPreview?.CanApply == true;
+        PcRestoreButton.IsEnabled = !running && !_pcOperationRunning && _pcRestorePointId.HasValue;
     }
 
     private void ApplyProgress(AutoTunerProgressPresentation visual)
@@ -324,6 +485,9 @@ public partial class OptimizePage : UserControl
         button.BorderBrush = (Brush)FindResource(selected ? "AccentBrush" : "GlassBorderBrush");
         button.BorderThickness = new Thickness(1);
     }
+
+    private static string ShortId(Guid value)
+        => value.ToString("N")[..8].ToUpperInvariant();
 
     private static string FormatNumber(double? value, string format)
         => value is double number ? number.ToString(format, System.Globalization.CultureInfo.InvariantCulture) : "—";
