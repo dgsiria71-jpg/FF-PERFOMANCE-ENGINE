@@ -1,3 +1,5 @@
+using FFPerformanceEngine.Core.Models;
+
 namespace FFPerformanceEngine.Core.Diagnostics;
 
 public sealed class WindowsPerformanceCapabilityRegistry
