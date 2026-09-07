@@ -119,6 +119,7 @@ try
     await ProfileChallengeRoundSelfTests.RunAsync();
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
     UniversalDiagnosticFoundationSelfTests.Run();
+    CapabilityRecommendationRegistrySelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
