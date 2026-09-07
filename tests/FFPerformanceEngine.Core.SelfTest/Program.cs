@@ -122,6 +122,7 @@ try
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
     UniversalDiagnosticFoundationSelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
+    await SystemOptimizerAuditFailureSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
