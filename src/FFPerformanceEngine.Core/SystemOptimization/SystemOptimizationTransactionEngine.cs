@@ -185,6 +185,21 @@ public sealed class SystemOptimizationTransactionEngine
             .Select(capability => NormalizeId(capability.CapabilityId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        // A dependency is a runtime precondition, not merely an ordering hint.
+        // The transaction cannot rely on a dependency whose current capability
+        // state has not been proven by discovery. This check is deliberately
+        // performed before any snapshot or Apply.
+        foreach (var dependencyId in dependencyClosureIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!capabilityMap.TryGetValue(dependencyId, out var dependency))
+                throw new InvalidOperationException($"Windows capability graph resolved unknown dependency '{dependencyId}'.");
+            if (dependency.Availability != CapabilityAvailability.Available)
+                throw new InvalidOperationException(
+                    $"Windows performance dependency '{dependencyId}' is {dependency.Availability}; dependent mutations are blocked until discovery proves the dependency Available.");
+        }
+
         EnsureCapabilitiesAreNotOwned(dependencyClosureIds);
 
         var orderedIds = dependencyClosureIds
