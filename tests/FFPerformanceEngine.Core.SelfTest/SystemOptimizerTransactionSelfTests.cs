@@ -8,10 +8,11 @@ internal static class SystemOptimizerTransactionSelfTests
     internal static async Task RunAsync()
     {
         await SessionTransactionAppliesAtomicallyAndRestoresInReverse();
+        await ActiveSessionOwnsCapabilitiesUntilRestore();
         await FailedVerificationRollsBackEveryAppliedMutation();
         await PersistentTransactionSurvivesEngineRecreationAndRestoresFromSnapshot();
         await ScopeAndAvailabilityFailClosedBeforeMutation();
-        Console.WriteLine("PASS Track 2 atomic session/persistent Windows transactions, durable restore, rollback, and History integration");
+        Console.WriteLine("PASS Track 2 atomic session/persistent Windows transactions, capability ownership, durable restore, rollback, and History integration");
     }
 
     private static async Task SessionTransactionAppliesAtomicallyAndRestoresInReverse()
@@ -60,6 +61,54 @@ internal static class SystemOptimizerTransactionSelfTests
             var history = await new HistoryService(Path.Combine(root, "history.json")).LoadAsync();
             Require(history.Count(item => item.Kind == HistoryEventKind.System) >= 2,
                 "Applying and restoring a session transaction must both leave auditable System events in History.");
+        }
+        finally
+        {
+            TryDelete(root);
+        }
+    }
+
+    private static async Task ActiveSessionOwnsCapabilitiesUntilRestore()
+    {
+        var root = TempRoot();
+        try
+        {
+            var state = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["test.base"] = "balanced"
+            };
+            var events = new List<string>();
+            var adapter = new FakeAdapter("test.base", state, events);
+            var engine = Engine(root, Capabilities(), adapter);
+
+            await using var session = await engine.BeginSessionAsync(
+                "active session owner",
+                [new WindowsMutationRequest("test.base", "performance")]);
+            Require(state["test.base"] == "performance",
+                "The first session must hold its applied capability state while active.");
+
+            await RequireThrowsAsync<InvalidOperationException>(() => engine.BeginSessionAsync(
+                "overlapping session",
+                [new WindowsMutationRequest("test.base", "other-session")]));
+            await RequireThrowsAsync<InvalidOperationException>(() => engine.ApplyPersistentAsync(
+                "overlapping persistent",
+                [new WindowsMutationRequest("test.base", "persistent")])) ;
+
+            Require(state["test.base"] == "performance",
+                "Rejected overlapping transactions must not clobber the state owned by the active session.");
+            Require(!events.Contains("apply:test.base:other-session") && !events.Contains("apply:test.base:persistent"),
+                "Capability ownership conflicts must fail before a second mutation reaches Apply.");
+
+            await session.RestoreAsync();
+            Require(state["test.base"] == "balanced",
+                "Restoring the owning session must release its state and return to the original value.");
+
+            await using var next = await engine.BeginSessionAsync(
+                "ownership released",
+                [new WindowsMutationRequest("test.base", "other-session")]);
+            Require(state["test.base"] == "other-session",
+                "The same capability must become available again after the owning session restores.");
+            await next.RestoreAsync();
         }
         finally
         {
