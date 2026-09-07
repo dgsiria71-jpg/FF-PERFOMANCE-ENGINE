@@ -25,12 +25,28 @@ public sealed record CapabilityRecommendationPublicationResult
     public bool IsPublished => Disposition == CapabilityRecommendationPublicationDisposition.Published;
 }
 
+public sealed record PersistentPcRecommendationCandidate(
+    string CapabilityId,
+    string TargetValue,
+    CapabilityRecommendationSummary Recommendation);
+
+public sealed record PersistentPcRecommendationBatchResult
+{
+    public bool IsPublished { get; init; }
+    public string MachineFingerprintId { get; init; } = string.Empty;
+    public string Reason { get; init; } = string.Empty;
+    public IReadOnlyList<CapabilityRecommendationPublicationResult> Results { get; init; }
+        = Array.Empty<CapabilityRecommendationPublicationResult>();
+}
+
 /// <summary>
 /// Sole automatic publication gate for recommendations consumed by the
 /// persistent "Otimizar este PC" planner. It never chooses a value and never
 /// mutates Windows. It only proves that an externally produced diagnostic or
 /// evidence candidate belongs to the current machine and can be represented by
 /// a concrete persistent mutation adapter before publishing it to the registry.
+/// Batch publication validates the complete set first so a rejected candidate
+/// cannot leave a mixed old/new recommendation state behind.
 /// </summary>
 public sealed class PersistentPcRecommendationCoordinator
 {
@@ -58,6 +74,75 @@ public sealed class PersistentPcRecommendationCoordinator
     }
 
     public CapabilityRecommendationPublicationResult Publish(
+        MachineContext machine,
+        string capabilityId,
+        string targetValue,
+        CapabilityRecommendationSummary recommendation)
+    {
+        var result = Evaluate(machine, capabilityId, targetValue, recommendation);
+        if (result.IsPublished)
+            _registry.UpdateRecommendation(result.CapabilityId, targetValue, recommendation);
+        return result;
+    }
+
+    public PersistentPcRecommendationBatchResult PublishBatch(
+        MachineContext machine,
+        IReadOnlyList<PersistentPcRecommendationCandidate> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+        ArgumentNullException.ThrowIfNull(candidates);
+        if (candidates.Count == 0)
+            throw new ArgumentException("A recommendation batch requires at least one candidate.", nameof(candidates));
+
+        EnsureUniqueCandidates(candidates);
+
+        var evaluations = new CapabilityRecommendationPublicationResult[candidates.Count];
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var candidate = candidates[index]
+                ?? throw new ArgumentException("Recommendation batches cannot contain null candidates.", nameof(candidates));
+            ArgumentNullException.ThrowIfNull(candidate.Recommendation);
+            evaluations[index] = Evaluate(
+                machine,
+                candidate.CapabilityId,
+                candidate.TargetValue,
+                candidate.Recommendation);
+        }
+
+        var rejected = evaluations.FirstOrDefault(result => !result.IsPublished);
+        if (rejected is not null)
+        {
+            return new PersistentPcRecommendationBatchResult
+            {
+                IsPublished = false,
+                MachineFingerprintId = machine.Fingerprint.Id,
+                Reason = $"Batch rejected before publication: {rejected.CapabilityId} · {rejected.Reason}",
+                Results = evaluations
+            };
+        }
+
+        // All gates have passed before the first registry write. UpdateRecommendation
+        // repeats its own structural validation, preserving the registry as the final
+        // descriptor authority without re-running Windows mutation logic.
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            var candidate = candidates[index];
+            _registry.UpdateRecommendation(
+                evaluations[index].CapabilityId,
+                candidate.TargetValue,
+                candidate.Recommendation);
+        }
+
+        return new PersistentPcRecommendationBatchResult
+        {
+            IsPublished = true,
+            MachineFingerprintId = machine.Fingerprint.Id,
+            Reason = $"Published {candidates.Count} persistent recommendation candidate(s) atomically after all gates passed.",
+            Results = evaluations
+        };
+    }
+
+    private CapabilityRecommendationPublicationResult Evaluate(
         MachineContext machine,
         string capabilityId,
         string targetValue,
@@ -125,13 +210,27 @@ public sealed class PersistentPcRecommendationCoordinator
             return Reject(CapabilityRecommendationPublicationDisposition.TargetRejected, id,
                 $"Concrete adapter rejected target '{targetValue}': {validation.Message}");
 
-        _registry.UpdateRecommendation(id, targetValue, recommendation);
         return new CapabilityRecommendationPublicationResult
         {
             Disposition = CapabilityRecommendationPublicationDisposition.Published,
             CapabilityId = id,
             Reason = "Recommendation passed persistent machine, provenance, confidence and adapter validation gates."
         };
+    }
+
+    private static void EnsureUniqueCandidates(IReadOnlyList<PersistentPcRecommendationCandidate> candidates)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in candidates)
+        {
+            if (candidate is null)
+                throw new ArgumentException("Recommendation batches cannot contain null candidates.", nameof(candidates));
+            var id = NormalizeId(candidate.CapabilityId);
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Every recommendation candidate requires a capability identity.", nameof(candidates));
+            if (!seen.Add(id))
+                throw new ArgumentException($"Duplicate recommendation capability '{id}' in the same batch.", nameof(candidates));
+        }
     }
 
     private static bool IsAutomaticSource(CapabilityRecommendationSource source)
