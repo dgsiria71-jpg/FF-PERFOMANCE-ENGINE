@@ -123,6 +123,7 @@ try
     UniversalDiagnosticFoundationSelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
+    await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
 finally
