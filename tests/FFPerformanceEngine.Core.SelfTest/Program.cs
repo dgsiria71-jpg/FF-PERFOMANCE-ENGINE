@@ -122,6 +122,7 @@ try
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
+    await SystemOptimizerExpectedStateSelfTests.RunAsync();
     PersistentPcOptimizationPlannerSelfTests.Run();
     await PersistentPcOptimizationServiceSelfTests.RunAsync();
     await WindowsPowerPolicyMutationAdapterSelfTests.RunAsync();
