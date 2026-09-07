@@ -7,7 +7,8 @@ namespace FFPerformanceEngine.Core.SystemOptimization;
 /// Resolves runtime availability/current state for the Track 1 Windows
 /// capability catalog using only concrete mutation adapters that can prove
 /// their state against the running OS. Descriptor metadata remains owned by
-/// <see cref="WindowsPerformanceCapabilityRegistry"/>.
+/// <see cref="WindowsPerformanceCapabilityRegistry"/>. Optional adapter target
+/// metadata describes supported candidate space only; it never recommends one.
 /// </summary>
 public sealed class WindowsPerformanceCapabilityDiscoveryService
 {
@@ -36,6 +37,14 @@ public sealed class WindowsPerformanceCapabilityDiscoveryService
                     CapabilityAvailability.Unknown,
                     currentValue: null);
                 continue;
+            }
+
+            if (adapter is IWindowsCapabilityMetadataProvider metadata)
+            {
+                _capabilities.UpdateRuntimeMetadata(
+                    capability.CapabilityId,
+                    metadata.ValueSchema,
+                    metadata.AvailableValues);
             }
 
             WindowsCapabilityReadResult read;
