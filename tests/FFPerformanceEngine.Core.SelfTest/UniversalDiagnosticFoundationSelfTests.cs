@@ -48,7 +48,7 @@ internal static class UniversalDiagnosticFoundationSelfTests
         var dependencies = AsStrings(Read<object>(boost, "Dependencies"));
         Require(dependencies.Contains("windows.power.active_policy", StringComparer.OrdinalIgnoreCase),
             "CPU boost policy must explicitly depend on the active power policy in the capability graph.");
-        var plan = Invoke(registryType, registry, "ResolvePlan", new[] { "windows.cpu.boost_policy" })!;
+        var plan = Invoke(registryType, registry, "ResolvePlan", (object)new[] { "windows.cpu.boost_policy" })!;
         Require(Read<bool>(plan, "IsValid"), "A known capability and its dependencies must resolve to a valid plan.");
         var ordered = AsObjects(Read<object>(plan, "OrderedCapabilities"))
             .Select(item => Read<string>(item, "CapabilityId")).ToArray();
@@ -110,7 +110,7 @@ internal static class UniversalDiagnosticFoundationSelfTests
         var baseCapability = NewCapability(capabilityType, "test.base");
         var conflict = NewCapability(capabilityType, "test.conflict");
         var customRegistry = NewRegistry(registryType, capabilityType, left, baseCapability, conflict);
-        var conflictPlan = Invoke(registryType, customRegistry, "ResolvePlan", new[] { "test.left", "test.conflict" })!;
+        var conflictPlan = Invoke(registryType, customRegistry, "ResolvePlan", (object)new[] { "test.left", "test.conflict" })!;
         Require(!Read<bool>(conflictPlan, "IsValid") && AsObjects(Read<object>(conflictPlan, "Issues")).Count > 0,
             "Capability planning must fail closed when selected capabilities conflict.");
 
