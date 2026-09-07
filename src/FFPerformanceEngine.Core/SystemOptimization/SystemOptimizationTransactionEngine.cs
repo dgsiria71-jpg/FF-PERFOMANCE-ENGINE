@@ -238,40 +238,55 @@ public sealed class SystemOptimizationTransactionEngine
                 if (!verified)
                     throw new InvalidOperationException($"Windows capability '{entry.Request.CapabilityId}' did not verify the requested state after apply.");
             }
+
+            // Audit persistence is part of the transaction boundary. If the caller cannot
+            // receive a durable "applied" record, a session handle must not be returned
+            // while the external Windows state remains changed.
+            await AppendHistoryAsync(
+                prepared.Envelope,
+                prepared.RestorePointId,
+                "applied",
+                $"System optimization '{prepared.Label}' applied and verified as a {prepared.Scope} transaction.",
+                CancellationToken.None).ConfigureAwait(false);
+            return;
         }
         catch (Exception exception)
         {
             primaryFailure = exception;
         }
 
-        if (primaryFailure is not null)
+        var rollbackFailures = await RollbackPreparedAsync(applied).ConfigureAwait(false);
+        Exception? rollbackAuditFailure = null;
+        try
         {
-            var rollbackFailures = await RollbackPreparedAsync(applied).ConfigureAwait(false);
             await AppendHistoryAsync(
                 prepared.Envelope,
                 prepared.RestorePointId,
                 rollbackFailures.Count == 0 ? "rollback" : "rollback-incomplete",
                 rollbackFailures.Count == 0
-                    ? $"Rollback completed after system optimization apply/verification failure: {primaryFailure.Message}"
+                    ? $"Rollback completed after system optimization failure: {primaryFailure.Message}"
                     : $"Rollback incomplete after system optimization failure: {primaryFailure.Message}",
                 CancellationToken.None).ConfigureAwait(false);
-
-            if (rollbackFailures.Count > 0)
-            {
-                var all = new List<Exception> { primaryFailure };
-                all.AddRange(rollbackFailures);
-                throw new AggregateException("System optimization failed and rollback was incomplete.", all);
-            }
-
-            ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+        }
+        catch (Exception exception)
+        {
+            rollbackAuditFailure = exception;
         }
 
-        await AppendHistoryAsync(
-            prepared.Envelope,
-            prepared.RestorePointId,
-            "applied",
-            $"System optimization '{prepared.Label}' applied and verified as a {prepared.Scope} transaction.",
-            CancellationToken.None).ConfigureAwait(false);
+        if (rollbackFailures.Count > 0 || rollbackAuditFailure is not null)
+        {
+            var all = new List<Exception> { primaryFailure };
+            all.AddRange(rollbackFailures);
+            if (rollbackAuditFailure is not null)
+                all.Add(new InvalidOperationException("System optimization rollback completed or was attempted, but its History event could not be persisted.", rollbackAuditFailure));
+            throw new AggregateException(
+                rollbackFailures.Count > 0
+                    ? "System optimization failed and rollback was incomplete."
+                    : "System optimization failed, state was rolled back, but rollback audit persistence also failed.",
+                all);
+        }
+
+        ExceptionDispatchInfo.Capture(primaryFailure).Throw();
     }
 
     private void EnsureCapabilitiesAreNotOwned(IEnumerable<string> capabilityIds)
