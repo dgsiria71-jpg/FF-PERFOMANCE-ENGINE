@@ -33,6 +33,21 @@ public sealed class WindowsPerformanceCapabilityRegistry
             .Select(capability => capability.CloneDescriptor())
             .ToArray();
 
+    public void UpdateRuntimeState(
+        string capabilityId,
+        CapabilityAvailability availability,
+        string? currentValue)
+    {
+        var id = NormalizeId(capabilityId);
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A capability identity is required.", nameof(capabilityId));
+        if (!_capabilities.TryGetValue(id, out var capability))
+            throw new KeyNotFoundException($"Unknown Windows performance capability '{id}'.");
+
+        capability.Availability = availability;
+        capability.CurrentValue = availability == CapabilityAvailability.Available ? currentValue : null;
+    }
+
     public IReadOnlyList<CapabilityGraphIssue> ValidateGraph()
     {
         var issues = new List<CapabilityGraphIssue>();
