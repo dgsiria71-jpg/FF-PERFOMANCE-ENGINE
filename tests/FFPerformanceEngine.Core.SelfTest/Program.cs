@@ -129,6 +129,7 @@ try
     PersistentPcOptimizationPlannerSelfTests.Run();
     PersistentPcOptimizationPresentationSelfTests.Run();
     await PersistentPcOptimizationServiceSelfTests.RunAsync();
+    await PersistentPcOptimizationLeaseSelfTests.RunAsync();
     await WindowsPowerPolicyMutationAdapterSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
 }
