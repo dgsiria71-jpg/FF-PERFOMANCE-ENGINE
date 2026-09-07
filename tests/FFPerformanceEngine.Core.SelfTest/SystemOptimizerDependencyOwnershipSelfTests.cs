@@ -55,7 +55,31 @@ internal static class SystemOptimizerDependencyOwnershipSelfTests
                 "Dependency ownership must be released after the dependent session restores.");
             await baseSession.RestoreAsync();
 
-            Console.WriteLine("PASS Track 2 active sessions reserve the full capability dependency closure");
+            // A dependency is more than an ordering hint. If the dependency's
+            // runtime state is unknown/unavailable, the dependent transaction
+            // must fail before snapshot/apply even when only the child is being
+            // mutated. Otherwise the Capability Graph could be silently bypassed.
+            var unavailableBaseRegistry = new WindowsPerformanceCapabilityRegistry(
+            [
+                Capability("test.base", availability: CapabilityAvailability.Unavailable),
+                Capability("test.child", ["test.base"])
+            ]);
+            var unavailableBaseEngine = new SystemOptimizationTransactionEngine(
+                unavailableBaseRegistry,
+                new WindowsCapabilityMutationAdapterRegistry([baseAdapter, childAdapter]),
+                new SnapshotService(Path.Combine(root, "snapshots-unavailable.json")),
+                new HistoryService(Path.Combine(root, "history-unavailable.json")));
+
+            var eventCountBeforeUnavailableDependency = events.Count;
+            await RequireThrowsAsync<InvalidOperationException>(() => unavailableBaseEngine.BeginSessionAsync(
+                "unavailable dependency must block child",
+                [new WindowsMutationRequest("test.child", "child-should-not-apply")]));
+            Require(events.Count == eventCountBeforeUnavailableDependency,
+                "A dependent transaction must fail before any adapter Apply when one dependency is not Available.");
+            Require(state["test.child"] == "child-old",
+                "Unavailable dependency rejection must preserve the dependent capability's original state.");
+
+            Console.WriteLine("PASS Track 2 active sessions reserve and validate the full capability dependency closure");
         }
         finally
         {
@@ -63,14 +87,17 @@ internal static class SystemOptimizerDependencyOwnershipSelfTests
         }
     }
 
-    private static WindowsPerformanceCapability Capability(string id, IReadOnlyList<string>? dependencies = null)
+    private static WindowsPerformanceCapability Capability(
+        string id,
+        IReadOnlyList<string>? dependencies = null,
+        CapabilityAvailability availability = CapabilityAvailability.Available)
         => new()
         {
             CapabilityId = id,
             Name = id,
             Description = "dependency ownership self-test",
             Domain = CapabilityDomain.System,
-            Availability = CapabilityAvailability.Available,
+            Availability = availability,
             PersistenceScope = CapabilityPersistenceScope.PersistentAllowed,
             Safety = ActionSafety.LiveSafe,
             RiskLevel = CapabilityRiskLevel.Safe,
