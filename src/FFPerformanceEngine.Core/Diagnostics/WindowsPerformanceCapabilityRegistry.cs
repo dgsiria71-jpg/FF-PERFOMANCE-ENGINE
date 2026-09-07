@@ -21,7 +21,7 @@ public sealed class WindowsPerformanceCapabilityRegistry
                 throw new ArgumentException("Every Windows performance capability requires a non-empty CapabilityId.", nameof(capabilities));
             if (_capabilities.ContainsKey(id))
                 throw new ArgumentException($"Duplicate Windows performance capability '{id}'.", nameof(capabilities));
-            _capabilities.Add(id, capability.CloneDescriptor() withId(id));
+            _capabilities.Add(id, capability.CloneDescriptor().WithId(id));
         }
     }
 
@@ -225,7 +225,7 @@ public sealed class WindowsPerformanceCapabilityRegistry
 
 internal static class WindowsPerformanceCapabilityCloneExtensions
 {
-    internal static WindowsPerformanceCapability withId(this WindowsPerformanceCapability capability, string id)
+    internal static WindowsPerformanceCapability WithId(this WindowsPerformanceCapability capability, string id)
     {
         capability.CapabilityId = id;
         return capability;
