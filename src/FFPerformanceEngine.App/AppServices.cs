@@ -1,3 +1,4 @@
+using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 
@@ -21,6 +22,11 @@ public sealed class AppServices : IAsyncDisposable
     public PerformanceTimelineBuffer PerformanceTimeline { get; } = new(capacity: 3600);
     public PerformanceComparisonSession PerformanceComparison { get; }
     public EnvironmentProbe Environment { get; }
+    public HardwareDiscoveryService HardwareDiscovery { get; }
+    public WindowsPerformanceCapabilityRegistry WindowsCapabilities { get; }
+    public MachineContextService MachineContext { get; }
+    public UniversalBottleneckAnalyzer BottleneckAnalyzer { get; }
+    public UniversalDiagnosticService Diagnostics { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public ProfileChallengeService ProfileChallenges { get; }
@@ -45,6 +51,16 @@ public sealed class AppServices : IAsyncDisposable
     public AppServices()
     {
         Environment = new EnvironmentProbe(BlueStacks);
+
+        // Track 1 is a universal bridge over the existing EnvironmentSnapshot,
+        // not a second machine model. Every higher-level subsystem shares these
+        // exact discovery, capability, fingerprint and bottleneck services.
+        HardwareDiscovery = new HardwareDiscoveryService();
+        WindowsCapabilities = new WindowsPerformanceCapabilityRegistry();
+        MachineContext = new MachineContextService(HardwareDiscovery, WindowsCapabilities);
+        BottleneckAnalyzer = new UniversalBottleneckAnalyzer();
+        Diagnostics = new UniversalDiagnosticService(MachineContext, BottleneckAnalyzer);
+
         BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         ProfileChallenges = new ProfileChallengeService(Profiles, History);
@@ -114,6 +130,14 @@ public sealed class AppServices : IAsyncDisposable
     }
 
     public EnvironmentSnapshot CaptureEnvironment() => Environment.Capture();
+
+    public MachineContext CaptureMachineContext()
+        => MachineContext.Capture(Environment.Capture());
+
+    public UniversalDiagnosticSnapshot AnalyzeCurrentMachine(
+        TelemetrySample sample,
+        BottleneckAnalysisContext context)
+        => Diagnostics.Analyze(Environment.Capture(), sample, context);
 
     public async ValueTask DisposeAsync()
     {
