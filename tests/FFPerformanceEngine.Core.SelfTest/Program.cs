@@ -128,6 +128,7 @@ try
     WindowsCapabilityCandidatePlannerSelfTests.Run();
     await WindowsCapabilityControlledBenchmarkSelfTests.RunAsync();
     await GuardianBoundWindowsBenchmarkProbeSelfTests.RunAsync();
+    await WindowsCapabilityPerformanceCostMapSelfTests.RunAsync();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
