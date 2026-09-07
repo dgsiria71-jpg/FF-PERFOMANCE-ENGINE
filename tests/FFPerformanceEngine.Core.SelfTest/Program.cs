@@ -124,6 +124,7 @@ try
     await PersistentPcRecommendationServiceSelfTests.RunAsync();
     await PersistentPcRecommendationBatchSelfTests.RunAsync();
     await WindowsCapabilityMetadataDiscoverySelfTests.RunAsync();
+    WindowsCapabilityCandidatePlannerSelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
