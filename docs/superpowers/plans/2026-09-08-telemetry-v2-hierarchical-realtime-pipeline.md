@@ -4,7 +4,7 @@
 
 **Goal:** Extend the GREEN Track 4 realtime foundation into a truthful 1 s → 10 s bounded session pipeline and compose one shared application authority without creating another telemetry engine.
 
-**Architecture:** Keep raw point observations in `TelemetryFrameRingBuffer` and keep the existing `TelemetryFrameAggregator` as the only metric math authority. Add an explicit hierarchical aggregation path for child aggregates whose `TelemetryFrame.Timestamp` is the child-window end; this avoids half-open boundary loss and accounts for missing child windows in aggregate coverage. Then add a pure-Core `TelemetryRealtimePipeline` that owns bounded raw, 1-second and current-session 10-second stores, with explicit finalization calls and no hidden timers/background capture. AppServices composes exactly one shared instance and exposes explicit collector-ingress helpers; `InitializeAsync()` still starts no telemetry/game/process discovery.
+**Architecture:** Keep raw point observations in private `TelemetryFrameRingBuffer` stores and keep the existing `TelemetryFrameAggregator` as the only metric math authority. Add an explicit hierarchical aggregation path for child aggregates whose `TelemetryFrame.Timestamp` is the child-window end; this avoids half-open boundary loss and accounts for missing child windows in aggregate coverage. Then add a pure-Core `TelemetryRealtimePipeline` as the sole mutation/finalization authority over bounded raw, 1-second and current-session 10-second stores, exposing only counts and defensive snapshots. AppServices composes exactly one shared instance and exposes explicit collector-ingress helpers; `InitializeAsync()` still starts no telemetry/game/process discovery.
 
 **Tech Stack:** C#/.NET 8 Core, WPF App composition, current Track 4 telemetry contracts, ModuleInitializer self-tests, Windows GitHub Actions CI.
 
@@ -18,6 +18,7 @@
 - No timer/background worker is started by `TelemetryRealtimePipeline` or `AppServices.InitializeAsync()`.
 - Missing metrics remain absent; a missing child aggregate window degrades aggregate coverage rather than becoming zero.
 - Repeated/out-of-order bucket finalization must not double-weight evidence.
+- Internal ring buffers are not exposed as mutable public authorities; callers get counts and defensive snapshots only.
 - Every Core production behavior receives an observed RED before implementation and a fresh full Windows CI GREEN on the exact SHA.
 
 ---
@@ -69,20 +70,25 @@ Contract:
 **Produces:**
 
 ```csharp
-public sealed record TelemetrySessionAggregateSnapshot(
-    DateTimeOffset StartedAt,
-    DateTimeOffset EndedAt,
-    IReadOnlyList<TelemetryFrame> TenSecondAggregates);
+public sealed record TelemetrySessionAggregateSnapshot
+{
+    public DateTimeOffset StartedAt { get; }
+    public DateTimeOffset EndedAt { get; }
+    public IReadOnlyList<TelemetryFrame> TenSecondAggregates { get; }
+}
 
 public sealed class TelemetryRealtimePipeline
 {
     public TelemetryRealtimePipeline(int rawCapacity, int oneSecondCapacity, int sessionTenSecondCapacity);
-    public TelemetryFrameRingBuffer RawFrames { get; }
-    public TelemetryFrameRingBuffer OneSecondAggregates { get; }
-    public TelemetryFrameRingBuffer SessionTenSecondAggregates { get; }
+    public int RawFrameCount { get; }
+    public int OneSecondAggregateCount { get; }
+    public int SessionTenSecondAggregateCount { get; }
     public bool HasActiveSession { get; }
     public DateTimeOffset? ActiveSessionStartedAt { get; }
 
+    public IReadOnlyList<TelemetryFrame> SnapshotRawFrames();
+    public IReadOnlyList<TelemetryFrame> SnapshotOneSecondAggregates();
+    public IReadOnlyList<TelemetryFrame> SnapshotSessionTenSecondAggregates();
     public void AppendRaw(TelemetryFrame frame);
     public TelemetryFrame FinalizeOneSecond(DateTimeOffset startInclusive);
     public void BeginSession(DateTimeOffset startedAt);
@@ -95,17 +101,18 @@ Contract:
 
 - capacities must be positive and remain count bounds, not retention-duration promises;
 - all mutation/finalization state is lock-protected;
+- internal `TelemetryFrameRingBuffer` instances are private; external snapshots are detached/read-only so callers cannot append/clear around the pipeline cursor rules;
 - `AppendRaw` rejects data older than the end of the last finalized 1-second window; a frame exactly at that end belongs to the next window and remains valid;
 - one-second finalization may advance with gaps but cannot overlap/repeat an already finalized window;
 - one-second outputs are appended even when empty, preserving an explicit finalized bucket boundary without inventing numeric metrics;
-- session start is explicit; a second `BeginSession` while active is rejected;
+- session start is explicit; a second `BeginSession` while active is rejected, and a new session cannot begin inside a one-second window already finalized in the past;
 - 10-second finalization requires an active session, cannot precede session start, cannot overlap/repeat, and cannot finalize beyond the latest finalized 1-second end;
-- 10-second output uses `AggregateChildWindows(..., childWindow: 1 second, OneSecondAggregates.Snapshot())`;
-- `CompleteSession` requires an active session and `endedAt >= session start`; it returns a defensive, timestamp-ordered snapshot of current-session 10-second aggregates and marks the session inactive;
+- 10-second output uses `AggregateChildWindows(..., childWindow: 1 second, oneSecondStore.Snapshot())`;
+- `CompleteSession` requires an active session, `endedAt >= session start`, and cannot end before the latest finalized 10-second aggregate; it returns a defensive, timestamp-ordered snapshot and marks the session inactive;
 - starting a new session clears only the session 10-second store and its 10-second finalization cursor; raw and 1-second evidence remain bounded rolling stores;
 - no filesystem, timer, thread or collector dependency.
 
-- [ ] Write RED self-test for capacity validation, raw ingress, late-data rejection, 1-second exact-once behavior/gaps, explicit empty buckets, session lifecycle, 10-second prerequisites, hierarchical 10-second value/coverage, defensive completion snapshot and new-session isolation.
+- [ ] Write RED self-test for capacity validation, read-only store exposure, raw ingress, late-data rejection, 1-second exact-once behavior/gaps, explicit empty buckets, session lifecycle, 10-second prerequisites, hierarchical 10-second value/coverage, defensive completion snapshot and new-session isolation.
 - [ ] Commit RED and observe intended missing-type failures only.
 - [ ] Implement the minimal pure-Core pipeline using the already-GREEN ring buffers and aggregator.
 - [ ] Require fresh full Windows CI GREEN.
