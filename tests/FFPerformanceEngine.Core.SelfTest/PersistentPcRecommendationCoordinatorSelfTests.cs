@@ -47,6 +47,14 @@ internal static class PersistentPcRecommendationCoordinatorSelfTests
         Require(manual.Disposition == CapabilityRecommendationPublicationDisposition.UnsupportedSource,
             "Automatic persistent recommendation authority must reject Manual/Expert provenance.");
 
+        var controlledButNotValidated = coordinator.Publish(
+            machine,
+            capabilityId,
+            "safe-target",
+            Recommendation(CapabilityRecommendationSource.ControlledEvidence, 0.99, "machine-a", DateTimeOffset.UtcNow));
+        Require(controlledButNotValidated.Disposition == CapabilityRecommendationPublicationDisposition.UnsupportedSource,
+            "ControlledEvidence must not bypass the explicit PendingValidation/fresh-challenge path into persistent recommendations.");
+
         var lowConfidence = coordinator.Publish(
             machine,
             capabilityId,
@@ -59,9 +67,9 @@ internal static class PersistentPcRecommendationCoordinatorSelfTests
             machine,
             capabilityId,
             "safe-target",
-            Recommendation(CapabilityRecommendationSource.ControlledEvidence, 0.95, "machine-b", DateTimeOffset.UtcNow));
+            Recommendation(CapabilityRecommendationSource.ValidatedEvidence, 0.95, "machine-b", DateTimeOffset.UtcNow));
         Require(wrongMachine.Disposition == CapabilityRecommendationPublicationDisposition.EnvironmentMismatch,
-            "A recommendation produced for another machine fingerprint must not publish.");
+            "A validated recommendation produced for another machine fingerprint must not publish.");
 
         var sessionOnly = coordinator.Publish(
             machine,
@@ -109,7 +117,7 @@ internal static class PersistentPcRecommendationCoordinatorSelfTests
                 && Math.Abs(afterRejected.Recommendation.Confidence - 0.94) < 0.0001,
             "Rejected coordinator candidates must preserve the last valid recommendation atomically.");
 
-        Console.WriteLine("PASS Track 2 persistent PC recommendation coordinator machine/provenance/confidence/adapter gate");
+        Console.WriteLine("PASS Track 2 persistent PC recommendation coordinator machine/provenance/confidence/adapter/validation-source gate");
     }
 
     private static WindowsPerformanceCapability CreateCapability(
