@@ -150,6 +150,7 @@ try
     PerformanceTimelineEventRecorderSelfTests.Run();
     await GameDiscoveryFoundationSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
+    TelemetryFrameRingBufferSelfTests.Run();
 }
 finally
 {

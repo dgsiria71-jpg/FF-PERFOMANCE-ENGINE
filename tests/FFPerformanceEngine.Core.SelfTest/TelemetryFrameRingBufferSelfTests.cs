@@ -1,11 +1,9 @@
-using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Telemetry;
 
 internal static class TelemetryFrameRingBufferSelfTests
 {
     private static string _stage = "not-started";
 
-    [ModuleInitializer]
     internal static void Run()
     {
         try
@@ -97,6 +95,9 @@ internal static class TelemetryFrameRingBufferSelfTests
         Require(windowed.Count == 0 && windowed.Snapshot().Count == 0,
             "Clear must remove every retained frame.");
 
+        // This stress section intentionally runs from Program after CLR module
+        // initialization has completed. Running Parallel.For from a ModuleInitializer
+        // can deadlock when worker threads wait for the same module initialization.
         _stage = "concurrent-bounded-stress";
         const int capacity = 64;
         var concurrent = new TelemetryFrameRingBuffer(capacity);
