@@ -31,6 +31,10 @@ public sealed class AppServices : IAsyncDisposable
     public WindowsCapabilityPerformanceCostMapService WindowsCapabilityCostMap { get; }
     public WindowsCapabilityEvidenceEvaluationService WindowsCapabilityEvidenceEvaluator { get; }
     public WindowsCapabilityValidationGate WindowsCapabilityValidationGate { get; }
+    public WindowsCapabilityValidatedEvidenceStore WindowsCapabilityValidatedEvidence { get; }
+    public WindowsCapabilityValidationChallengeService WindowsCapabilityValidationChallenge { get; }
+    public WindowsCapabilityValidationWorkflowService WindowsCapabilityValidationWorkflow { get; }
+    public WindowsCapabilityValidatedRecommendationService WindowsCapabilityValidatedRecommendations { get; }
     public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
     public PersistentPcOptimizationPlanner PersistentPcPlanner { get; }
@@ -91,6 +95,7 @@ public sealed class AppServices : IAsyncDisposable
         WindowsCapabilityEvidenceEvaluator = new WindowsCapabilityEvidenceEvaluationService(
             WindowsCapabilityCostMap);
         WindowsCapabilityValidationGate = new WindowsCapabilityValidationGate();
+        WindowsCapabilityValidatedEvidence = new WindowsCapabilityValidatedEvidenceStore();
         SystemOptimizer = new SystemOptimizationTransactionEngine(
             WindowsCapabilities,
             WindowsMutationAdapters,
@@ -180,6 +185,32 @@ public sealed class AppServices : IAsyncDisposable
             WindowsCapabilityEvidenceEvaluator,
             WindowsCapabilityValidationGate);
 
+        // Explicit validation is a separate stage after repeated beneficial A/B.
+        // The fresh challenge reuses the experiment coordinator, then the workflow
+        // makes the result durable before exposing ValidatedEvidence. Only the
+        // validated recommendation bridge may translate that durable evidence into
+        // a persistent recommendation, and it rechecks the same tuple immediately
+        // before the recommendation service performs its own fresh discovery.
+        WindowsCapabilityValidationChallenge = new WindowsCapabilityValidationChallengeService(
+            (capabilityId, cancellationToken) => WindowsCapabilityExperiments.PlanAsync(capabilityId, cancellationToken),
+            (candidate, cancellationToken) => WindowsCapabilityExperiments.RunAsync(candidate, cancellationToken),
+            () => CaptureMachineContext().Fingerprint.Id,
+            CaptureWindowsBenchmarkWorkloadKey);
+        WindowsCapabilityValidationWorkflow = new WindowsCapabilityValidationWorkflowService(
+            WindowsCapabilityValidationChallenge,
+            WindowsCapabilityValidatedEvidence);
+        WindowsCapabilityValidatedRecommendations = new WindowsCapabilityValidatedRecommendationService(
+            WindowsCapabilityValidatedEvidence,
+            (capabilityId, cancellationToken) => WindowsCapabilityExperiments.PlanAsync(capabilityId, cancellationToken),
+            () => CaptureMachineContext().Fingerprint.Id,
+            CaptureWindowsBenchmarkWorkloadKey,
+            (capabilityId, targetValue, recommendation, cancellationToken) =>
+                PersistentPcRecommendations.PublishAsync(
+                    capabilityId,
+                    targetValue,
+                    recommendation,
+                    cancellationToken));
+
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
         ProfileChallengeRounds = new ProfileChallengeRoundService(
             Profiles,
@@ -236,6 +267,20 @@ public sealed class AppServices : IAsyncDisposable
         WindowsCapabilityCandidate candidate,
         CancellationToken cancellationToken = default)
         => WindowsCapabilityExperiments.RunAsync(candidate, cancellationToken);
+
+    public Task<WindowsCapabilityValidatedEvidence> ValidateWindowsCapabilityEvidenceAsync(
+        WindowsCapabilityValidationDecision pending,
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityValidationWorkflow.ValidateAndPersistAsync(pending, cancellationToken);
+
+    public Task<IReadOnlyList<WindowsCapabilityValidatedEvidence>> LoadValidatedWindowsCapabilityEvidenceAsync(
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityValidatedEvidence.LoadAsync(cancellationToken);
+
+    public Task<CapabilityRecommendationPublicationResult> PublishValidatedWindowsCapabilityRecommendationAsync(
+        WindowsCapabilityValidatedEvidence evidence,
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityValidatedRecommendations.PublishAsync(evidence, cancellationToken);
 
     public Task<CapabilityRecommendationPublicationResult> PublishPersistentRecommendationAsync(
         string capabilityId,
