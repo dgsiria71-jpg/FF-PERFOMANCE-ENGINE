@@ -47,6 +47,7 @@ public sealed class AppServices : IAsyncDisposable
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public BlueStacksInstalledGameDiscoverySource BlueStacksGameDiscovery { get; }
     public SteamGameDiscoverySource SteamGameDiscovery { get; }
+    public EpicGameDiscoverySource EpicGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -136,10 +137,12 @@ public sealed class AppServices : IAsyncDisposable
             BlueStacks,
             BlueStacksAutomation);
         SteamGameDiscovery = new SteamGameDiscoverySource();
+        EpicGameDiscovery = new EpicGameDiscoverySource();
         GameCatalog = new LocalGameCatalogService(
         [
             BlueStacksGameDiscovery,
-            SteamGameDiscovery
+            SteamGameDiscovery,
+            EpicGameDiscovery
         ]);
         GameAdapters = new GameAdapterResolver(
         [
