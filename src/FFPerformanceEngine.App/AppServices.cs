@@ -22,6 +22,8 @@ public sealed class AppServices : IAsyncDisposable
     public TelemetryService Telemetry { get; } = new();
     public PresentMonService PresentMon { get; } = new();
     public TelemetryRealtimePipeline TelemetryRealtime { get; }
+    public ProcessorPowerTelemetrySource ProcessorPowerTelemetry { get; }
+    public WddmGpuTelemetrySource WddmGpuTelemetry { get; }
     public AutoTunerEngine AutoTuner { get; } = new();
     public GuardianEngine Guardian { get; } = new();
     public ProcessTuningService ProcessTuning { get; } = new();
@@ -99,6 +101,13 @@ public sealed class AppServices : IAsyncDisposable
             TelemetryRawFrameCapacity,
             TelemetryOneSecondAggregateCapacity,
             TelemetrySessionTenSecondAggregateCapacity);
+
+        // Hardware telemetry is composed but remains completely on-demand. Merely
+        // constructing AppServices performs no processor-power or WDDM/PDH sample.
+        ProcessorPowerTelemetry = new ProcessorPowerTelemetrySource(
+            new WindowsProcessorPowerInfoProvider());
+        WddmGpuTelemetry = new WddmGpuTelemetrySource(
+            new WindowsWddmGpuUtilizationProvider());
 
         // Track 1 is a universal bridge over the existing EnvironmentSnapshot,
         // not a second machine model. Every higher-level subsystem shares these
@@ -335,6 +344,20 @@ public sealed class AppServices : IAsyncDisposable
     public TelemetryFrame CaptureSystemTelemetryFrame()
     {
         var frame = Telemetry.CaptureSystemFrame();
+        TelemetryRealtime.AppendRaw(frame);
+        return frame;
+    }
+
+    public TelemetryFrame CaptureProcessorPowerTelemetryFrame()
+    {
+        var frame = ProcessorPowerTelemetry.Capture();
+        TelemetryRealtime.AppendRaw(frame);
+        return frame;
+    }
+
+    public TelemetryFrame CaptureGpuTelemetryFrame()
+    {
+        var frame = WddmGpuTelemetry.Capture();
         TelemetryRealtime.AppendRaw(frame);
         return frame;
     }
