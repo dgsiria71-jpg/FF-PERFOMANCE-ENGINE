@@ -151,26 +151,37 @@ Approved architecture: stable identity authority and weak/transient evidence are
 - Provider GREEN: `bf1a35a86440f9b5ff704aca6dc9b2514da411bb` — CI #852 / run `34267108921` SUCCESS.
 - AppServices composition: `1f99581daa9d09ac4cd12473d43f630062c0fd46` — CI #854 / run `34270208022` SUCCESS.
 
+#### Known-executable / Windows App Paths evidence
+
+- RED: `5e51412d61bcfb8c53f068492ba772cd08a4ca98` — CI #858 / run `34271363808`; native GREEN and managed failed only on the missing `KnownExecutable*` contracts.
+- Core GREEN: `d420ef1613eb495ad994da2d0211ae8e642a4cfb` — CI #860 / run `34271553807` SUCCESS.
+- Windows App Paths provider: `4039f044f242dbb714bb282d8b90b5f737921a26` — CI #862 / run `34271718079` SUCCESS.
+- AppServices composition: `6832557bb7ce0e62fad894d09077ae5d7593f397` — CI #864 / run `34271999758` SUCCESS.
+- Source id `windows-app-paths`, priority `30`, confidence `0.92`, kind `KnownExecutable`, no `GameIdHint`, no PID/runtime claim.
+- Provider reads HKCU/HKLM App Paths across applicable registry views, accepts only a fully-qualified default-value path whose file currently exists, isolates stale/protected entries and does not parse command lines or use registry key names as identity.
+- Duplicate executable paths collapse deterministically by canonical case-insensitive path before catalog binding.
+
 Current evidence plane:
 
 ```text
 GameEvidenceCatalog
-└── Windows running processes
+├── Windows running processes       priority 40
+└── Windows App Paths executables   priority 30
         ↓
 GameEvidenceBinder
 ├── BoundGameEvidence
 └── UnboundGameEvidence
 ```
 
-Running-process evidence is read-only and transient. It captures PID, timestamp and fully-qualified executable path when available, performs no filename/game classification, never fills `GameIdHint`, and never persists the runtime path into durable identity fields automatically.
+Running-process evidence is read-only and transient. App Paths evidence is read-only static executable provenance. Neither can create a durable game identity, mutate stable identity fields or promote a specialized adapter.
 
-`AppServices.InitializeAsync()` was re-read on the exact #854 GREEN SHA and still performs only Windows capability refresh, settings load and Guardian reconciliation. Identity/evidence discovery still runs only through explicit `DiscoverGamesAsync()`.
+`AppServices.InitializeAsync()` still performs only Windows capability refresh, settings load and Guardian reconciliation. Identity/evidence discovery still runs only through explicit `DiscoverGamesAsync()`.
 
 ## Current verified application head
 
 ```text
-1f99581daa9d09ac4cd12473d43f630062c0fd46
-Windows CI #854 / run 34270208022 — SUCCESS
+6832557bb7ce0e62fad894d09077ae5d7593f397
+Windows CI #864 / run 34271999758 — SUCCESS
 ```
 
-Next Track 3 action: after the repository-memory checkpoint for this foundation is itself GREEN, create a separate plan for installed-app / independent-launcher evidence. It must consume the evidence plane one source at a time and must not introduce provisional durable `GameIdentity` values derived from paths, filenames, folders or fuzzy display names.
+Next Track 3 action: reconcile Track 3 exit criteria with Track 4 readiness before widening the binder. Additional installed-app / independent-launcher surfaces should be added only when they contribute a truthful signal that the existing evidence plane can consume without inventing durable identity. If an installed-app source needs an install-root fact rather than an executable path, model that fact explicitly and prove a deterministic binder rule with RED first; never overload `ExecutablePath` with `InstallLocation`.
