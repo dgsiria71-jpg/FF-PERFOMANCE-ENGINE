@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
@@ -217,6 +218,7 @@ public sealed partial class SteamGameDiscoverySource : IGameDiscoverySource
         return roots.Where(Directory.Exists).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
+    [SupportedOSPlatform("windows")]
     private static void TryAddRegistrySteamPath(
         ISet<string> roots,
         RegistryKey hive,
