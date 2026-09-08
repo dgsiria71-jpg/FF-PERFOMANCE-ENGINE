@@ -52,6 +52,7 @@ public sealed class AppServices : IAsyncDisposable
     public BattleNetGameDiscoverySource BattleNetGameDiscovery { get; }
     public EaAppGameDiscoverySource EaAppGameDiscovery { get; }
     public UbisoftGameDiscoverySource UbisoftGameDiscovery { get; }
+    public MicrosoftStoreGdkGameDiscoverySource MicrosoftStoreGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -146,6 +147,8 @@ public sealed class AppServices : IAsyncDisposable
         BattleNetGameDiscovery = new BattleNetGameDiscoverySource();
         EaAppGameDiscovery = new EaAppGameDiscoverySource();
         UbisoftGameDiscovery = new UbisoftGameDiscoverySource();
+        MicrosoftStoreGameDiscovery = new MicrosoftStoreGdkGameDiscoverySource(
+            new WindowsMicrosoftStoreGamePackageProvider());
         GameCatalog = new LocalGameCatalogService(
         [
             BlueStacksGameDiscovery,
@@ -154,7 +157,8 @@ public sealed class AppServices : IAsyncDisposable
             RiotGameDiscovery,
             BattleNetGameDiscovery,
             EaAppGameDiscovery,
-            UbisoftGameDiscovery
+            UbisoftGameDiscovery,
+            MicrosoftStoreGameDiscovery
         ]);
         GameAdapters = new GameAdapterResolver(
         [
