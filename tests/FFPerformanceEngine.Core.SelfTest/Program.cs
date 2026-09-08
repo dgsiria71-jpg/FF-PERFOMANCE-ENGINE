@@ -149,6 +149,7 @@ try
     await WindowsPowerPolicyMutationAdapterSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
     await GameDiscoveryFoundationSelfTests.RunAsync();
+    await SteamGameDiscoverySelfTests.RunAsync();
 }
 finally
 {

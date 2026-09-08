@@ -1,17 +1,15 @@
-using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Workloads;
 
 internal static class SteamGameDiscoverySelfTests
 {
     private static string _stage = "not-started";
 
-    [ModuleInitializer]
-    internal static void Run()
+    internal static async Task RunAsync()
     {
         Console.WriteLine("TRACE Steam discovery self-test starting");
         try
         {
-            RunAsync().WaitAsync(TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+            await RunCoreAsync().WaitAsync(TimeSpan.FromSeconds(30));
         }
         catch (TimeoutException ex)
         {
@@ -21,7 +19,7 @@ internal static class SteamGameDiscoverySelfTests
         }
     }
 
-    private static async Task RunAsync()
+    private static async Task RunCoreAsync()
     {
         _stage = "create-temp-tree";
         var temp = Path.Combine(Path.GetTempPath(), "ffpe-steam-discovery-" + Guid.NewGuid().ToString("N"));
@@ -32,10 +30,9 @@ internal static class SteamGameDiscoverySelfTests
             Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Counter-Strike Global Offensive"));
             Directory.CreateDirectory(Path.Combine(library, "steamapps", "common", "dota 2 beta"));
 
-            // Module initializers execute before Main while the module initializer
-            // is synchronously blocked on RunAsync. Keep fixture filesystem setup
-            // synchronous so test preparation cannot depend on an async continuation
-            // during module initialization. The production discovery API remains async.
+            // Async discovery runs from Program after module initialization has completed.
+            // Keep fixture setup synchronous so this test remains deterministic and the
+            // production discovery API can be exercised without blocking a CLR module initializer.
             _stage = "write-libraryfolders";
             File.WriteAllText(
                 Path.Combine(root, "steamapps", "libraryfolders.vdf"),
