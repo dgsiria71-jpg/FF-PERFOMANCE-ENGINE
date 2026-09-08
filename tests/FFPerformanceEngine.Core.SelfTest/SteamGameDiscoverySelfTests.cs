@@ -3,12 +3,27 @@ using FFPerformanceEngine.Core.Workloads;
 
 internal static class SteamGameDiscoverySelfTests
 {
+    private static string _stage = "not-started";
+
     [ModuleInitializer]
     internal static void Run()
-        => RunAsync().GetAwaiter().GetResult();
+    {
+        Console.WriteLine("TRACE Steam discovery self-test starting");
+        try
+        {
+            RunAsync().WaitAsync(TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+        }
+        catch (TimeoutException ex)
+        {
+            throw new InvalidOperationException(
+                $"Steam discovery self-test exceeded 30 seconds at stage '{_stage}'.",
+                ex);
+        }
+    }
 
     private static async Task RunAsync()
     {
+        _stage = "create-temp-tree";
         var temp = Path.Combine(Path.GetTempPath(), "ffpe-steam-discovery-" + Guid.NewGuid().ToString("N"));
         var root = Path.Combine(temp, "Steam");
         var library = Path.Combine(temp, "SteamLibrary");
@@ -17,6 +32,7 @@ internal static class SteamGameDiscoverySelfTests
             Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Counter-Strike Global Offensive"));
             Directory.CreateDirectory(Path.Combine(library, "steamapps", "common", "dota 2 beta"));
 
+            _stage = "write-libraryfolders";
             await File.WriteAllTextAsync(
                 Path.Combine(root, "steamapps", "libraryfolders.vdf"),
                 $$"""
@@ -33,6 +49,7 @@ internal static class SteamGameDiscoverySelfTests
                 }
                 """);
 
+            _stage = "write-root-manifest";
             await File.WriteAllTextAsync(
                 Path.Combine(root, "steamapps", "appmanifest_730.acf"),
                 """
@@ -43,6 +60,8 @@ internal static class SteamGameDiscoverySelfTests
                     "installdir" "Counter-Strike Global Offensive"
                 }
                 """);
+
+            _stage = "write-library-manifest";
             await File.WriteAllTextAsync(
                 Path.Combine(library, "steamapps", "appmanifest_570.acf"),
                 """
@@ -53,6 +72,8 @@ internal static class SteamGameDiscoverySelfTests
                     "installdir" "dota 2 beta"
                 }
                 """);
+
+            _stage = "write-broken-manifest";
             await File.WriteAllTextAsync(
                 Path.Combine(library, "steamapps", "appmanifest_broken.acf"),
                 """
@@ -64,9 +85,13 @@ internal static class SteamGameDiscoverySelfTests
                 }
                 """);
 
+            _stage = "discover";
+            Console.WriteLine("TRACE Steam discovery self-test entering DiscoverAsync");
             var source = new SteamGameDiscoverySource(() => [root]);
             var candidates = await source.DiscoverAsync();
+            Console.WriteLine("TRACE Steam discovery self-test returned from DiscoverAsync");
 
+            _stage = "assert-discovery";
             Require(source.SourceId == "steam-manifests" && source.Priority >= 70,
                 "Steam discovery must expose a stable, high-confidence launcher source identity.");
             Require(candidates.Count == 2,
@@ -94,12 +119,14 @@ internal static class SteamGameDiscoverySelfTests
             Require(dota.Identity.InstallPaths.Single().StartsWith(Path.GetFullPath(library), StringComparison.OrdinalIgnoreCase),
                 "libraryfolders.vdf must extend discovery beyond the Steam installation root.");
 
+            _stage = "assert-cancellation";
             using var cancelled = new CancellationTokenSource();
             cancelled.Cancel();
             await ExpectThrowsAsync<OperationCanceledException>(
                 () => source.DiscoverAsync(cancelled.Token),
                 "Steam discovery must honor cancellation before filesystem enumeration.");
 
+            _stage = "complete";
             Console.WriteLine("PASS Track 3 Steam manifest/library discovery uses stable appid identity without executable or engine fabrication");
         }
         finally
