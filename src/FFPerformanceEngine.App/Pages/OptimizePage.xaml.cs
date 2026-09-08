@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.SystemOptimization;
@@ -13,13 +14,19 @@ public partial class OptimizePage : UserControl
     private AutoTunerMode _mode;
     private GameKind _game;
     private CancellationTokenSource? _tuningCts;
+    private CancellationTokenSource? _capabilityCts;
     private bool _isRunning;
     private bool _pcOperationRunning;
+    private bool _capabilityOperationRunning;
+    private bool _capabilityInitializing;
+    private bool _capabilityRecommendationPublished;
     private bool _initializing = true;
     private PersistentPcOptimizationPreview? _pcPreview;
     private Guid? _pcRestorePointId;
+    private WindowsCapabilityCandidatePlan? _capabilityPlan;
+    private WindowsCapabilityExperimentPresentation? _capabilityPresentation;
 
-    private bool IsBusy => _isRunning || _pcOperationRunning;
+    private bool IsBusy => _isRunning || _pcOperationRunning || _capabilityOperationRunning;
 
     public OptimizePage()
     {
@@ -36,15 +43,23 @@ public partial class OptimizePage : UserControl
         PcAnalyzeButton.Click += PcAnalyze_Click;
         PcApplyButton.Click += PcApply_Click;
         PcRestoreButton.Click += PcRestore_Click;
+        CapabilityExperimentCombo.SelectionChanged += CapabilityExperimentCombo_SelectionChanged;
+        CapabilityCandidateCombo.SelectionChanged += CapabilityCandidateCombo_SelectionChanged;
+        CapabilityRefreshButton.Click += CapabilityRefresh_Click;
+        CapabilityRunButton.Click += CapabilityRun_Click;
+        CapabilityCancelButton.Click += CapabilityCancel_Click;
+        CapabilityValidateButton.Click += CapabilityValidate_Click;
+        CapabilityPublishButton.Click += CapabilityPublish_Click;
         Loaded += OptimizePage_Loaded;
         ApplyChoiceVisuals();
         _initializing = false;
     }
 
-    private void OptimizePage_Loaded(object sender, RoutedEventArgs e)
+    private async void OptimizePage_Loaded(object sender, RoutedEventArgs e)
     {
         LoadEnvironmentSelection();
         RefreshReadiness();
+        await RefreshCapabilityExperimentCatalogAsync();
     }
 
     private void LoadEnvironmentSelection()
@@ -74,6 +89,303 @@ public partial class OptimizePage : UserControl
         {
             _initializing = false;
         }
+    }
+
+    private async Task RefreshCapabilityExperimentCatalogAsync()
+    {
+        if (IsBusy) return;
+
+        _capabilityInitializing = true;
+        CapabilityStatusText.Text = "Atualizando capabilities do Windows";
+        CapabilityDetailText.Text = "Lendo o estado atual pelos adapters concretos antes de formar qualquer candidato.";
+        CapabilityRunButton.IsEnabled = false;
+
+        try
+        {
+            var previousId = (CapabilityExperimentCombo.SelectedItem as WindowsPerformanceCapability)?.CapabilityId;
+            var capabilities = await App.Services.RefreshWindowsCapabilitiesAsync();
+            var experimentable = capabilities
+                .Where(capability => capability.Availability == CapabilityAvailability.Available
+                                     && capability.Execution.SupportsApply
+                                     && capability.Execution.SupportsRollback
+                                     && capability.PersistenceScope != CapabilityPersistenceScope.SessionOnly)
+                .OrderBy(capability => capability.Domain)
+                .ThenBy(capability => capability.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            CapabilityExperimentCombo.ItemsSource = experimentable;
+            if (!string.IsNullOrWhiteSpace(previousId))
+            {
+                CapabilityExperimentCombo.SelectedItem = experimentable.FirstOrDefault(capability =>
+                    string.Equals(capability.CapabilityId, previousId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (CapabilityExperimentCombo.SelectedItem is null && experimentable.Length > 0)
+                CapabilityExperimentCombo.SelectedIndex = 0;
+
+            if (experimentable.Length == 0)
+            {
+                ResetCapabilityPlan(
+                    "Nenhuma capability persistente está disponível para experimento",
+                    "Discovery não encontrou uma capability com apply + rollback comprovados neste Windows.");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            ResetCapabilityPlan("Falha ao atualizar capabilities", ex.Message);
+            return;
+        }
+        finally
+        {
+            _capabilityInitializing = false;
+        }
+
+        await RefreshCapabilityPlanForSelectionAsync();
+    }
+
+    private async Task RefreshCapabilityPlanForSelectionAsync()
+    {
+        if (IsBusy) return;
+
+        if (CapabilityExperimentCombo.SelectedItem is not WindowsPerformanceCapability capability)
+        {
+            ResetCapabilityPlan("Selecione uma capability", "Nenhum plano de experimento está ativo.");
+            return;
+        }
+
+        _capabilityInitializing = true;
+        CapabilityExperimentIdText.Text = capability.CapabilityId;
+        CapabilityStatusText.Text = "Construindo plano de exploração";
+        CapabilityDetailText.Text = "O Core está atualizando o estado e limitando o espaço aos targets suportados pelo adapter.";
+        ResetCapabilityEvidencePresentation();
+
+        try
+        {
+            var plan = await App.Services.PlanWindowsCapabilityExperimentAsync(capability.CapabilityId);
+            _capabilityPlan = plan;
+            CapabilityCandidateCombo.ItemsSource = plan.Candidates;
+            CapabilityCandidateCombo.SelectedIndex = plan.Candidates.Count > 0 ? 0 : -1;
+            CapabilityBaselineText.Text = $"Baseline: {plan.CurrentValue ?? "—"}";
+            CapabilityStatusText.Text = plan.CanExplore
+                ? "Plano pronto para A/B controlado"
+                : "Capability sem candidato executável";
+            CapabilityDetailText.Text = plan.Reason;
+        }
+        catch (Exception ex)
+        {
+            ResetCapabilityPlan("Não foi possível planejar esta capability", ex.Message);
+        }
+        finally
+        {
+            _capabilityInitializing = false;
+            ApplyBusyState();
+        }
+    }
+
+    private async void CapabilityExperimentCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_capabilityInitializing || IsBusy) return;
+        await RefreshCapabilityPlanForSelectionAsync();
+    }
+
+    private void CapabilityCandidateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_capabilityInitializing || IsBusy) return;
+        ResetCapabilityEvidencePresentation();
+        ApplyBusyState();
+    }
+
+    private async void CapabilityRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy) return;
+        await RefreshCapabilityExperimentCatalogAsync();
+    }
+
+    private async void CapabilityRun_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy || CapabilityCandidateCombo.SelectedItem is not WindowsCapabilityCandidate candidate) return;
+
+        BeginCapabilityOperation(
+            "Executando A/B controlado",
+            "Guardian será suspenso pela lease global; baseline e candidato serão medidos no mesmo workload antes da restauração obrigatória.");
+
+        try
+        {
+            var run = await App.Services.RunWindowsCapabilityExperimentAsync(candidate, _capabilityCts!.Token);
+            ApplyCapabilityPresentation(WindowsCapabilityExperimentPresentation.FromRun(run));
+            CapabilityStatusText.Text = "Rodada controlada concluída e restaurada";
+            CapabilityDetailText.Text = run.Validation.Reason;
+        }
+        catch (OperationCanceledException)
+        {
+            CapabilityStatusText.Text = "Experimento cancelado com segurança";
+            CapabilityDetailText.Text = "O cancelamento foi observado pelo pipeline controlado; nenhuma recomendação foi criada.";
+        }
+        catch (Exception ex)
+        {
+            CapabilityStatusText.Text = "Experimento não concluído";
+            CapabilityDetailText.Text = ex.Message;
+        }
+        finally
+        {
+            EndCapabilityOperation();
+        }
+    }
+
+    private async void CapabilityValidate_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy || _capabilityPresentation?.PendingValidation is not WindowsCapabilityValidationDecision pending) return;
+
+        BeginCapabilityOperation(
+            "Validando candidato com rodada fresca",
+            "A evidência repetida já passou pelo gate. Agora uma nova rodada controlada deve confirmar o mesmo tuple antes de existir ValidatedEvidence.";
+
+        try
+        {
+            var evidence = await App.Services.ValidateWindowsCapabilityEvidenceAsync(pending, _capabilityCts!.Token);
+            ApplyCapabilityPresentation(WindowsCapabilityExperimentPresentation.FromValidated(evidence));
+            CapabilityStatusText.Text = "ValidatedEvidence criada e persistida";
+            CapabilityDetailText.Text = "A terceira rodada fresca confirmou o candidato. A evidência durável ainda não altera o Windows nem publica recomendação sozinha.";
+        }
+        catch (OperationCanceledException)
+        {
+            CapabilityStatusText.Text = "Validação cancelada com segurança";
+            CapabilityDetailText.Text = "Nenhuma ValidatedEvidence nova foi exposta sem concluir a rodada fresca e sua persistência.";
+        }
+        catch (Exception ex)
+        {
+            CapabilityStatusText.Text = "Candidato não validado";
+            CapabilityDetailText.Text = ex.Message;
+        }
+        finally
+        {
+            EndCapabilityOperation();
+        }
+    }
+
+    private async void CapabilityPublish_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsBusy || _capabilityPresentation?.ValidatedEvidence is not WindowsCapabilityValidatedEvidence evidence) return;
+
+        BeginCapabilityOperation(
+            "Revalidando evidência para recomendação",
+            "O Core vai confirmar latest evidence, fingerprint, workload, baseline e candidate-space antes da autoridade persistente publicar o target.";
+
+        try
+        {
+            var result = await App.Services.PublishValidatedWindowsCapabilityRecommendationAsync(
+                evidence,
+                _capabilityCts!.Token);
+            if (!result.IsPublished)
+                throw new InvalidOperationException(result.Reason);
+
+            _capabilityRecommendationPublished = true;
+            CapabilityStatusText.Text = "Recomendação validada publicada";
+            CapabilityDetailText.Text = "O target entrou no Registry como ValidatedEvidence. Nenhuma mutation foi aplicada automaticamente.";
+            CapabilityRecommendationStatusText.Text = "Recomendação publicada · agora revise o preview em Otimizar este PC antes de aplicar.";
+            CapabilityPublishButton.Content = "RECOMENDAÇÃO PUBLICADA";
+
+            var preview = await RefreshPersistentPcPreviewCoreAsync();
+            PcOptimizationStatusText.Text = preview.CanApply
+                ? "Nova recomendação pronta para revisão"
+                : "Recomendação publicada, sem mutation pendente";
+            PcOptimizationDetailText.Text = preview.CanApply
+                ? "O preview foi reconstruído com estado atual comprovado. Revise a capability antes de aplicar."
+                : "O estado atual já pode coincidir com o target ou outro gate persistente bloqueou a mutation.";
+        }
+        catch (OperationCanceledException)
+        {
+            CapabilityStatusText.Text = "Publicação cancelada";
+            CapabilityDetailText.Text = "A recomendação não foi publicada nesta tentativa.";
+        }
+        catch (Exception ex)
+        {
+            CapabilityStatusText.Text = "Recomendação não publicada";
+            CapabilityDetailText.Text = ex.Message;
+        }
+        finally
+        {
+            EndCapabilityOperation();
+        }
+    }
+
+    private void CapabilityCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_capabilityOperationRunning || _capabilityCts is null) return;
+
+        CapabilityCancelButton.IsEnabled = false;
+        CapabilityStatusText.Text = "Cancelando com segurança";
+        CapabilityDetailText.Text = "A solicitação foi enviada. O pipeline terminará cleanup/rollback obrigatório antes de encerrar a operação.";
+        _capabilityCts.Cancel();
+    }
+
+    private void BeginCapabilityOperation(string status, string detail)
+    {
+        _capabilityCts = new CancellationTokenSource();
+        _capabilityOperationRunning = true;
+        CapabilityStatusText.Text = status;
+        CapabilityDetailText.Text = detail;
+        ApplyBusyState();
+    }
+
+    private void EndCapabilityOperation()
+    {
+        _capabilityCts?.Dispose();
+        _capabilityCts = null;
+        _capabilityOperationRunning = false;
+        ApplyBusyState();
+        RefreshReadiness();
+    }
+
+    private void ApplyCapabilityPresentation(WindowsCapabilityExperimentPresentation presentation)
+    {
+        _capabilityPresentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+        _capabilityRecommendationPublished = false;
+        CapabilityPublishButton.Content = "USAR COMO RECOMENDAÇÃO";
+        CapabilityEvidencePanel.Visibility = Visibility.Visible;
+        CapabilityEvidenceStateText.Text = presentation.StateLabel;
+        CapabilityEvidenceReasonText.Text = presentation.Reason;
+        CapabilityEvidenceTargetText.Text = $"{presentation.BaselineValue} → {presentation.CandidateTarget}";
+        CapabilityEvidenceTupleText.Text = presentation.CapabilityId;
+        CapabilityRoundsText.Text = presentation.ObservationCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        CapabilityConsistencyText.Text = presentation.Consistency.ToString("P0", System.Globalization.CultureInfo.InvariantCulture);
+        CapabilityFpsDeltaText.Text = FormatSignedPercent(presentation.FpsDeltaPercent);
+        CapabilityFrameTimeDeltaText.Text = FormatSignedPercent(presentation.FrameTimeImprovementPercent);
+        CapabilityLatencyDeltaText.Text = FormatSignedPercent(presentation.LatencyImprovementPercent);
+        CapabilityValidateButton.Visibility = presentation.CanValidate ? Visibility.Visible : Visibility.Collapsed;
+        CapabilityPublishButton.Visibility = presentation.CanPublishRecommendation ? Visibility.Visible : Visibility.Collapsed;
+        CapabilityRecommendationStatusText.Text = presentation.CanValidate
+            ? "Evidência repetida pronta · falta uma rodada fresca de validação explícita."
+            : presentation.CanPublishRecommendation
+                ? "ValidatedEvidence durável pronta · publicação ainda revalida contexto e não aplica mutation."
+                : "Continue repetindo A/B apenas se o Core mantiver o candidato no espaço suportado.";
+        ApplyBusyState();
+    }
+
+    private void ResetCapabilityEvidencePresentation()
+    {
+        _capabilityPresentation = null;
+        _capabilityRecommendationPublished = false;
+        CapabilityEvidencePanel.Visibility = Visibility.Collapsed;
+        CapabilityValidateButton.Visibility = Visibility.Collapsed;
+        CapabilityPublishButton.Visibility = Visibility.Collapsed;
+        CapabilityValidateButton.IsEnabled = false;
+        CapabilityPublishButton.IsEnabled = false;
+        CapabilityPublishButton.Content = "USAR COMO RECOMENDAÇÃO";
+    }
+
+    private void ResetCapabilityPlan(string status, string detail)
+    {
+        _capabilityPlan = null;
+        CapabilityCandidateCombo.ItemsSource = null;
+        CapabilityCandidateCombo.SelectedItem = null;
+        CapabilityBaselineText.Text = "Baseline: —";
+        CapabilityExperimentIdText.Text = (CapabilityExperimentCombo.SelectedItem as WindowsPerformanceCapability)?.CapabilityId ?? "—";
+        CapabilityStatusText.Text = status;
+        CapabilityDetailText.Text = detail;
+        CapabilityRunButton.IsEnabled = false;
+        ResetCapabilityEvidencePresentation();
     }
 
     private async void PcAnalyze_Click(object sender, RoutedEventArgs e)
@@ -210,18 +522,40 @@ public partial class OptimizePage : UserControl
     private void SetPcOperationState(bool running)
     {
         _pcOperationRunning = running;
+        ApplyBusyState();
+    }
 
-        PcAnalyzeButton.IsEnabled = !running && !_isRunning;
-        PcApplyButton.IsEnabled = !running && !_isRunning && _pcPreview?.CanApply == true;
-        PcRestoreButton.IsEnabled = !running && !_isRunning && _pcRestorePointId.HasValue;
+    private void ApplyBusyState()
+    {
+        var idle = !IsBusy;
 
-        AdaptiveModeButton.IsEnabled = !running && !_isRunning;
-        DeepModeButton.IsEnabled = !running && !_isRunning;
-        FreeFireButton.IsEnabled = !running && !_isRunning;
-        FreeFireMaxButton.IsEnabled = !running && !_isRunning;
-        InstanceCombo.IsEnabled = !running && !_isRunning;
-        KeepDeepCheck.IsEnabled = !running && !_isRunning;
-        StartButton.IsEnabled = !running && !_isRunning;
+        PcAnalyzeButton.IsEnabled = idle;
+        PcApplyButton.IsEnabled = idle && _pcPreview?.CanApply == true;
+        PcRestoreButton.IsEnabled = idle && _pcRestorePointId.HasValue;
+
+        AdaptiveModeButton.IsEnabled = idle;
+        DeepModeButton.IsEnabled = idle;
+        FreeFireButton.IsEnabled = idle;
+        FreeFireMaxButton.IsEnabled = idle;
+        InstanceCombo.IsEnabled = idle;
+        KeepDeepCheck.IsEnabled = idle;
+        if (!idle) StartButton.IsEnabled = false;
+
+        CapabilityExperimentCombo.IsEnabled = idle;
+        CapabilityCandidateCombo.IsEnabled = idle;
+        CapabilityRefreshButton.IsEnabled = idle;
+        CapabilityRunButton.IsEnabled = idle
+                                        && _capabilityPlan?.CanExplore == true
+                                        && CapabilityCandidateCombo.SelectedItem is WindowsCapabilityCandidate;
+        CapabilityValidateButton.IsEnabled = idle && _capabilityPresentation?.CanValidate == true;
+        CapabilityPublishButton.IsEnabled = idle
+                                            && _capabilityPresentation?.CanPublishRecommendation == true
+                                            && !_capabilityRecommendationPublished;
+        CapabilityCancelButton.Visibility = _capabilityOperationRunning ? Visibility.Visible : Visibility.Collapsed;
+        CapabilityCancelButton.IsEnabled = _capabilityOperationRunning;
+
+        CancelButton.Visibility = _isRunning ? Visibility.Visible : Visibility.Collapsed;
+        CancelButton.IsEnabled = _isRunning;
     }
 
     private void AdaptiveMode_Click(object sender, RoutedEventArgs e)
@@ -391,19 +725,7 @@ public partial class OptimizePage : UserControl
 
     private void SetRunningState(bool running)
     {
-        AdaptiveModeButton.IsEnabled = !running && !_pcOperationRunning;
-        DeepModeButton.IsEnabled = !running && !_pcOperationRunning;
-        FreeFireButton.IsEnabled = !running && !_pcOperationRunning;
-        FreeFireMaxButton.IsEnabled = !running && !_pcOperationRunning;
-        InstanceCombo.IsEnabled = !running && !_pcOperationRunning;
-        KeepDeepCheck.IsEnabled = !running && !_pcOperationRunning;
-        StartButton.IsEnabled = !running && !_pcOperationRunning;
-        CancelButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-        CancelButton.IsEnabled = running;
-
-        PcAnalyzeButton.IsEnabled = !running && !_pcOperationRunning;
-        PcApplyButton.IsEnabled = !running && !_pcOperationRunning && _pcPreview?.CanApply == true;
-        PcRestoreButton.IsEnabled = !running && !_pcOperationRunning && _pcRestorePointId.HasValue;
+        ApplyBusyState();
     }
 
     private void ApplyProgress(AutoTunerProgressPresentation visual)
@@ -496,4 +818,7 @@ public partial class OptimizePage : UserControl
         => value is double number
             ? $"{number.ToString(format, System.Globalization.CultureInfo.InvariantCulture)} {unit}"
             : "—";
+
+    private static string FormatSignedPercent(double value)
+        => $"{(value > 0 ? "+" : string.Empty)}{value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%";
 }
