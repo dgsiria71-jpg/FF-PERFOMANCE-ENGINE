@@ -277,6 +277,15 @@ public sealed class AppServices : IAsyncDisposable
         CancellationToken cancellationToken = default)
         => WindowsCapabilityValidatedEvidence.LoadAsync(cancellationToken);
 
+    public Task<WindowsCapabilityValidatedEvidence?> ResolveCurrentValidatedWindowsCapabilityEvidenceAsync(
+        string capabilityId,
+        string candidateTarget,
+        CancellationToken cancellationToken = default)
+        => WindowsCapabilityValidatedRecommendations.ResolveCurrentAsync(
+            capabilityId,
+            candidateTarget,
+            cancellationToken);
+
     public Task<CapabilityRecommendationPublicationResult> PublishValidatedWindowsCapabilityRecommendationAsync(
         WindowsCapabilityValidatedEvidence evidence,
         CancellationToken cancellationToken = default)
