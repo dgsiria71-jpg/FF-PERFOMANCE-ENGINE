@@ -32,7 +32,7 @@ Scope from spec:
 
 The implementation has advanced beyond the original Track-2 definition: real power/boost/core-parking adapters, runtime capability discovery, transaction ownership/dependency hardening, persistent preview/apply/restore, recommendation authority, candidate planning, controlled A/B, cost maps, evidence evaluation, PendingValidation, fresh validation challenge, durable ValidatedEvidence, validated recommendation bridge and Optimize WPF integration are already present in current branch history.
 
-### Track 3 — Game Discovery + Adapter Framework — ACTIVE
+### Track 3 — Game Discovery + Adapter Framework — GREEN
 
 Original scope:
 
@@ -51,15 +51,38 @@ Status:
 - Epic ✅
 - Riot ✅
 - Battle.net ✅
-- next: EA App → Ubisoft Connect → Xbox/Microsoft Store → other stable discovery surfaces
+- EA App ✅
+- Ubisoft Connect ✅
+- Microsoft Store / Xbox GDK ✅
+- separate identity/evidence planes ✅
+- deterministic GameEvidence binder ✅
+- Windows running-process evidence ✅
+- Windows App Paths KnownExecutable evidence ✅
 
-### Track 4 — Universal Telemetry / Evidence — PLANNED
+Track 3 original exit criteria are satisfied. Additional discovery/evidence surfaces are optional future enrichment only when they add a proven truthful signal without weakening launcher-native stable identity. They are not a blocker for Track 4.
 
-- metric schema v2
-- universal hardware channels
-- data quality
-- universal A/B configuration snapshot
-- compatibility migration
+### Track 4 — Universal Telemetry / Evidence — ACTIVE
+
+Foundation already GREEN through application head `8392892e7ad658928e7b7aca1719df2b64399125`, Windows CI #888 SUCCESS:
+
+- metric schema v2 ✅
+- 17 canonical initial metric descriptors ✅
+- typed per-metric quality / coverage / provenance / origin ✅
+- immutable deterministic `TelemetryFrame` ✅
+- conservative legacy `TelemetrySample` bridge ✅
+- universal workload target resolver from bound Track 3 evidence ✅
+- KnownExecutable/App Paths prevented from claiming a live PID ✅
+- existing legacy telemetry and A/B APIs preserved ✅
+
+Next sequence:
+
+1. adapt current native CPU + physical-memory telemetry into v2 while preserving legacy APIs;
+2. adapt PresentMon into direct measured v2 frame metrics with explicit source/coverage;
+3. bounded realtime v2 ring buffer;
+4. quality/coverage-aware 1 s aggregates, then 10 s/session layers;
+5. add real GPU/VRAM/clocks/thermals/I/O/network channels one proven provider at a time;
+6. migrate Performance/A-B away from free-form `DataQuality` parsing only after v2 collectors are stable;
+7. extend universal A/B configuration/workload context without weakening existing validation/freshness authority.
 
 ### Track 5 — Universal Auto Tuner + Profiles — PLANNED
 

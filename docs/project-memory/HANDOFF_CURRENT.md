@@ -9,53 +9,42 @@
 
 ### Last verified application-code checkpoint
 
-- Application HEAD: `6832557bb7ce0e62fad894d09077ae5d7593f397`
-- Commit: `feat: compose App Paths known executable evidence`
-- Windows CI: **#864 — SUCCESS**
-- CI run id: `34271999758`
+- Application HEAD: `8392892e7ad658928e7b7aca1719df2b64399125`
+- Commit: `feat: resolve telemetry targets from bound game evidence`
+- Windows CI: **#888 — SUCCESS**
+- CI run id: `34276000513`
 
-The #864 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish, artifact upload and complete-job finalization.
+The #888 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish, artifact upload and complete-job finalization.
 
-### Repository-native memory bootstrap
+### Repository-native memory
 
-The project continuity system lives in root `AGENTS.md` and `docs/project-memory/`. Git + code/tests + fresh exact-commit Windows CI remain authoritative if this handoff becomes stale.
+The continuity system lives in root `AGENTS.md` and `docs/project-memory/`. Git + code/tests + fresh exact-commit Windows CI remain authoritative if this handoff becomes stale.
 
-## Active Track
+## Track transition
 
-**Track 3 — Game Discovery + Adapter Framework**.
+**Track 3 — Game Discovery + Adapter Framework — GREEN.**
 
-### Stable identity plane — GREEN and composed
+**Track 4 — Universal Telemetry / Evidence — ACTIVE.**
 
-- BlueStacks package discovery for Free Fire / Free Fire MAX
-- neutral `GameIdentity` / `LocalGameCatalogService`
-- Generic Game Adapter + specialized BlueStacks FF/FF MAX adapters
-- Steam manifest discovery
-- Epic manifest discovery
-- Riot product metadata discovery
-- Battle.net `product.db` discovery
-- EA App `__Installer/installerdata.xml` discovery
-- Ubisoft Connect registry install discovery
-- Microsoft Store / Xbox GDK package discovery
+Track 3 original exit criteria are now satisfied and are no longer a blocker for universal telemetry:
 
-```text
-GameCatalog
-├── BlueStacks
-│   ├── Free Fire
-│   └── Free Fire MAX
-├── Steam
-├── Epic Games
-├── Riot
-├── Battle.net
-├── EA App
-├── Ubisoft Connect
-└── Microsoft Store / Xbox GDK
-```
+- stable launcher-native `GameIdentity` / local catalog ✅
+- generic adapter + specialized Free Fire / Free Fire MAX BlueStacks adapters ✅
+- BlueStacks installed package discovery ✅
+- Steam ✅
+- Epic ✅
+- Riot ✅
+- Battle.net ✅
+- EA App ✅
+- Ubisoft Connect ✅
+- Microsoft Store / Xbox GDK ✅
+- explicit two-plane identity/evidence architecture ✅
+- running-process evidence ✅
+- known-executable Windows App Paths evidence ✅
 
-Stable identity still comes only from source-native keys. Display names, executable names and install paths are not cross-launcher identity authorities.
+Additional discovery surfaces remain optional future enrichment only when they add a proven signal. They are not justification to delay Track 4 or to weaken stable identity rules.
 
-## Game Identity + Evidence Discovery — GREEN and composed
-
-The approved two-plane design is implemented:
+## Track 3 identity/evidence architecture — preserved
 
 ```text
 Identity Sources
@@ -87,100 +76,133 @@ GameEvidenceBinder
 └── UnboundGameEvidence
 ```
 
-Both evidence sources are deliberately non-authoritative. They may enrich or bind to an already-proven `GameIdentity`, but they cannot manufacture a new durable game identity.
+Neither evidence source may manufacture a durable identity. Display names, executable names, install folders, PIDs and paths remain evidence rather than cross-launcher identity keys.
 
-## Evidence foundation provenance
+`AppServices.InitializeAsync()` still performs no game/package/process/App-Paths discovery. Explicit authority remains `AppServices.DiscoverGamesAsync()`.
 
-### Contracts + deterministic catalog
+## Track 4 foundation now implemented
 
-- RED `4a7dd620d0a132d0f25d1dc3319cc01eb96434fd` → CI #832 / run `34265469006`.
-- GREEN `3b836e13e79f3eb8d6a0b1a7dae420103df48f50` → CI #836 / run `34265674843` SUCCESS.
+Canonical design:
 
-### Deterministic binder
+- `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
+- `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
 
-- RED `7bef375c4d5a366171468fd82e5c874357e313d8` → CI #838 / run `34265859816`.
-- GREEN `b564d3a35e05c32236a38e9cdb594835fe5c6b47` → CI #840 / run `34266012506` SUCCESS.
-
-### Two-plane coordinator
-
-- RED `3570b94dbdb23ec95baaaf9fd86e72a598b163df` → CI #842 / run `34266191172`.
-- GREEN `11ae5104938924035b4cd1e13658b619205236a6` → CI #844 / run `34266428959` SUCCESS.
-
-### Running-process evidence
-
-- RED `a92e045c63fdaae6a741e3b477d8768625b995b5` → CI #846 / run `34266610116`.
-- Core GREEN `94a47907b7384680dcf324af39bdabeb91ab319e` → CI #848 / run `34266765471` SUCCESS.
-- Windows provider first build `a638765c4a968ea4088e6ac69719f8a2b27e2a67` → CI #850 exposed only missing `System.IO` import.
-- Provider GREEN `bf1a35a86440f9b5ff704aca6dc9b2514da411bb` → CI #852 / run `34267108921` SUCCESS.
-- Composition `1f99581daa9d09ac4cd12473d43f630062c0fd46` → CI #854 / run `34270208022` SUCCESS.
-
-### Windows App Paths / KnownExecutable evidence
-
-Microsoft documents `HKCU/HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths` as the preferred registration surface mapping an executable name to a fully-qualified application path. DG uses this only as static executable evidence.
-
-- RED `5e51412d61bcfb8c53f068492ba772cd08a4ca98` → CI #858 / run `34271363808`; native remained GREEN and managed failed only because `KnownExecutableObservation`, `IKnownExecutableObservationProvider` and `KnownExecutableGameEvidenceSource` did not yet exist.
-- Core GREEN `d420ef1613eb495ad994da2d0211ae8e642a4cfb` → CI #860 / run `34271553807` SUCCESS.
-- Windows App Paths provider `4039f044f242dbb714bb282d8b90b5f737921a26` → CI #862 / run `34271718079` SUCCESS.
-- AppServices composition `6832557bb7ce0e62fad894d09077ae5d7593f397` → CI #864 / run `34271999758` SUCCESS.
-
-App Paths rules:
-
-- read-only HKCU + HKLM;
-- Registry64 + Registry32 on 64-bit Windows, Registry32 on 32-bit Windows;
-- only the documented default value is consumed as executable-path evidence;
-- path must be fully qualified and the file must currently exist;
-- stale, malformed, protected or inaccessible registrations are isolated/skipped;
-- the App Paths `Path` value is not interpreted as a game executable;
-- command lines are not parsed from registry strings;
-- key name/filename is metadata only;
-- source emits `GameEvidenceKind.KnownExecutable`, confidence `0.92`, priority `30`, `GameIdHint = null` and no PID/runtime claim;
-- duplicate executable paths collapse deterministically by canonical case-insensitive path;
-- the resulting path is still transient evidence and is never persisted into stable identity automatically.
-
-## Current binding rules
-
-The binder remains deterministic and fail-safe:
-
-1. exact normalized `GameIdHint` binds only to an existing catalog identity;
-2. a non-empty unmatched hint returns `NoMatchingIdentity` and does not fall through to path matching;
-3. without a hint, a fully-qualified executable path may bind only by safe install-root containment to exactly one existing `GameId`;
-4. lexical prefix collisions such as `C:\Games\Foo` versus `C:\Games\Foobar` do not bind;
-5. evidence contained by more than one game stays `AmbiguousInstallPath`;
-6. filename-only or invalid paths do not bind;
-7. evidence never mutates `GameId`, name, launcher, engine, adapter, stable executable lists or stable install paths;
-8. PID/path/timestamp and App Paths registration remain evidence rather than identity.
-
-## Startup / authority invariant
-
-`AppServices.InitializeAsync()` intentionally does **not** perform identity discovery or evidence discovery. It still performs only Windows capability refresh, settings load and Guardian reconciliation.
-
-The explicit authority remains:
+New Core namespace:
 
 ```text
-AppServices.DiscoverGamesAsync()
-        ↓
-GameDiscoveryCoordinator
-        ├── identity plane
-        └── evidence plane
+FFPerformanceEngine.Core.Telemetry
+├── TelemetryMetricSchema.cs
+├── TelemetryFrame.cs
+├── TelemetryLegacyBridge.cs
+└── TelemetryWorkloadTargetResolver.cs
 ```
 
-No launcher, Microsoft Store package, process enumeration or App Paths registry enumeration runs merely because `AppServices` is constructed or initialized.
+### Metric schema v2
+
+The additive v2 schema exists alongside legacy `TelemetrySample`.
+
+Each numeric observation carries:
+
+- stable canonical metric descriptor/id;
+- finite numeric value;
+- typed `Partial` or `Measured` quality;
+- normalized `[0,1]` coverage;
+- normalized source/provenance id;
+- explicit `Direct`, `Derived` or `Legacy` origin.
+
+`Unavailable` is represented by absence / lookup / frame state and cannot be attached to a stored numeric observation.
+
+The first standard catalog exposes the 17 approved metrics across frame, system, thermal and network domains. `TelemetryFrame` defensively copies observations, rejects duplicate metric ids, sorts deterministically, provides normalized lookup and computes summary quality without upgrading any individual metric.
+
+### Conservative legacy bridge
+
+`TelemetryLegacyBridge.FromLegacy(TelemetrySample)` maps all 17 existing nullable fields explicitly. `TelemetrySample` itself remains unchanged and source-compatible.
+
+Authority rules:
+
+- `PresentMon · ...` proves only finite **Frame-domain** metrics as `Measured / presentmon / Direct`;
+- `System` proves only CPU utilization + physical memory used/total as `Measured / native-system / Direct`;
+- `Frame+System` preserves CPU/memory native authority but does not promote the supplied FPS argument;
+- historical exact `Measured` preserves Frame metrics as `Measured / legacy-measured / Legacy` for compatibility;
+- unknown labels and unrelated populated fields stay `Partial / legacy-bridge / Legacy`;
+- null, NaN and infinity produce no metric and never become zero.
+
+### Universal workload target resolver
+
+`TelemetryWorkloadTargetResolver` consumes only the already-resolved Track 3 `ResolvedGameCatalogResult` and bound evidence. It performs no platform I/O.
+
+Rules:
+
+1. blank/unknown/non-unique requested identity → `UnknownGame`, no promoted `GameId`, PID or path;
+2. exactly one stable catalog identity is required before runtime evidence is considered;
+3. only `BoundGameEvidence` with `GameEvidenceKind.RunningProcess` is eligible;
+4. PID must be positive and executable path fully-qualified/normalizable;
+5. zero valid PID groups → `UnavailableRunningProcess` while preserving the proven stable `GameId`;
+6. multiple PIDs → `AmbiguousRunningProcess`, no chosen PID/path;
+7. one PID associated with conflicting paths → ambiguous;
+8. duplicate same-PID/same-path evidence, including case variants, remains exact;
+9. exactly one PID with one normalized path → `ExactRunningProcess`;
+10. `KnownExecutable` / App Paths evidence can never yield a live PID.
+
+No `Process.GetProcesses`, `File.Exists`, Guardian dependency, working-set ranking, process-name guessing or newest/highest-PID heuristic exists in the resolver.
+
+## Track 4 TDD provenance
+
+### Task 1 — metric schema v2 + immutable frame
+
+- RED `86953dca06fd278383d35f5a9202371dfe1a0410` → Windows CI #878 / run `34273684420`; native remained GREEN and managed failed only because `FFPerformanceEngine.Core.Telemetry` contracts did not yet exist.
+- GREEN `4ced969a17b41e4cad56c9e413c626d9cd2326d6` → Windows CI #880 / run `34275125229` SUCCESS.
+
+### Task 2 — conservative legacy bridge
+
+- RED `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` → Windows CI #882 / run `34275316122`; 0 warnings and failures only from missing `TelemetryLegacyBridge`.
+- GREEN `476df79441e0c8770f23f260a2824908595d461a` → Windows CI #884 / run `34275483157` SUCCESS.
+
+### Task 3 — universal workload target resolver
+
+- RED `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` → Windows CI #886 / run `34275838695`; native remained GREEN and managed failed only on missing target/resolver contracts.
+- GREEN `8392892e7ad658928e7b7aca1719df2b64399125` → Windows CI #888 / run `34276000513` SUCCESS.
+
+## Invariants that are now explicit
+
+- legacy `TelemetrySample` is preserved;
+- v2 quality/provenance is per metric, not a free-form sample-wide authority;
+- unavailable metrics are absent, not fabricated zero observations;
+- a finite value alone is insufficient to become `Measured`;
+- unknown GameId input is never echoed as proven identity;
+- only unambiguous bound RunningProcess evidence yields a process target;
+- App Paths / KnownExecutable never yields a live PID;
+- runtime PID/path never replaces durable `GameId`;
+- existing Performance/A-B `Observed != Validated`, freshness, fingerprint and recommendation-authority gates are untouched;
+- Global Controlled Benchmark Lease semantics are unchanged;
+- no game/process discovery was added to application startup.
 
 ## Exact next action
 
-Before widening the binder, reconcile Track 3 exit criteria with Track 4 readiness. Additional installed-app / independent-launcher surfaces are allowed only when they add a truthful signal that can consume the existing evidence plane without inventing durable identity.
+Continue **Track 4**, not Track 3 discovery expansion.
 
-If installed-app registry evidence is pursued, do **not** stuff `InstallLocation` into `ExecutablePath`. Model install-root evidence explicitly and add a new deterministic binder rule only after a RED proves the need. Do not use `DisplayName`, publisher, uninstall command, folder name or fuzzy matching as identity.
+Next implementation plan/slice should migrate the **existing collectors** additively into v2 while preserving old APIs:
 
-If no higher-value Track 3 identity/evidence gap remains, close Track 3 and begin the approved Track 4 Universal Telemetry / Evidence work rather than expanding discovery merely for count.
+1. native system telemetry adapter/path:
+   - existing CPU observation → `system.cpu.utilization.percent`;
+   - existing physical memory used/total → their standard v2 metrics;
+   - first CPU sample may be unavailable because a delta baseline is required;
+   - no GPU/thermal values are invented.
+2. PresentMon v2 adapter/path:
+   - direct measured frame metrics with source `presentmon`;
+   - explicit coverage based on accepted frame rows/window quality;
+   - retain `ParseCsv()` / legacy `TelemetrySample` output until current consumers migrate.
+3. after collector adapters are GREEN, implement bounded realtime v2 ring buffer + quality-aware aggregation.
+4. only then add new hardware channels one provider at a time and later migrate A/B away from free-form `DataQuality` parsing.
 
 ## Do not regress
 
-- Do not reimplement Optimize integration; Track 2 already owns validated recommendation authority and rollback.
-- Do not weaken `ValidatedEvidence` / freshness / fingerprint gates to make game discovery easier.
-- Do not scan launchers, Windows packages, running processes or App Paths at application startup.
-- Do not use display names, executable names or install directories as durable cross-launcher identity keys.
-- Do not let evidence create specialized adapter capabilities.
-- Do not persist running-process/App-Paths paths into stable launcher-manifest executable fields automatically.
-- Do not treat Windows package identity, Store product identity and physical executable paths as interchangeable concepts.
-- Do not broaden discovery using heuristic rules such as “large EXE = game”.
+- Do not replace or mass-edit `TelemetrySample` yet.
+- Do not create a second FPS or hardware telemetry engine.
+- Do not infer GPU/temperature/clock data when a real collector has not proven it.
+- Do not let `FrameQuality` override per-metric quality.
+- Do not use weak evidence to manufacture `GameId`.
+- Do not pick a PID from an ambiguous process set.
+- Do not reimplement Optimize authority or weaken ValidatedEvidence/freshness/fingerprint gates.
+- Do not scan launchers, Windows packages, processes or App Paths during `InitializeAsync()`.
+- Do not expand discovery merely to increase launcher count.

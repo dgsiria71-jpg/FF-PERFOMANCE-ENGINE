@@ -63,7 +63,7 @@ Representative checkpoints:
 - `20490bd8643c724019674a3c896c1cf952958f34` — Windows capability experiment presentation gate later confirmed GREEN at CI #686.
 - branch subsequently advanced through additional Optimize integration/hardening; actual repository state was trusted over the old handoff, and HEAD was confirmed GREEN at CI #710 before Track 3 continued.
 
-## Track 3 — Game Discovery + Adapter Framework
+## Track 3 — Game Discovery + Adapter Framework — GREEN
 
 ### BlueStacks / Game identity foundation
 
@@ -175,13 +175,63 @@ GameEvidenceBinder
 
 Running-process evidence is read-only and transient. App Paths evidence is read-only static executable provenance. Neither can create a durable game identity, mutate stable identity fields or promote a specialized adapter.
 
+Track 3 original exit criteria are satisfied. Further discovery sources are optional enrichment and must still obey native stable identity and non-authoritative evidence rules; they are not a blocker for Track 4.
+
 `AppServices.InitializeAsync()` still performs only Windows capability refresh, settings load and Guardian reconciliation. Identity/evidence discovery still runs only through explicit `DiscoverGamesAsync()`.
+
+## Track 4 — Universal Telemetry / Evidence — ACTIVE
+
+Canonical design and execution plan:
+
+- `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
+- `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
+
+The first additive foundation keeps all existing `TelemetrySample`, `TelemetryService`, `PresentMonService`, Performance Timeline and A/B APIs intact while creating a typed `FFPerformanceEngine.Core.Telemetry` layer.
+
+### Metric schema v2 + immutable frame
+
+- RED: `86953dca06fd278383d35f5a9202371dfe1a0410` — CI #878 / run `34273684420`; native GREEN, managed failed with 0 warnings and only missing `Core.Telemetry` contracts.
+- GREEN: `4ced969a17b41e4cad56c9e413c626d9cd2326d6` — CI #880 / run `34275125229` SUCCESS.
+- Added 17 stable standard metric descriptors, typed domain/unit/aggregation, per-metric `Partial`/`Measured` quality, coverage, source provenance and origin.
+- Numeric observations must be finite; coverage must be finite in `[0,1]`; `Unavailable` cannot be attached to a stored number.
+- `TelemetryFrame` copies and sorts observations deterministically, rejects duplicate metric ids, computes summary quality and returns absent metrics as absent rather than synthetic zero.
+
+### Conservative legacy `TelemetrySample` bridge
+
+- RED: `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` — CI #882 / run `34275316122`; 0 warnings, failures only because `TelemetryLegacyBridge` did not exist.
+- GREEN: `476df79441e0c8770f23f260a2824908595d461a` — CI #884 / run `34275483157` SUCCESS.
+- Explicit mapping covers all 17 legacy nullable fields with no reflection and no mutation of the source sample.
+- PresentMon labels promote only Frame-domain values to direct measured evidence.
+- `System` / `Frame+System` promote only the CPU + physical-memory channels currently proven by `TelemetryService`; GPU/thermal/network remain Partial unless a future real collector proves them.
+- Unknown labels stay Partial; null/NaN/infinity emit no metric.
+
+### Universal workload target resolver
+
+- RED: `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` — CI #886 / run `34275838695`; native GREEN and managed failed only on missing workload-target contracts.
+- GREEN: `8392892e7ad658928e7b7aca1719df2b64399125` — CI #888 / run `34276000513` SUCCESS.
+- Resolver is pure Core logic over `ResolvedGameCatalogResult`; no process enumeration, filesystem existence checks or Guardian dependency.
+- Only exactly one proven stable `GameId` plus exactly one unambiguous bound `RunningProcess` PID/path can become process-capture eligible.
+- KnownExecutable/App Paths evidence cannot yield a live PID.
+- Zero valid running evidence preserves the stable game but reports Unavailable; multiple PIDs or conflicting paths remain Ambiguous; unknown/non-unique GameId is not promoted.
+
+### Track 4 invariants established
+
+- legacy `TelemetrySample` preserved;
+- per-metric typed quality/provenance exists;
+- unavailable values are absent, not zero-filled;
+- finite numbers do not become measured without accepted provenance;
+- unknown GameId is not echoed into proven identity;
+- only unambiguous bound RunningProcess evidence yields a PID;
+- App Paths/KnownExecutable never yields a live PID;
+- runtime PID/path never replaces durable GameId;
+- existing `Observed != Validated`, freshness, fingerprint, Global Benchmark Lease and recommendation authority remain unchanged;
+- no startup discovery was added.
 
 ## Current verified application head
 
 ```text
-6832557bb7ce0e62fad894d09077ae5d7593f397
-Windows CI #864 / run 34271999758 — SUCCESS
+8392892e7ad658928e7b7aca1719df2b64399125
+Windows CI #888 / run 34276000513 — SUCCESS
 ```
 
-Next Track 3 action: reconcile Track 3 exit criteria with Track 4 readiness before widening the binder. Additional installed-app / independent-launcher surfaces should be added only when they contribute a truthful signal that the existing evidence plane can consume without inventing durable identity. If an installed-app source needs an install-root fact rather than an executable path, model that fact explicitly and prove a deterministic binder rule with RED first; never overload `ExecutablePath` with `InstallLocation`.
+Next Track 4 action: migrate the existing collectors additively into schema v2 while preserving all legacy APIs. Start with the current native CPU/physical-memory telemetry, then PresentMon direct frame evidence. After those collector adapters are GREEN, add a bounded realtime v2 ring buffer and quality-aware aggregation. New GPU/thermal/clock/I/O/network channels must be introduced one proven provider at a time; do not fabricate them. A/B migration away from free-form `DataQuality` parsing comes only after v2 collectors are stable.
