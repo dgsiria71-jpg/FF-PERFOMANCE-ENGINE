@@ -19,14 +19,7 @@ public static class TelemetryFrameAggregator
                             && frame.Timestamp < endExclusive)
             .ToArray();
 
-        var contributors = inWindow
-            .SelectMany(frame => frame.Metrics.Select(observation => new Contributor(frame.Timestamp, observation)))
-            .GroupBy(contributor => contributor.Observation.Metric.Id, StringComparer.Ordinal)
-            .OrderBy(group => group.Key, StringComparer.Ordinal)
-            .Select(AggregateMetric)
-            .ToArray();
-
-        return new TelemetryFrame(endExclusive, contributors);
+        return AggregateFrames(endExclusive, inWindow, expectedChildCount: null);
     }
 
     public static TelemetryFrame AggregateOneSecond(
@@ -34,8 +27,82 @@ public static class TelemetryFrameAggregator
         IEnumerable<TelemetryFrame> frames)
         => Aggregate(startInclusive, startInclusive.AddSeconds(1), frames);
 
+    public static TelemetryFrame AggregateChildWindows(
+        DateTimeOffset startInclusive,
+        DateTimeOffset endExclusive,
+        TimeSpan childWindow,
+        IEnumerable<TelemetryFrame> childAggregates)
+    {
+        ArgumentNullException.ThrowIfNull(childAggregates);
+        if (endExclusive <= startInclusive)
+            throw new ArgumentOutOfRangeException(
+                nameof(endExclusive),
+                "Telemetry parent aggregation window end must be after the start.");
+        if (childWindow <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(childWindow),
+                "Telemetry child aggregation window must be positive.");
+
+        var parentTicks = (endExclusive - startInclusive).Ticks;
+        var childTicks = childWindow.Ticks;
+        if (parentTicks % childTicks != 0)
+            throw new ArgumentException(
+                "Telemetry parent aggregation duration must be an exact multiple of the child window.",
+                nameof(childWindow));
+
+        var expectedChildCount = parentTicks / childTicks;
+        var eligible = childAggregates
+            .Where(frame => frame is not null
+                            && frame.Timestamp > startInclusive
+                            && frame.Timestamp <= endExclusive)
+            .ToArray();
+
+        foreach (var frame in eligible)
+        {
+            var deltaTicks = (frame.Timestamp - startInclusive).Ticks;
+            if (deltaTicks % childTicks != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Telemetry child aggregate timestamp '{frame.Timestamp:O}' is not aligned to the declared child window.");
+            }
+        }
+
+        var duplicateTimestamp = eligible
+            .GroupBy(frame => frame.Timestamp)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicateTimestamp is not null)
+        {
+            throw new InvalidOperationException(
+                $"Telemetry hierarchical aggregation contains duplicate child window end '{duplicateTimestamp.Key:O}'.");
+        }
+
+        return AggregateFrames(endExclusive, eligible, expectedChildCount);
+    }
+
+    private static TelemetryFrame AggregateFrames(
+        DateTimeOffset resultTimestamp,
+        IReadOnlyCollection<TelemetryFrame> frames,
+        long? expectedChildCount)
+    {
+        var contributors = frames
+            .SelectMany(frame => frame.Metrics.Select(observation => new Contributor(frame.Timestamp, observation)))
+            .GroupBy(contributor => contributor.Observation.Metric.Id, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var temporalPresence = expectedChildCount is long expected
+                    ? group.LongCount() / (double)expected
+                    : 1d;
+                return AggregateMetric(group, temporalPresence);
+            })
+            .ToArray();
+
+        return new TelemetryFrame(resultTimestamp, contributors);
+    }
+
     private static TelemetryMetricObservation AggregateMetric(
-        IGrouping<string, Contributor> group)
+        IGrouping<string, Contributor> group,
+        double coverageScale)
     {
         var ordered = group
             .OrderBy(contributor => contributor.Timestamp)
@@ -76,7 +143,7 @@ public static class TelemetryFrameAggregator
             ? TelemetryMetricQuality.Partial
             : TelemetryMetricQuality.Measured;
 
-        var coverage = ordered.Min(contributor => contributor.Observation.Coverage);
+        var coverage = ordered.Min(contributor => contributor.Observation.Coverage) * coverageScale;
         var sources = ordered
             .Select(contributor => contributor.Observation.SourceId)
             .Distinct(StringComparer.Ordinal)
