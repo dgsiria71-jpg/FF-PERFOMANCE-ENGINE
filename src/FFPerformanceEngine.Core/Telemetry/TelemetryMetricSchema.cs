@@ -26,6 +26,7 @@ public enum TelemetryUnit
     Milliseconds,
     Percent,
     Gibibytes,
+    Megahertz,
     Celsius,
     Count
 }
@@ -128,6 +129,15 @@ public static class TelemetryStandardMetrics
     public static readonly TelemetryMetricDescriptor SystemCpuUtilizationPercent = Metric(
         "system.cpu.utilization.percent", TelemetryUnit.Percent, TelemetryMetricDomain.System);
 
+    public static readonly TelemetryMetricDescriptor CpuClockCurrentAverageMhz = Metric(
+        "system.cpu.clock.current_avg_mhz", TelemetryUnit.Megahertz, TelemetryMetricDomain.System);
+
+    public static readonly TelemetryMetricDescriptor CpuClockMaximumAverageMhz = Metric(
+        "system.cpu.clock.max_avg_mhz", TelemetryUnit.Megahertz, TelemetryMetricDomain.System);
+
+    public static readonly TelemetryMetricDescriptor CpuClockLimitMinimumMhz = Metric(
+        "system.cpu.clock.limit_min_mhz", TelemetryUnit.Megahertz, TelemetryMetricDomain.System);
+
     public static readonly TelemetryMetricDescriptor SystemMemoryUsedGb = Metric(
         "system.memory.used_gb", TelemetryUnit.Gibibytes, TelemetryMetricDomain.System);
 
@@ -163,6 +173,9 @@ public static class TelemetryStandardMetrics
         FrameStutterPercent,
         FrameLatencyAverageMs,
         SystemCpuUtilizationPercent,
+        CpuClockCurrentAverageMhz,
+        CpuClockMaximumAverageMhz,
+        CpuClockLimitMinimumMhz,
         SystemMemoryUsedGb,
         SystemMemoryTotalGb,
         SystemGpuUtilizationPercent,
