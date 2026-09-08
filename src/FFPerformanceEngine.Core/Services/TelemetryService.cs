@@ -1,5 +1,6 @@
 using FFPerformanceEngine.Core.Interop;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -8,6 +9,27 @@ public sealed class TelemetryService
     private NativeCpuTimes? _previousCpu;
 
     public TelemetrySample CaptureSystemSample()
+    {
+        var snapshot = CaptureSystemSnapshot();
+        return new TelemetrySample
+        {
+            Timestamp = snapshot.Timestamp,
+            CpuPercent = snapshot.CpuPercent,
+            MemoryUsedGb = snapshot.MemoryUsedGb,
+            MemoryTotalGb = snapshot.MemoryTotalGb,
+            DataQuality = snapshot.CpuPercent is not null || snapshot.MemoryTotalGb is not null
+                ? "System"
+                : "Unavailable"
+        };
+    }
+
+    public TelemetryFrame CaptureSystemFrame()
+        => SystemTelemetryFrameAdapter.Create(CaptureSystemSnapshot());
+
+    public static TelemetrySample WithFrameMetrics(TelemetrySample system, double fps, double? latencyMs = null)
+        => system with { Fps = fps, FrameTimeMs = fps > 0 ? 1000d / fps : null, LatencyMs = latencyMs, DataQuality = "Frame+System" };
+
+    private SystemTelemetrySnapshot CaptureSystemSnapshot()
     {
         double? cpu = null;
         double? totalGb = null;
@@ -40,15 +62,12 @@ public sealed class TelemetryService
             catch (EntryPointNotFoundException) { }
         }
 
-        return new TelemetrySample
+        return new SystemTelemetrySnapshot
         {
+            Timestamp = DateTimeOffset.UtcNow,
             CpuPercent = cpu,
             MemoryUsedGb = usedGb,
-            MemoryTotalGb = totalGb,
-            DataQuality = cpu is not null || totalGb is not null ? "System" : "Unavailable"
+            MemoryTotalGb = totalGb
         };
     }
-
-    public static TelemetrySample WithFrameMetrics(TelemetrySample system, double fps, double? latencyMs = null)
-        => system with { Fps = fps, FrameTimeMs = fps > 0 ? 1000d / fps : null, LatencyMs = latencyMs, DataQuality = "Frame+System" };
 }
