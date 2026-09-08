@@ -31,6 +31,58 @@ public sealed class WindowsCapabilityValidatedRecommendationService
         _publish = publish ?? throw new ArgumentNullException(nameof(publish));
     }
 
+    /// <summary>
+    /// Resolves the newest durable ValidatedEvidence that is still compatible
+    /// with the exact current machine/workload/baseline/candidate space. This is
+    /// a read-only resume seam for UI/session reconstruction; it never publishes
+    /// a recommendation and returns null when any freshness/context gate drifts.
+    /// </summary>
+    public async Task<WindowsCapabilityValidatedEvidence?> ResolveCurrentAsync(
+        string capabilityId,
+        string candidateTarget,
+        CancellationToken cancellationToken = default)
+    {
+        var id = capabilityId?.Trim().ToLowerInvariant() ?? string.Empty;
+        var target = candidateTarget?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("A capability id is required to resume ValidatedEvidence.", nameof(capabilityId));
+        if (string.IsNullOrWhiteSpace(target))
+            throw new ArgumentException("A candidate target is required to resume ValidatedEvidence.", nameof(candidateTarget));
+
+        var fingerprint = RequireCurrent(_machineFingerprintIdProvider(), "machine fingerprint");
+        var workload = RequireCurrent(_workloadKeyProvider(), "workload identity");
+
+        var plan = await _plan(id, cancellationToken).ConfigureAwait(false);
+        if (!SupportsTarget(plan, id, target) || string.IsNullOrWhiteSpace(plan.CurrentValue))
+            return null;
+
+        var latest = await _store.GetLatestAsync(
+                id,
+                plan.CurrentValue,
+                target,
+                fingerprint,
+                workload,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (latest is null || !IsStructurallyValid(latest))
+            return null;
+
+        var finalFingerprint = RequireCurrent(_machineFingerprintIdProvider(), "machine fingerprint");
+        var finalWorkload = RequireCurrent(_workloadKeyProvider(), "workload identity");
+        if (!string.Equals(finalFingerprint, fingerprint, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(finalWorkload, workload, StringComparison.Ordinal))
+            return null;
+
+        // Re-plan after the durable read so the UI cannot surface a publish action
+        // from evidence whose baseline or supported target changed during resume.
+        var finalPlan = await _plan(id, cancellationToken).ConfigureAwait(false);
+        if (!SupportsTarget(finalPlan, id, target)
+            || !string.Equals(finalPlan.CurrentValue, latest.BaselineValue, StringComparison.Ordinal))
+            return null;
+
+        return latest;
+    }
+
     public async Task<CapabilityRecommendationPublicationResult> PublishAsync(
         WindowsCapabilityValidatedEvidence evidence,
         CancellationToken cancellationToken = default)
@@ -110,26 +162,32 @@ public sealed class WindowsCapabilityValidatedRecommendationService
             throw new InvalidOperationException("ValidatedEvidence is stale because a newer validation exists for the same exact tuple.");
     }
 
+    private static bool SupportsTarget(
+        WindowsCapabilityCandidatePlan plan,
+        string capabilityId,
+        string candidateTarget)
+        => plan.CanExplore
+           && plan.Candidates.Any(candidate =>
+               string.Equals(candidate.CapabilityId, capabilityId, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(candidate.TargetValue, candidateTarget, StringComparison.Ordinal));
+
+    private static bool IsStructurallyValid(WindowsCapabilityValidatedEvidence evidence)
+        => evidence.Source == WindowsCapabilityValidatedEvidenceSource.ValidatedEvidence
+           && !string.IsNullOrWhiteSpace(evidence.CapabilityId)
+           && !string.IsNullOrWhiteSpace(evidence.BaselineValue)
+           && !string.IsNullOrWhiteSpace(evidence.CandidateTarget)
+           && !string.IsNullOrWhiteSpace(evidence.MachineFingerprintId)
+           && !string.IsNullOrWhiteSpace(evidence.WorkloadKey)
+           && evidence.ObservationCount >= 3
+           && double.IsFinite(evidence.Consistency)
+           && evidence.Consistency > 0
+           && evidence.Consistency <= 1
+           && evidence.ValidatedAt != default;
+
     private static void ValidateIdentity(WindowsCapabilityValidatedEvidence evidence)
     {
-        if (evidence.Source != WindowsCapabilityValidatedEvidenceSource.ValidatedEvidence)
-            throw new ArgumentException("Only explicit ValidatedEvidence may enter recommendation promotion.", nameof(evidence));
-        if (string.IsNullOrWhiteSpace(evidence.CapabilityId)
-            || string.IsNullOrWhiteSpace(evidence.BaselineValue)
-            || string.IsNullOrWhiteSpace(evidence.CandidateTarget)
-            || string.IsNullOrWhiteSpace(evidence.MachineFingerprintId)
-            || string.IsNullOrWhiteSpace(evidence.WorkloadKey))
-        {
-            throw new ArgumentException("ValidatedEvidence is missing its exact recommendation tuple.", nameof(evidence));
-        }
-        if (evidence.ObservationCount < 3
-            || !double.IsFinite(evidence.Consistency)
-            || evidence.Consistency <= 0
-            || evidence.Consistency > 1
-            || evidence.ValidatedAt == default)
-        {
+        if (!IsStructurallyValid(evidence))
             throw new ArgumentException("ValidatedEvidence provenance is structurally invalid for recommendation promotion.", nameof(evidence));
-        }
     }
 
     private static string RequireCurrent(string? value, string label)
