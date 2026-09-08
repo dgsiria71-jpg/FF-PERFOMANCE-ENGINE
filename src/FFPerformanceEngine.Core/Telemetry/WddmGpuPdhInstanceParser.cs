@@ -3,12 +3,12 @@ using System.Text.RegularExpressions;
 
 namespace FFPerformanceEngine.Core.Telemetry;
 
-public static partial class WddmGpuPdhInstanceParser
+public static class WddmGpuPdhInstanceParser
 {
-    [GeneratedRegex(
+    private static readonly Regex PhysicalEnginePattern = new(
         @"(?:^|_)luid_0x(?<high>[0-9a-f]{1,8})_0x(?<low>[0-9a-f]{1,8})_phys_(?<phys>[0-9]+)_eng_(?<eng>[0-9]+)(?:_|$)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
-    private static partial Regex PhysicalEnginePattern();
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        TimeSpan.FromMilliseconds(100));
 
     public static bool TryParsePhysicalEngineKey(
         string? instanceName,
@@ -17,7 +17,16 @@ public static partial class WddmGpuPdhInstanceParser
         engineKey = null;
         if (string.IsNullOrWhiteSpace(instanceName)) return false;
 
-        var match = PhysicalEnginePattern().Match(instanceName.Trim());
+        Match match;
+        try
+        {
+            match = PhysicalEnginePattern.Match(instanceName.Trim());
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+
         if (!match.Success) return false;
 
         if (!uint.TryParse(
