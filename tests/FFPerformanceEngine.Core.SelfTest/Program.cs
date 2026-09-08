@@ -148,6 +148,7 @@ try
     await PersistentPcOptimizationLeaseSelfTests.RunAsync();
     await WindowsPowerPolicyMutationAdapterSelfTests.RunAsync();
     PerformanceTimelineEventRecorderSelfTests.Run();
+    await GameDiscoveryFoundationSelfTests.RunAsync();
 }
 finally
 {
