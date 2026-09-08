@@ -141,6 +141,7 @@ public partial class OptimizePage : UserControl
         {
             _capabilityInitializing = false;
             ApplyBusyState();
+            RefreshReadiness();
         }
 
         await RefreshCapabilityPlanForSelectionAsync();
@@ -183,6 +184,7 @@ public partial class OptimizePage : UserControl
         {
             _capabilityInitializing = false;
             ApplyBusyState();
+            RefreshReadiness();
         }
     }
 
