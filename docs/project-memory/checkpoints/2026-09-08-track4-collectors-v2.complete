@@ -1,0 +1,6 @@
+This marker records the verified Track 4 collector-v2 application checkpoint:
+application HEAD edfbba0845d60447e6fdd158b75eee6def39a60f
+Windows CI #900 / run 34277780294 SUCCESS
+native system v2 GREEN b9b1338828aa890380a8d689f8bb53ff737b517d / CI #896
+PresentMon v2 GREEN edfbba0845d60447e6fdd158b75eee6def39a60f / CI #900
+Next boundary: bounded realtime TelemetryFrame ring buffer + quality/coverage-aware 1-second aggregation.
