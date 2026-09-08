@@ -102,7 +102,6 @@ public sealed class PersistentPcOptimizationPlanner
         string fingerprintId)
     {
         ArgumentNullException.ThrowIfNull(capability);
-        var id = capability.CapabilityId?.Trim().ToLowerInvariant() ?? string.Empty;
         var recommendation = capability.Recommendation ?? new CapabilityRecommendationSummary();
         var target = string.IsNullOrWhiteSpace(capability.RecommendedValue)
             ? null
@@ -127,7 +126,7 @@ public sealed class PersistentPcOptimizationPlanner
 
         if (!IsAutomaticRecommendationSource(recommendation.Source))
             return Entry(capability, PersistentPcOptimizationDisposition.UnsupportedRecommendationSource, current, target,
-                "Recommendation provenance is not eligible for automatic persistent optimization.");
+                "Recommendation provenance is not eligible for automatic persistent optimization. ControlledEvidence must complete PendingValidation and a fresh validation challenge before becoming ValidatedEvidence.");
 
         if (!string.Equals(
                 recommendation.MachineFingerprintId?.Trim(),
@@ -154,12 +153,11 @@ public sealed class PersistentPcOptimizationPlanner
                 "Capability is already at the recommended state.");
 
         return Entry(capability, PersistentPcOptimizationDisposition.Ready, current, target,
-            "Evidence/diagnostic recommendation is eligible for a persistent reversible transaction.");
+            "Validated evidence/diagnostic recommendation is eligible for a persistent reversible transaction.");
     }
 
     private static bool IsAutomaticRecommendationSource(CapabilityRecommendationSource source)
         => source is CapabilityRecommendationSource.Diagnostic
-            or CapabilityRecommendationSource.ControlledEvidence
             or CapabilityRecommendationSource.ValidatedEvidence;
 
     private static PersistentPcOptimizationPlanEntry Entry(
