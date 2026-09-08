@@ -55,6 +55,9 @@ public sealed class AppServices : IAsyncDisposable
     public MicrosoftStoreGdkGameDiscoverySource MicrosoftStoreGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
+    public RunningProcessGameEvidenceSource RunningProcessGameEvidence { get; }
+    public GameEvidenceCatalogService GameEvidenceCatalog { get; }
+    public GameEvidenceBinder GameEvidenceBinder { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public ProfileChallengeService ProfileChallenges { get; }
@@ -166,7 +169,18 @@ public sealed class AppServices : IAsyncDisposable
             BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
             BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
         ]);
-        GameDiscovery = new GameDiscoveryCoordinator(GameCatalog, GameAdapters);
+        RunningProcessGameEvidence = new RunningProcessGameEvidenceSource(
+            new WindowsRunningProcessObservationProvider());
+        GameEvidenceCatalog = new GameEvidenceCatalogService(
+        [
+            RunningProcessGameEvidence
+        ]);
+        GameEvidenceBinder = new GameEvidenceBinder();
+        GameDiscovery = new GameDiscoveryCoordinator(
+            GameCatalog,
+            GameAdapters,
+            GameEvidenceCatalog,
+            GameEvidenceBinder);
 
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         ProfileChallenges = new ProfileChallengeService(Profiles, History);
