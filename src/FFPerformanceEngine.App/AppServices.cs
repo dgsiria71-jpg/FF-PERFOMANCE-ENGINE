@@ -48,6 +48,7 @@ public sealed class AppServices : IAsyncDisposable
     public BlueStacksInstalledGameDiscoverySource BlueStacksGameDiscovery { get; }
     public SteamGameDiscoverySource SteamGameDiscovery { get; }
     public EpicGameDiscoverySource EpicGameDiscovery { get; }
+    public RiotGameDiscoverySource RiotGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -131,18 +132,20 @@ public sealed class AppServices : IAsyncDisposable
 
         // Track 3 stays side-effect free at composition time. The catalog, sources
         // and resolver are shared application authorities, but neither BlueStacks
-        // package discovery nor launcher manifest scans run until DiscoverGamesAsync
+        // package discovery nor launcher metadata scans run until DiscoverGamesAsync
         // is explicitly requested by a workflow.
         BlueStacksGameDiscovery = new BlueStacksInstalledGameDiscoverySource(
             BlueStacks,
             BlueStacksAutomation);
         SteamGameDiscovery = new SteamGameDiscoverySource();
         EpicGameDiscovery = new EpicGameDiscoverySource();
+        RiotGameDiscovery = new RiotGameDiscoverySource();
         GameCatalog = new LocalGameCatalogService(
         [
             BlueStacksGameDiscovery,
             SteamGameDiscovery,
-            EpicGameDiscovery
+            EpicGameDiscovery,
+            RiotGameDiscovery
         ]);
         GameAdapters = new GameAdapterResolver(
         [
