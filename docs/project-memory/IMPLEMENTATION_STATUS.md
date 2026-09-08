@@ -110,11 +110,22 @@ Representative checkpoints:
 - `956667cd798198a703575b34f2710eb13fbfdff7` — read-only HKLM Ubisoft launcher install discovery, numeric local install identity normalization, 32/64-bit view deduplication, stale registration rejection, optional uninstall DisplayName and no executable/title guessing; CI #803 SUCCESS.
 - `8603a2ba946c481051fd85f0944df03ea0810abd` — Ubisoft composed in the shared `GameCatalog`; CI #805 SUCCESS.
 
+### Microsoft Store / Xbox GDK
+
+- RED contract: `3aee884c950f1eda64dfecbc4a9d7fea4bff7b80`, CI #810 failed only because the neutral Microsoft Store observation/provider/source contracts did not yet exist.
+- `dd36f0bfcb51982972bf0f8e3d59b5b7f311c847` — neutral Core PFN-based GDK discovery + safe `MicrosoftGame.config` parser; CI #812 exposed one nullable-flow compile error.
+- `d8294b9bcee3e522e6acbc1bc17acbf3a610c1f0` — explicit PFN null-safety; CI #814 SUCCESS.
+- `9c7662217af4bb9f0638e795a6b06c2e91f163a8` — Windows PackageManager/Storage provider; CI #816 proved WinRT projection compatibility and exposed only a missing `System.IO` import.
+- `d3d2bce47685f11452c089d03c804fedb204d42d` — provider import fix; CI #818 SUCCESS.
+- `de38db0487af48eef9441b6869c18550b4785d58` — Microsoft Store/Xbox GDK composed in shared `GameCatalog`; CI #820 SUCCESS.
+
+Identity is normalized Package Family Name (`xbox:<pfn>`). The current source is precision-first: valid `MicrosoftGame.config` is required; PackageFullName, StoreId, TitleId and configured executable declarations remain evidence; framework/resource/bundle/optional/DLC packages are excluded; the Windows provider uses PackageManager + supported Storage APIs and does not enumerate at startup.
+
 ## Current verified application head
 
 ```text
-8603a2ba946c481051fd85f0944df03ea0810abd
-Windows CI #805 — SUCCESS
+de38db0487af48eef9441b6869c18550b4785d58
+Windows CI #820 — SUCCESS
 ```
 
-Next Track 3 slice: **Xbox / Microsoft Store / Gaming Services**, after explicit local-identity/API research.
+Next Track 3 action: re-read `docs/project-memory/ROADMAP.md` and the canonical unified architecture spec, reconcile them with the completed discovery sources, and choose the next already-approved discovery boundary before writing code.
