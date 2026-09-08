@@ -4,7 +4,7 @@
 
 **Goal:** Add a second, non-authoritative evidence-discovery plane that can bind running-process evidence to existing stable `GameIdentity` entries without ever manufacturing a new game identity.
 
-**Architecture:** Preserve `IGameDiscoverySource` and `LocalGameCatalogService` as the only identity-authority plane. Add `IGameEvidenceSource` + `GameEvidenceCatalogService` + `GameEvidenceBinder` as an additive Core plane, then feed a Windows running-process evidence source through that plane only during explicit `DiscoverGamesAsync()`. Stable identities remain unchanged; runtime evidence is returned separately as bound/unbound evidence.
+**Architecture:** Preserve `IGameDiscoverySource` and `LocalGameCatalogService` as the identity-authority plane. Add `IGameEvidenceSource` + `GameEvidenceCatalogService` + `GameEvidenceBinder` as an additive Core plane, then feed Windows running-process evidence through that plane only during explicit `DiscoverGamesAsync()`. Stable identities remain unchanged; runtime evidence is returned separately as bound/unbound evidence.
 
 **Tech Stack:** C#/.NET 8 Core, WPF/.NET 8 Windows App, `System.Diagnostics.Process`, existing module-initializer self-test harness, GitHub Windows CI.
 
@@ -17,15 +17,15 @@
 - Display names, executable file names, folder names and window titles MUST NOT become identity keys.
 - A non-empty `GameIdHint` either binds exactly or returns `NoMatchingIdentity`; it MUST NOT silently fall through to path containment.
 - Path binding requires a fully qualified executable path contained by exactly one existing `InstallPath` with a real directory boundary.
-- Ambiguous path containment returns `AmbiguousInstallPath`; it is never resolved by source priority, confidence or text similarity.
-- Bound evidence MUST NOT mutate `GameId`, `Name`, `Launcher`, `Engine`, `AdapterId` or `LegacyGameKind`.
+- Ambiguous path containment returns `AmbiguousInstallPath`; it is never resolved by priority, confidence or text similarity.
+- Bound evidence MUST NOT mutate stable identity fields.
 - Runtime executable paths remain transient evidence and MUST NOT be copied into durable `GameIdentity.Executables` automatically.
 - Construction of all discovery/evidence services remains side-effect free.
 - `AppServices.InitializeAsync()` MUST remain free of game/evidence scanning.
 - Cancellation propagates; non-cancellation failure of one evidence source is isolated as a warning.
-- No new external package/dependency is introduced for this slice.
-- Each production slice requires its own observed RED followed by a full Windows CI GREEN before moving on.
-- After the final GREEN, update `docs/project-memory/HANDOFF_CURRENT.md` and `docs/project-memory/IMPLEMENTATION_STATUS.md` atomically.
+- No external package/dependency is introduced.
+- Each production slice requires observed RED and full Windows CI GREEN before the next slice.
+- Final memory updates to `HANDOFF_CURRENT.md` and `IMPLEMENTATION_STATUS.md` are atomic.
 
 ---
 
@@ -33,185 +33,41 @@
 
 ### New Core files
 
-- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceModels.cs`
-  - evidence enums, records, source contract and binding-result contracts only.
-- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceCatalogService.cs`
-  - deterministic source execution, normalization, deduplication, warning isolation.
-- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceBinder.cs`
-  - exact-hint and unique-install-path binding only.
-- `src/FFPerformanceEngine.Core/Workloads/RunningProcessGameEvidenceSource.cs`
-  - neutral transformation from injectable running-process snapshots to evidence observations.
+- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceModels.cs` — evidence contracts only.
+- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceCatalogService.cs` — source execution, normalization, deduplication and warnings.
+- `src/FFPerformanceEngine.Core/Workloads/GameEvidenceBinder.cs` — exact-hint and unique-install-path binding.
+- `src/FFPerformanceEngine.Core/Workloads/RunningProcessGameEvidenceSource.cs` — neutral process-snapshot → evidence transformation.
 
 ### New App file
 
-- `src/FFPerformanceEngine.App/WindowsRunningProcessObservationProvider.cs`
-  - Windows-only `System.Diagnostics.Process` enumeration; no game classification.
+- `src/FFPerformanceEngine.App/WindowsRunningProcessObservationProvider.cs` — Windows `Process` enumeration only; no game classification.
 
-### Modified Core/App files
+### Modified files
 
 - `src/FFPerformanceEngine.Core/Workloads/GameDiscoveryCoordinator.cs`
-  - additive evidence plane support and backward-compatible result fields.
 - `src/FFPerformanceEngine.App/AppServices.cs`
-  - shared evidence authorities and running-process source composition; no startup scan.
+- `tests/FFPerformanceEngine.Core.SelfTest/GameDiscoveryCoordinatorSelfTests.cs`
 
-### New/modified tests
+### New tests
 
 - `tests/FFPerformanceEngine.Core.SelfTest/GameEvidenceCatalogSelfTests.cs`
 - `tests/FFPerformanceEngine.Core.SelfTest/GameEvidenceBinderSelfTests.cs`
 - `tests/FFPerformanceEngine.Core.SelfTest/RunningProcessGameEvidenceSelfTests.cs`
-- modify `tests/FFPerformanceEngine.Core.SelfTest/GameDiscoveryCoordinatorSelfTests.cs`
 
-The existing Core self-test project already glob-includes `.cs` files and references only `FFPerformanceEngine.Core`; no project-file change is needed.
+The Core self-test project glob-includes `.cs` files and already references `FFPerformanceEngine.Core`; no `.csproj` edit is required.
 
 ---
 
-### Task 1: Evidence contracts and deterministic evidence catalog
+### Task 1: Evidence contracts + deterministic evidence catalog
 
 **Files:**
 - Create: `tests/FFPerformanceEngine.Core.SelfTest/GameEvidenceCatalogSelfTests.cs`
 - Create: `src/FFPerformanceEngine.Core/Workloads/GameEvidenceModels.cs`
 - Create: `src/FFPerformanceEngine.Core/Workloads/GameEvidenceCatalogService.cs`
 
-**Interfaces:**
-- Produces:
-  - `enum GameEvidenceKind`
-  - `record GameEvidenceObservation`
-  - `interface IGameEvidenceSource`
-  - `record GameEvidenceSourceObservation`
-  - `record GameEvidenceCatalogResult`
-  - `class GameEvidenceCatalogService`
-- Reuses: existing `GameDiscoveryWarning` for source warnings.
-
-- [ ] **Step 1: Write the failing evidence-catalog self-test**
-
-Create a module-initializer self-test with a 30-second watchdog. Use three fake sources:
+**Interfaces produced:**
 
 ```csharp
-private sealed class FakeEvidenceSource : IGameEvidenceSource
-{
-    private readonly Func<CancellationToken, Task<IReadOnlyList<GameEvidenceObservation>>> _observe;
-
-    internal FakeEvidenceSource(
-        string sourceId,
-        int priority,
-        Func<CancellationToken, Task<IReadOnlyList<GameEvidenceObservation>>> observe)
-    {
-        SourceId = sourceId;
-        Priority = priority;
-        _observe = observe;
-    }
-
-    internal int Calls { get; private set; }
-    public string SourceId { get; }
-    public int Priority { get; }
-
-    public Task<IReadOnlyList<GameEvidenceObservation>> ObserveAsync(
-        CancellationToken cancellationToken = default)
-    {
-        Calls++;
-        return _observe(cancellationToken);
-    }
-}
-```
-
-The test MUST assert all of these behaviors in one deterministic pass:
-
-```csharp
-var observedAt = new DateTimeOffset(2026, 9, 8, 15, 0, 0, TimeSpan.Zero);
-
-var high = new FakeEvidenceSource("  running  ", 80, _ => Task.FromResult<IReadOnlyList<GameEvidenceObservation>>(
-[
-    new()
-    {
-        ObservationId = " PID:42 ",
-        Kind = GameEvidenceKind.RunningProcess,
-        Confidence = 0.70,
-        ObservedAtUtc = observedAt,
-        ExecutablePath = @"C:\Games\Foo\foo.exe",
-        ProcessId = 42,
-        EvidenceText = "first"
-    },
-    new()
-    {
-        ObservationId = "pid:42",
-        Kind = GameEvidenceKind.RunningProcess,
-        Confidence = 0.95,
-        ObservedAtUtc = observedAt.AddSeconds(1),
-        ExecutablePath = @"C:\Games\Foo\foo.exe",
-        ProcessId = 42,
-        EvidenceText = "stronger duplicate"
-    },
-    new()
-    {
-        ObservationId = " ",
-        Kind = GameEvidenceKind.Other,
-        Confidence = 1,
-        ObservedAtUtc = observedAt,
-        EvidenceText = "invalid id"
-    }
-]));
-
-var broken = new FakeEvidenceSource("broken", 70, _ => throw new InvalidOperationException("boom"));
-var low = new FakeEvidenceSource("installed", 20, _ => Task.FromResult<IReadOnlyList<GameEvidenceObservation>>(
-[
-    new()
-    {
-        ObservationId = "app:1",
-        Kind = GameEvidenceKind.InstalledApplication,
-        Confidence = double.PositiveInfinity,
-        ObservedAtUtc = observedAt,
-        DisplayName = "Example",
-        EvidenceText = "installed app"
-    }
-]));
-
-var catalog = new GameEvidenceCatalogService([low, broken, high]);
-var result = await catalog.DiscoverAsync();
-```
-
-Required assertions:
-
-```csharp
-Require(high.Calls == 1 && broken.Calls == 1 && low.Calls == 1,
-    "Each evidence source must execute at most once per explicit pass.");
-Require(result.Observations.Count == 2,
-    "Blank observation ids and lower-confidence duplicates must be removed.");
-Require(result.Observations[0].SourceId == "running"
-        && result.Observations[0].Observation.ObservationId == "pid:42"
-        && result.Observations[0].Observation.Confidence == 0.95,
-    "Duplicate key must keep highest normalized confidence with normalized provenance.");
-Require(result.Observations[1].SourceId == "installed"
-        && result.Observations[1].Observation.Confidence == 0,
-    "Non-finite confidence must normalize to zero.");
-Require(result.Warnings.Count == 1
-        && result.Warnings[0].SourceId == "broken"
-        && result.Warnings[0].Message.Contains("boom", StringComparison.Ordinal),
-    "One source failure must become one warning without suppressing other observations.");
-```
-
-Also prove pre-cancellation does not invoke sources:
-
-```csharp
-using var cancelled = new CancellationTokenSource();
-cancelled.Cancel();
-await ExpectThrowsAsync<OperationCanceledException>(
-    () => catalog.DiscoverAsync(cancelled.Token),
-    "Pre-cancelled evidence discovery must not invoke platform sources.");
-Require(high.Calls == 1 && broken.Calls == 1 && low.Calls == 1,
-    "Cancellation before discovery must not touch any source again.");
-```
-
-- [ ] **Step 2: Push the RED test and verify Windows CI fails for missing evidence contracts**
-
-Expected managed failure: unresolved `IGameEvidenceSource`, `GameEvidenceObservation`, `GameEvidenceKind`, and/or `GameEvidenceCatalogService` only. Native configure/build/test should remain GREEN.
-
-- [ ] **Step 3: Implement `GameEvidenceModels.cs`**
-
-Use these exact initial contracts:
-
-```csharp
-namespace FFPerformanceEngine.Core.Workloads;
-
 public enum GameEvidenceKind
 {
     RunningProcess,
@@ -298,119 +154,257 @@ public sealed record GameEvidenceBindingResult
 }
 ```
 
-- [ ] **Step 4: Implement `GameEvidenceCatalogService.cs`**
+- [ ] **Step 1: Write RED self-test**
 
-Required behavior:
+Use a `ModuleInitializer`, a 30-second `WaitAsync` watchdog and this fake:
 
 ```csharp
-public sealed class GameEvidenceCatalogService
+private sealed class FakeEvidenceSource : IGameEvidenceSource
 {
-    private readonly IReadOnlyList<IGameEvidenceSource> _sources;
+    private readonly Func<CancellationToken, Task<IReadOnlyList<GameEvidenceObservation>>> _observe;
 
-    public GameEvidenceCatalogService(IEnumerable<IGameEvidenceSource> sources)
+    internal FakeEvidenceSource(
+        string sourceId,
+        int priority,
+        Func<CancellationToken, Task<IReadOnlyList<GameEvidenceObservation>>> observe)
     {
-        ArgumentNullException.ThrowIfNull(sources);
-        _sources = sources
-            .Where(source => source is not null)
-            .OrderByDescending(source => source.Priority)
-            .ThenBy(source => NormalizeSourceId(source.SourceId), StringComparer.Ordinal)
-            .ToArray();
+        SourceId = sourceId;
+        Priority = priority;
+        _observe = observe;
     }
 
-    public async Task<GameEvidenceCatalogResult> DiscoverAsync(
+    internal int Calls { get; private set; }
+    public string SourceId { get; }
+    public int Priority { get; }
+
+    public Task<IReadOnlyList<GameEvidenceObservation>> ObserveAsync(
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var accepted = new List<(string SourceId, int Priority, int Index, GameEvidenceObservation Observation)>();
-        var warnings = new List<GameDiscoveryWarning>();
-
-        foreach (var source in _sources)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var sourceId = NormalizeSourceId(source.SourceId);
-            if (sourceId.Length == 0)
-            {
-                warnings.Add(new GameDiscoveryWarning
-                {
-                    SourceId = "unknown-source",
-                    Message = "An evidence source has no stable SourceId and was skipped."
-                });
-                continue;
-            }
-
-            IReadOnlyList<GameEvidenceObservation> observations;
-            try
-            {
-                observations = await source.ObserveAsync(cancellationToken).ConfigureAwait(false)
-                    ?? Array.Empty<GameEvidenceObservation>();
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                warnings.Add(new GameDiscoveryWarning { SourceId = sourceId, Message = ex.Message });
-                continue;
-            }
-
-            for (var index = 0; index < observations.Count; index++)
-            {
-                var observation = observations[index];
-                if (observation is null) continue;
-                var observationId = NormalizeObservationId(observation.ObservationId);
-                if (observationId.Length == 0) continue;
-
-                accepted.Add((sourceId, source.Priority, index, observation with
-                {
-                    ObservationId = observationId,
-                    Confidence = NormalizeConfidence(observation.Confidence),
-                    GameIdHint = NormalizeOptional(observation.GameIdHint),
-                    ExecutablePath = NormalizeOptional(observation.ExecutablePath),
-                    DisplayName = NormalizeOptional(observation.DisplayName),
-                    EvidenceText = observation.EvidenceText?.Trim() ?? string.Empty
-                }));
-            }
-        }
-
-        var normalized = accepted
-            .GroupBy(item => (item.SourceId, item.Observation.ObservationId), EvidenceKeyComparer.Instance)
-            .Select(group => group
-                .OrderByDescending(item => item.Observation.Confidence)
-                .ThenBy(item => item.Index)
-                .First())
-            .OrderByDescending(item => item.Priority)
-            .ThenBy(item => item.SourceId, StringComparer.Ordinal)
-            .ThenBy(item => item.Observation.ObservationId, StringComparer.Ordinal)
-            .Select(item => new GameEvidenceSourceObservation
-            {
-                SourceId = item.SourceId,
-                Priority = item.Priority,
-                Observation = item.Observation
-            })
-            .ToArray();
-
-        return new GameEvidenceCatalogResult
-        {
-            Observations = normalized,
-            Warnings = warnings
-                .OrderBy(warning => warning.SourceId, StringComparer.Ordinal)
-                .ThenBy(warning => warning.Message, StringComparer.Ordinal)
-                .ToArray()
-        };
+        Calls++;
+        return _observe(cancellationToken);
     }
 }
 ```
 
-Implement the tuple comparer locally so `(SourceId, ObservationId)` is case-insensitive for both fields. `NormalizeConfidence` must return `0` for non-finite values, otherwise clamp to `[0,1]`.
+Fixture:
 
-- [ ] **Step 5: Run Windows CI and require full GREEN**
+```csharp
+var observedAt = new DateTimeOffset(2026, 9, 8, 15, 0, 0, TimeSpan.Zero);
+var high = new FakeEvidenceSource("  RUNNING  ", 80, _ => Task.FromResult<IReadOnlyList<GameEvidenceObservation>>(
+[
+    new()
+    {
+        ObservationId = " PID:42 ",
+        Kind = GameEvidenceKind.RunningProcess,
+        Confidence = 0.70,
+        ObservedAtUtc = observedAt,
+        ExecutablePath = @"C:\Games\Foo\foo.exe",
+        ProcessId = 42,
+        EvidenceText = "first"
+    },
+    new()
+    {
+        ObservationId = "pid:42",
+        Kind = GameEvidenceKind.RunningProcess,
+        Confidence = 0.95,
+        ObservedAtUtc = observedAt.AddSeconds(1),
+        ExecutablePath = @"C:\Games\Foo\foo.exe",
+        ProcessId = 42,
+        EvidenceText = "stronger duplicate"
+    },
+    new()
+    {
+        ObservationId = " ",
+        Kind = GameEvidenceKind.Other,
+        Confidence = 1,
+        ObservedAtUtc = observedAt,
+        EvidenceText = "invalid id"
+    }
+]));
+var broken = new FakeEvidenceSource("broken", 70, _ => throw new InvalidOperationException("boom"));
+var low = new FakeEvidenceSource("installed", 20, _ => Task.FromResult<IReadOnlyList<GameEvidenceObservation>>(
+[
+    new()
+    {
+        ObservationId = "app:1",
+        Kind = GameEvidenceKind.InstalledApplication,
+        Confidence = double.PositiveInfinity,
+        ObservedAtUtc = observedAt,
+        DisplayName = "Example",
+        EvidenceText = "installed app"
+    }
+]));
 
-Expected: native, managed/WPF, all Core self-tests, publish and artifact upload SUCCESS.
+var catalog = new GameEvidenceCatalogService([low, broken, high]);
+var result = await catalog.DiscoverAsync();
+```
 
-- [ ] **Step 6: Commit/retain checkpoint before Task 2**
+Required assertions:
 
-Commit message target: `feat: add game evidence catalog contracts`.
+```csharp
+Require(high.Calls == 1 && broken.Calls == 1 && low.Calls == 1,
+    "Each evidence source must execute once per explicit pass.");
+Require(result.Observations.Count == 2,
+    "Blank ids and lower-confidence duplicates must be removed.");
+Require(result.Observations[0].SourceId == "running"
+        && result.Observations[0].Observation.ObservationId == "pid:42"
+        && result.Observations[0].Observation.Confidence == 0.95,
+    "Highest-confidence duplicate must win after canonical normalization.");
+Require(result.Observations[1].SourceId == "installed"
+        && result.Observations[1].Observation.Confidence == 0,
+    "Non-finite confidence must normalize to zero.");
+Require(result.Warnings.Count == 1
+        && result.Warnings[0].SourceId == "broken"
+        && result.Warnings[0].Message.Contains("boom", StringComparison.Ordinal),
+    "One source failure must become a warning without suppressing others.");
+```
+
+Pre-cancellation:
+
+```csharp
+using var cancelled = new CancellationTokenSource();
+cancelled.Cancel();
+await ExpectThrowsAsync<OperationCanceledException>(
+    () => catalog.DiscoverAsync(cancelled.Token),
+    "Pre-cancelled discovery must not invoke sources.");
+Require(high.Calls == 1 && broken.Calls == 1 && low.Calls == 1,
+    "Cancelled second pass must not touch any source.");
+```
+
+- [ ] **Step 2: Commit RED and verify CI**
+
+Expected managed failure: missing evidence contracts/catalog only. Native pipeline remains GREEN.
+
+- [ ] **Step 3: Implement `GameEvidenceModels.cs` exactly as the interfaces above**
+
+No identity methods belong in this file.
+
+- [ ] **Step 4: Implement `GameEvidenceCatalogService.cs`**
+
+Canonical helpers:
+
+```csharp
+private static string NormalizeSourceId(string? value)
+    => value?.Trim().ToLowerInvariant() ?? string.Empty;
+
+private static string NormalizeObservationId(string? value)
+    => value?.Trim().ToLowerInvariant() ?? string.Empty;
+
+private static string? NormalizeOptional(string? value)
+{
+    var normalized = value?.Trim();
+    return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+}
+
+private static double NormalizeConfidence(double value)
+    => double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 0;
+```
+
+Discovery core:
+
+```csharp
+public async Task<GameEvidenceCatalogResult> DiscoverAsync(
+    CancellationToken cancellationToken = default)
+{
+    cancellationToken.ThrowIfCancellationRequested();
+    var accepted = new List<(string SourceId, int Priority, int InputOrder, GameEvidenceObservation Observation)>();
+    var warnings = new List<GameDiscoveryWarning>();
+    var inputOrder = 0;
+
+    foreach (var source in _sources)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var sourceId = NormalizeSourceId(source.SourceId);
+        if (sourceId.Length == 0)
+        {
+            warnings.Add(new GameDiscoveryWarning
+            {
+                SourceId = "unknown-source",
+                Message = "An evidence source has no stable SourceId and was skipped."
+            });
+            continue;
+        }
+
+        IReadOnlyList<GameEvidenceObservation> observations;
+        try
+        {
+            observations = await source.ObserveAsync(cancellationToken).ConfigureAwait(false)
+                ?? Array.Empty<GameEvidenceObservation>();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            warnings.Add(new GameDiscoveryWarning { SourceId = sourceId, Message = ex.Message });
+            continue;
+        }
+
+        foreach (var observation in observations)
+        {
+            var currentOrder = inputOrder++;
+            if (observation is null) continue;
+            var observationId = NormalizeObservationId(observation.ObservationId);
+            if (observationId.Length == 0) continue;
+
+            accepted.Add((sourceId, source.Priority, currentOrder, observation with
+            {
+                ObservationId = observationId,
+                Confidence = NormalizeConfidence(observation.Confidence),
+                GameIdHint = NormalizeOptional(observation.GameIdHint),
+                ExecutablePath = NormalizeOptional(observation.ExecutablePath),
+                DisplayName = NormalizeOptional(observation.DisplayName),
+                EvidenceText = observation.EvidenceText?.Trim() ?? string.Empty
+            }));
+        }
+    }
+
+    var normalized = accepted
+        .GroupBy(item => (item.SourceId, item.Observation.ObservationId))
+        .Select(group => group
+            .OrderByDescending(item => item.Observation.Confidence)
+            .ThenBy(item => item.InputOrder)
+            .First())
+        .OrderByDescending(item => item.Priority)
+        .ThenBy(item => item.SourceId, StringComparer.Ordinal)
+        .ThenBy(item => item.Observation.ObservationId, StringComparer.Ordinal)
+        .Select(item => new GameEvidenceSourceObservation
+        {
+            SourceId = item.SourceId,
+            Priority = item.Priority,
+            Observation = item.Observation
+        })
+        .ToArray();
+
+    return new GameEvidenceCatalogResult
+    {
+        Observations = normalized,
+        Warnings = warnings
+            .OrderBy(warning => warning.SourceId, StringComparer.Ordinal)
+            .ThenBy(warning => warning.Message, StringComparer.Ordinal)
+            .ToArray()
+    };
+}
+```
+
+Because `SourceId` and `ObservationId` are lower-cased before grouping, default value-tuple equality is deterministic and no custom comparer exists or is required.
+
+Constructor source ordering:
+
+```csharp
+_sources = sources
+    .Where(source => source is not null)
+    .OrderByDescending(source => source.Priority)
+    .ThenBy(source => NormalizeSourceId(source.SourceId), StringComparer.Ordinal)
+    .ToArray();
+```
+
+- [ ] **Step 5: Require full Windows CI GREEN**
+
+- [ ] **Step 6: Checkpoint**
+
+Target production commit: `feat: add game evidence catalog contracts`.
 
 ---
 
@@ -420,13 +414,20 @@ Commit message target: `feat: add game evidence catalog contracts`.
 - Create: `tests/FFPerformanceEngine.Core.SelfTest/GameEvidenceBinderSelfTests.cs`
 - Create: `src/FFPerformanceEngine.Core/Workloads/GameEvidenceBinder.cs`
 
-**Interfaces:**
-- Consumes: `GameIdentity`, `GameEvidenceSourceObservation`.
-- Produces: `GameEvidenceBinder.Bind(IReadOnlyList<GameIdentity>, IReadOnlyList<GameEvidenceSourceObservation>)` returning `GameEvidenceBindingResult`.
+**Interface produced:**
 
-- [ ] **Step 1: Write the failing binder self-test**
+```csharp
+public sealed class GameEvidenceBinder
+{
+    public GameEvidenceBindingResult Bind(
+        IReadOnlyList<GameIdentity> games,
+        IReadOnlyList<GameEvidenceSourceObservation> observations);
+}
+```
 
-Create identities:
+- [ ] **Step 1: Write RED self-test**
+
+Identities:
 
 ```csharp
 var foo = new GameIdentity
@@ -455,161 +456,212 @@ var overlap = new GameIdentity
 };
 ```
 
-Create observations proving all rules:
+Use a helper returning `GameEvidenceSourceObservation` with `SourceId = "test"`, `Priority = 50` and the requested observation id/hint/path.
+
+Cases:
 
 ```csharp
-var observations = new[]
-{
-    Evidence("hint", gameIdHint: " STEAM:100 ", executable: @"C:\Wrong\foo.exe"),
-    Evidence("bad-hint", gameIdHint: "steam:999", executable: @"C:\Games\Foo\foo.exe"),
-    Evidence("path", executable: @"C:\Games\Foo\bin\foo.exe"),
-    Evidence("prefix", executable: @"C:\Games\Foobar\foo.exe"),
-    Evidence("ambiguous", executable: @"C:\Shared\Overlap\game.exe"),
-    Evidence("filename", executable: "foo.exe"),
-    Evidence("none", executable: null)
-};
+Evidence("hint", gameIdHint: " STEAM:100 ", executable: @"C:\Wrong\foo.exe")
+Evidence("bad-hint", gameIdHint: "steam:999", executable: @"C:\Games\Foo\foo.exe")
+Evidence("path", executable: @"C:\Games\Foo\bin\foo.exe")
+Evidence("prefix", executable: @"C:\Games\Foobar\foo.exe")
+Evidence("ambiguous", executable: @"C:\Shared\Overlap\game.exe")
+Evidence("filename", executable: "foo.exe")
+Evidence("none", executable: null)
 ```
 
-Assertions:
+Required assertions:
 
 ```csharp
-Require(result.BoundEvidence.Count == 2, "Only exact hint and unique containment may bind.");
-Require(result.BoundEvidence.Single(item => item.Observation.ObservationId == "hint").BindingReason
-        == GameEvidenceBindingReason.ExactGameIdHint,
-    "Exact hint must outrank conflicting path evidence.");
-Require(result.BoundEvidence.Single(item => item.Observation.ObservationId == "path").GameId == "steam:100"
-        && result.BoundEvidence.Single(item => item.Observation.ObservationId == "path").BindingReason
-            == GameEvidenceBindingReason.UniqueInstallPathContainment,
-    "Unique full-path containment must bind to the stable identity.");
+Require(result.BoundEvidence.Count == 2,
+    "Only exact hint and unique containment may bind.");
+Require(Bound("hint").BindingReason == GameEvidenceBindingReason.ExactGameIdHint
+        && Bound("hint").GameId == "steam:100",
+    "Exact hint must outrank conflicting path metadata.");
+Require(Bound("path").BindingReason == GameEvidenceBindingReason.UniqueInstallPathContainment
+        && Bound("path").GameId == "steam:100",
+    "Unique path containment must bind.");
 Require(Unbound("bad-hint") == GameEvidenceUnboundReason.NoMatchingIdentity,
-    "Explicit unmatched hint must not fall through to a matching path.");
+    "Unmatched explicit hint must not fall through to path matching.");
 Require(Unbound("prefix") == GameEvidenceUnboundReason.NoMatchingIdentity,
-    "Foo must not match Foobar by string prefix.");
+    "Foo must not match Foobar by prefix.");
 Require(Unbound("ambiguous") == GameEvidenceUnboundReason.AmbiguousInstallPath,
-    "Path contained by two identities must remain ambiguous.");
+    "Shared path must remain ambiguous.");
 Require(Unbound("filename") == GameEvidenceUnboundReason.InvalidExecutablePath,
-    "Filename-only evidence must never bind.");
+    "Filename-only evidence is invalid for containment binding.");
 Require(Unbound("none") == GameEvidenceUnboundReason.UnsupportedEvidence,
-    "Evidence with neither hint nor executable path is unsupported for binding.");
+    "No hint/path means unsupported evidence for this binder version.");
 ```
 
-Also copy `foo` before binding and prove the returned evidence does not mutate `foo.Name`, `Launcher`, `Engine`, `AdapterId`, `LegacyGameKind`, `Executables` or `InstallPaths`.
+Capture `foo` field values before `Bind` and assert they are unchanged afterward, including `Executables` and `InstallPaths` sequence equality.
 
-- [ ] **Step 2: Push RED and verify Windows CI fails only because `GameEvidenceBinder` is missing**
+- [ ] **Step 2: Commit RED and verify CI fails only on missing binder**
 
 - [ ] **Step 3: Implement `GameEvidenceBinder.cs`**
 
-Exact public signature:
+Normalization:
 
 ```csharp
-public sealed class GameEvidenceBinder
+private static string NormalizeGameId(string? value)
+    => value?.Trim().ToLowerInvariant() ?? string.Empty;
+
+private static string? NormalizeExecutablePath(string? value)
 {
-    public GameEvidenceBindingResult Bind(
-        IReadOnlyList<GameIdentity> games,
-        IReadOnlyList<GameEvidenceSourceObservation> observations)
+    if (string.IsNullOrWhiteSpace(value) || !Path.IsPathFullyQualified(value)) return null;
+    try
+    {
+        return Path.GetFullPath(value.Trim())
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+    }
+    catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+    {
+        return null;
+    }
+}
+
+private static string? NormalizeInstallRoot(string? value)
+{
+    var normalized = NormalizeExecutablePath(value);
+    return normalized?.TrimEnd(Path.DirectorySeparatorChar);
+}
+
+private static bool ContainsExecutable(string installRoot, string executable)
+{
+    var root = NormalizeInstallRoot(installRoot);
+    if (string.IsNullOrWhiteSpace(root)) return false;
+    var prefix = root + Path.DirectorySeparatorChar;
+    return executable.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
 }
 ```
 
-Binding algorithm:
+`Bind` exact algorithm:
 
 ```csharp
-foreach (var evidence in normalizedObservations)
+ArgumentNullException.ThrowIfNull(games);
+ArgumentNullException.ThrowIfNull(observations);
+
+var gamesById = games
+    .Where(game => game is not null && NormalizeGameId(game.GameId).Length > 0)
+    .GroupBy(game => NormalizeGameId(game.GameId), StringComparer.OrdinalIgnoreCase)
+    .Where(group => group.Count() == 1)
+    .ToDictionary(group => group.Key, group => group.Single(), StringComparer.OrdinalIgnoreCase);
+
+foreach (var evidence in observations
+    .OrderBy(item => item.SourceId, StringComparer.Ordinal)
+    .ThenBy(item => item.Observation.ObservationId, StringComparer.Ordinal))
 {
     var hint = NormalizeGameId(evidence.Observation.GameIdHint);
     if (hint.Length > 0)
     {
-        var hinted = gamesById.TryGetValue(hint, out var game) ? game : null;
-        if (hinted is null) Unbound(NoMatchingIdentity);
-        else Bound(hinted.GameId, ExactGameIdHint);
+        if (gamesById.TryGetValue(hint, out var hinted))
+            AddBound(hinted.GameId, GameEvidenceBindingReason.ExactGameIdHint, evidence);
+        else
+            AddUnbound(GameEvidenceUnboundReason.NoMatchingIdentity, evidence);
         continue;
     }
 
-    var executable = NormalizeExecutablePath(evidence.Observation.ExecutablePath);
-    if (evidence.Observation.ExecutablePath is not null && executable is null)
+    var rawExecutable = evidence.Observation.ExecutablePath;
+    if (string.IsNullOrWhiteSpace(rawExecutable))
     {
-        Unbound(InvalidExecutablePath);
+        AddUnbound(GameEvidenceUnboundReason.UnsupportedEvidence, evidence);
         continue;
     }
+
+    var executable = NormalizeExecutablePath(rawExecutable);
     if (executable is null)
     {
-        Unbound(UnsupportedEvidence);
+        AddUnbound(GameEvidenceUnboundReason.InvalidExecutablePath, evidence);
         continue;
     }
 
     var matches = games
         .Where(game => game.InstallPaths.Any(root => ContainsExecutable(root, executable)))
-        .Select(game => game.GameId)
+        .Select(game => NormalizeGameId(game.GameId))
+        .Where(id => id.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(id => id, StringComparer.Ordinal)
         .ToArray();
 
-    if (matches.Length == 0) Unbound(NoMatchingIdentity);
-    else if (matches.Length > 1) Unbound(AmbiguousInstallPath);
-    else Bound(matches[0], UniqueInstallPathContainment);
+    if (matches.Length == 0)
+        AddUnbound(GameEvidenceUnboundReason.NoMatchingIdentity, evidence);
+    else if (matches.Length > 1)
+        AddUnbound(GameEvidenceUnboundReason.AmbiguousInstallPath, evidence);
+    else
+        AddBound(matches[0], GameEvidenceBindingReason.UniqueInstallPathContainment, evidence);
 }
 ```
 
-Path helpers MUST:
+`AddBound`/`AddUnbound` create new result records only; they never modify `GameIdentity` or `GameEvidenceObservation`.
 
-```csharp
-if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)) return null;
-var full = Path.GetFullPath(path.Trim())
-    .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-```
+Return arrays sorted by `SourceId`, `Observation.ObservationId`, and `GameId` for bound entries.
 
-Normalize install roots by trimming trailing separators, then test containment with `root + Path.DirectorySeparatorChar` using `StringComparison.OrdinalIgnoreCase`. Never use bare `StartsWith(root)`.
+- [ ] **Step 4: Require full Windows CI GREEN**
 
-Return bound and unbound arrays sorted by `SourceId`, then `ObservationId`, then `GameId` where applicable.
+- [ ] **Step 5: Checkpoint**
 
-- [ ] **Step 4: Run Windows CI and require full GREEN**
-
-- [ ] **Step 5: Commit checkpoint**
-
-Commit message target: `feat: bind game evidence to stable identities`.
+Target: `feat: bind game evidence to stable identities`.
 
 ---
 
-### Task 3: Extend discovery coordinator without breaking current consumers
+### Task 3: Coordinator composition while preserving backward compatibility
 
 **Files:**
 - Modify: `tests/FFPerformanceEngine.Core.SelfTest/GameDiscoveryCoordinatorSelfTests.cs`
 - Modify: `src/FFPerformanceEngine.Core/Workloads/GameDiscoveryCoordinator.cs`
 
 **Interfaces:**
-- Existing two-argument constructor remains valid.
-- Add four-argument constructor:
+
+Existing constructor remains:
 
 ```csharp
-GameDiscoveryCoordinator(
+public GameDiscoveryCoordinator(
+    LocalGameCatalogService catalog,
+    GameAdapterResolver adapters)
+```
+
+New constructor:
+
+```csharp
+public GameDiscoveryCoordinator(
     LocalGameCatalogService catalog,
     GameAdapterResolver adapters,
     GameEvidenceCatalogService evidenceCatalog,
     GameEvidenceBinder evidenceBinder)
 ```
 
-- `ResolvedGameCatalogResult` gains additive `BoundEvidence` and `UnboundEvidence` collections.
-
-- [ ] **Step 1: Extend coordinator self-test first**
-
-Keep all existing assertions. Add a fake evidence source and prove construction remains side-effect free:
+`ResolvedGameCatalogResult` gains:
 
 ```csharp
-var evidenceSource = new CountingEvidenceSource(
-    new GameEvidenceObservation
-    {
-        ObservationId = "pid:77",
-        Kind = GameEvidenceKind.RunningProcess,
-        Confidence = 0.99,
-        ObservedAtUtc = new DateTimeOffset(2026, 9, 8, 15, 0, 0, TimeSpan.Zero),
-        ExecutablePath = @"C:\Games\Generic\generic-game.exe",
-        ProcessId = 77,
-        EvidenceText = "running"
-    });
+public IReadOnlyList<BoundGameEvidence> BoundEvidence { get; init; }
+    = Array.Empty<BoundGameEvidence>();
+public IReadOnlyList<UnboundGameEvidence> UnboundEvidence { get; init; }
+    = Array.Empty<UnboundGameEvidence>();
 ```
 
-Give the existing generic identity `InstallPaths = [@"C:\Games\Generic"]`.
+- [ ] **Step 1: Extend coordinator test first**
 
-Construct:
+Give the existing generic identity:
+
+```csharp
+InstallPaths = [@"C:\Games\Generic"]
+```
+
+Add a counting evidence source returning:
+
+```csharp
+new GameEvidenceObservation
+{
+    ObservationId = "pid:77",
+    Kind = GameEvidenceKind.RunningProcess,
+    Confidence = 0.99,
+    ObservedAtUtc = new DateTimeOffset(2026, 9, 8, 15, 0, 0, TimeSpan.Zero),
+    ExecutablePath = @"C:\Games\Generic\generic-game.exe",
+    ProcessId = 77,
+    EvidenceText = "running"
+}
+```
+
+Construct the new path:
 
 ```csharp
 var evidenceCatalog = new GameEvidenceCatalogService([evidenceSource]);
@@ -618,102 +670,115 @@ var coordinator = new GameDiscoveryCoordinator(
     resolver,
     evidenceCatalog,
     new GameEvidenceBinder());
-
 Require(source.Calls == 0 && evidenceSource.Calls == 0,
-    "Coordinator construction must execute neither identity nor evidence sources.");
+    "Construction must execute neither plane.");
 ```
 
-After `DiscoverAsync()` assert:
+After discovery:
 
 ```csharp
 Require(source.Calls == 1 && evidenceSource.Calls == 1,
-    "Explicit discovery must execute each configured identity/evidence source once.");
+    "Explicit discovery executes each configured source once.");
 Require(result.BoundEvidence.Count == 1
         && result.BoundEvidence[0].GameId == "example.generic-game",
-    "Coordinator must bind runtime evidence only after stable identities are known.");
+    "Evidence must bind only after stable catalog discovery.");
 Require(result.UnboundEvidence.Count == 0,
-    "Unique evidence should not become unbound.");
+    "Unique containment must not become unbound.");
 ```
 
-Also construct the legacy two-argument coordinator and prove it still returns the same `Games`/`Warnings` with empty evidence arrays.
+Also construct a separate legacy two-argument coordinator and assert `BoundEvidence`/`UnboundEvidence` are empty while `Games` and `Warnings` preserve existing semantics.
 
-- [ ] **Step 2: Push RED and verify missing constructor/result fields are the only managed failures**
+- [ ] **Step 2: Commit RED and verify missing constructor/result fields only**
 
-- [ ] **Step 3: Modify `GameDiscoveryCoordinator.cs` minimally**
+- [ ] **Step 3: Modify coordinator**
 
-Extend result:
+Fields:
 
 ```csharp
-public sealed record ResolvedGameCatalogResult
-{
-    public IReadOnlyList<ResolvedGameCatalogEntry> Games { get; init; }
-        = Array.Empty<ResolvedGameCatalogEntry>();
-    public IReadOnlyList<GameDiscoveryWarning> Warnings { get; init; }
-        = Array.Empty<GameDiscoveryWarning>();
-    public IReadOnlyList<BoundGameEvidence> BoundEvidence { get; init; }
-        = Array.Empty<BoundGameEvidence>();
-    public IReadOnlyList<UnboundGameEvidence> UnboundEvidence { get; init; }
-        = Array.Empty<UnboundGameEvidence>();
-}
+private readonly GameEvidenceCatalogService? _evidenceCatalog;
+private readonly GameEvidenceBinder? _evidenceBinder;
 ```
 
-Preserve old constructor:
+Two-argument constructor:
 
 ```csharp
 public GameDiscoveryCoordinator(
     LocalGameCatalogService catalog,
     GameAdapterResolver adapters)
-    : this(catalog, adapters, evidenceCatalog: null, evidenceBinder: null)
 {
+    _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    _adapters = adapters ?? throw new ArgumentNullException(nameof(adapters));
 }
 ```
 
-Use a private nullable pair and reject half-configured construction:
+Four-argument constructor:
 
 ```csharp
-private GameDiscoveryCoordinator(
+public GameDiscoveryCoordinator(
     LocalGameCatalogService catalog,
     GameAdapterResolver adapters,
-    GameEvidenceCatalogService? evidenceCatalog,
-    GameEvidenceBinder? evidenceBinder)
+    GameEvidenceCatalogService evidenceCatalog,
+    GameEvidenceBinder evidenceBinder)
 {
-    if ((evidenceCatalog is null) != (evidenceBinder is null))
-        throw new ArgumentException("Evidence catalog and binder must be configured together.");
-    ...
+    _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+    _adapters = adapters ?? throw new ArgumentNullException(nameof(adapters));
+    _evidenceCatalog = evidenceCatalog ?? throw new ArgumentNullException(nameof(evidenceCatalog));
+    _evidenceBinder = evidenceBinder ?? throw new ArgumentNullException(nameof(evidenceBinder));
 }
 ```
 
-Expose the required public four-argument constructor by forwarding to the nullable private constructor.
+Discovery sequence:
 
-Discovery order MUST be:
+```csharp
+var catalog = await _catalog.DiscoverAsync(cancellationToken).ConfigureAwait(false);
+var games = catalog.Games
+    .Select(identity => new ResolvedGameCatalogEntry
+    {
+        Identity = identity,
+        Adapter = _adapters.Resolve(identity)
+    })
+    .ToArray();
 
-```text
-identity catalog
-→ resolve adapters
-→ evidence catalog (when configured)
-→ binder against identity catalog result
-→ merge identity warnings + evidence warnings deterministically
-→ return resolved games + bound/unbound evidence
+GameEvidenceBindingResult bindings = new();
+IReadOnlyList<GameDiscoveryWarning> warnings = catalog.Warnings;
+
+if (_evidenceCatalog is not null && _evidenceBinder is not null)
+{
+    var evidence = await _evidenceCatalog.DiscoverAsync(cancellationToken).ConfigureAwait(false);
+    bindings = _evidenceBinder.Bind(catalog.Games, evidence.Observations);
+    warnings = catalog.Warnings
+        .Concat(evidence.Warnings)
+        .OrderBy(item => item.SourceId, StringComparer.Ordinal)
+        .ThenBy(item => item.Message, StringComparer.Ordinal)
+        .ToArray();
+}
+
+return new ResolvedGameCatalogResult
+{
+    Games = games,
+    Warnings = warnings,
+    BoundEvidence = bindings.BoundEvidence,
+    UnboundEvidence = bindings.UnboundEvidence
+};
 ```
 
-Do not run the evidence plane before stable identities are available.
+No evidence plane is executed in the two-argument path.
 
-- [ ] **Step 4: Run full Windows CI GREEN**
+- [ ] **Step 4: Require full Windows CI GREEN**
 
-- [ ] **Step 5: Commit checkpoint**
+- [ ] **Step 5: Checkpoint**
 
-Commit message target: `feat: compose identity and evidence discovery planes`.
+Target: `feat: compose identity and evidence discovery planes`.
 
 ---
 
-### Task 4: Running-process evidence source with injectable neutral provider
+### Task 4: Neutral running-process evidence source
 
 **Files:**
 - Create: `tests/FFPerformanceEngine.Core.SelfTest/RunningProcessGameEvidenceSelfTests.cs`
 - Create: `src/FFPerformanceEngine.Core/Workloads/RunningProcessGameEvidenceSource.cs`
 
-**Interfaces:**
-- Produces:
+**Interfaces produced:**
 
 ```csharp
 public sealed record RunningProcessObservation
@@ -735,7 +800,7 @@ public sealed class RunningProcessGameEvidenceSource : IGameEvidenceSource
 
 - [ ] **Step 1: Write RED self-test**
 
-Use a fake provider returning:
+Fake provider data:
 
 ```csharp
 [
@@ -773,75 +838,97 @@ Assertions:
 
 ```csharp
 Require(source.SourceId == "windows-running-process" && source.Priority == 40,
-    "Running-process evidence source must have stable provenance and conservative priority.");
+    "Source provenance/priority must be stable and conservative.");
 Require(provider.Calls == 0,
-    "Constructing running-process evidence must not enumerate processes.");
+    "Construction must not enumerate processes.");
 var observations = await source.ObserveAsync();
 Require(provider.Calls == 1 && observations.Count == 2,
-    "Only positive PIDs with fully qualified executable paths become process evidence.");
+    "Only positive PIDs with fully-qualified paths become process evidence.");
 Require(observations.Select(item => item.ObservationId)
         .SequenceEqual(["pid:10", "pid:30"]),
-    "Running-process observations must be deterministic by PID.");
+    "Output must be deterministic by PID.");
 Require(observations.All(item => item.Kind == GameEvidenceKind.RunningProcess
                                  && item.GameIdHint is null
                                  && item.Confidence == 0.98),
-    "A running process is high-quality runtime evidence but never self-declares a game id.");
+    "Running process evidence never self-declares a game id.");
 ```
 
-Prove pre-cancellation prevents provider invocation.
+Pre-cancel and assert provider call count stays unchanged.
 
-- [ ] **Step 2: Push RED and verify missing running-process contracts only**
+- [ ] **Step 2: Commit RED and verify missing running-process contracts only**
 
 - [ ] **Step 3: Implement source**
-
-Implementation rules:
 
 ```csharp
 public string SourceId => "windows-running-process";
 public int Priority => 40;
 ```
 
-`ObserveAsync` must call provider only after `cancellationToken.ThrowIfCancellationRequested()`, filter to positive PID + fully qualified executable path, normalize path with `Path.GetFullPath`, sort by PID then path, and emit:
+Normalization helper:
 
 ```csharp
-new GameEvidenceObservation
+private static string? NormalizeFullPath(string? value)
 {
-    ObservationId = $"pid:{item.ProcessId}",
-    Kind = GameEvidenceKind.RunningProcess,
-    Confidence = 0.98,
-    ObservedAtUtc = item.ObservedAtUtc,
-    GameIdHint = null,
-    ExecutablePath = normalizedPath,
-    ProcessId = item.ProcessId,
-    DisplayName = item.DisplayName?.Trim(),
-    EvidenceText = $"Running process PID {item.ProcessId} at {normalizedPath}"
+    if (string.IsNullOrWhiteSpace(value) || !Path.IsPathFullyQualified(value)) return null;
+    try
+    {
+        return Path.GetFullPath(value.Trim());
+    }
+    catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+    {
+        return null;
+    }
 }
 ```
 
-Do not inspect filenames to decide whether the process is a game.
+Transformation:
 
-- [ ] **Step 4: Run full Windows CI GREEN**
+```csharp
+var snapshots = await _provider.ObserveAsync(cancellationToken).ConfigureAwait(false)
+    ?? Array.Empty<RunningProcessObservation>();
 
-- [ ] **Step 5: Commit checkpoint**
+return snapshots
+    .Where(item => item.ProcessId > 0)
+    .Select(item => (Item: item, Path: NormalizeFullPath(item.ExecutablePath)))
+    .Where(item => item.Path is not null)
+    .OrderBy(item => item.Item.ProcessId)
+    .ThenBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+    .Select(item => new GameEvidenceObservation
+    {
+        ObservationId = $"pid:{item.Item.ProcessId}",
+        Kind = GameEvidenceKind.RunningProcess,
+        Confidence = 0.98,
+        ObservedAtUtc = item.Item.ObservedAtUtc,
+        GameIdHint = null,
+        ExecutablePath = item.Path,
+        ProcessId = item.Item.ProcessId,
+        DisplayName = item.Item.DisplayName?.Trim(),
+        EvidenceText = $"Running process PID {item.Item.ProcessId} at {item.Path}"
+    })
+    .ToArray();
+```
 
-Commit message target: `feat: model running process game evidence`.
+Call `cancellationToken.ThrowIfCancellationRequested()` before invoking provider and once after provider returns.
+
+- [ ] **Step 4: Require full Windows CI GREEN**
+
+- [ ] **Step 5: Checkpoint**
+
+Target: `feat: model running process game evidence`.
 
 ---
 
-### Task 5: Windows process observation provider
+### Task 5: Windows running-process provider
 
 **Files:**
 - Create: `src/FFPerformanceEngine.App/WindowsRunningProcessObservationProvider.cs`
 
-**Interfaces:**
-- Implements `IRunningProcessObservationProvider` from Task 4.
-- Uses only `System.Diagnostics.Process` and existing BCL APIs.
+**Interface consumed:** `IRunningProcessObservationProvider`.
 
-- [ ] **Step 1: Add the provider in isolation; do not wire AppServices yet**
-
-Required skeleton:
+- [ ] **Step 1: Implement provider in isolation; no AppServices wiring**
 
 ```csharp
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using FFPerformanceEngine.Core.Workloads;
@@ -880,8 +967,13 @@ public sealed class WindowsRunningProcessObservationProvider : IRunningProcessOb
                     continue;
 
                 string? displayName = null;
-                try { displayName = process.ProcessName; }
-                catch (Exception ex) when (IsProcessInspectionFailure(ex)) { }
+                try
+                {
+                    displayName = process.ProcessName;
+                }
+                catch (Exception ex) when (IsProcessInspectionFailure(ex))
+                {
+                }
 
                 result.Add(new RunningProcessObservation
                 {
@@ -899,38 +991,33 @@ public sealed class WindowsRunningProcessObservationProvider : IRunningProcessOb
             .ToArray();
         return Task.FromResult(ordered);
     }
+
+    private static bool IsProcessInspectionFailure(Exception exception)
+        => exception is InvalidOperationException
+           or NotSupportedException
+           or Win32Exception
+           or UnauthorizedAccessException;
 }
 ```
 
-`IsProcessInspectionFailure` must accept expected inspection failures only:
+No filename/game classification is allowed here.
 
-```csharp
-exception is InvalidOperationException
-    or NotSupportedException
-    or System.ComponentModel.Win32Exception
-    or UnauthorizedAccessException
-```
+- [ ] **Step 2: Run full Windows CI**
 
-Do not catch `OperationCanceledException` or all exceptions generically.
+This validates real Windows compilation; transformation behavior is already covered by Task 4.
 
-- [ ] **Step 2: Run Windows CI**
+- [ ] **Step 3: Checkpoint**
 
-This slice is validated by Windows managed/WPF compilation because the neutral transformation is already behavior-tested in Task 4. Require full CI GREEN before AppServices composition.
-
-- [ ] **Step 3: Commit checkpoint**
-
-Commit message target: `feat: observe Windows running processes for game evidence`.
+Target: `feat: observe Windows running processes for game evidence`.
 
 ---
 
-### Task 6: Compose evidence plane in AppServices
+### Task 6: AppServices composition
 
 **Files:**
 - Modify: `src/FFPerformanceEngine.App/AppServices.cs`
-- Modify: `tests/FFPerformanceEngine.Core.SelfTest/GameDiscoveryCoordinatorSelfTests.cs` only if a final coordinator regression assertion is needed; do not create App-dependent Core tests.
 
-**Interfaces:**
-- AppServices exposes shared authorities:
+**Properties added:**
 
 ```csharp
 public RunningProcessGameEvidenceSource RunningProcessGameEvidence { get; }
@@ -938,11 +1025,9 @@ public GameEvidenceCatalogService GameEvidenceCatalog { get; }
 public GameEvidenceBinder GameEvidenceBinder { get; }
 ```
 
-- Existing `GameDiscovery` remains the explicit application-facing authority.
+- [ ] **Step 1: Wire shared authorities only**
 
-- [ ] **Step 1: Wire only the shared evidence authorities**
-
-Immediately after identity-source/catalog construction, add:
+After identity catalog construction:
 
 ```csharp
 RunningProcessGameEvidence = new RunningProcessGameEvidenceSource(
@@ -954,7 +1039,7 @@ GameEvidenceCatalog = new GameEvidenceCatalogService(
 GameEvidenceBinder = new GameEvidenceBinder();
 ```
 
-Then replace coordinator construction with:
+Replace coordinator construction:
 
 ```csharp
 GameDiscovery = new GameDiscoveryCoordinator(
@@ -964,21 +1049,19 @@ GameDiscovery = new GameDiscoveryCoordinator(
     GameEvidenceBinder);
 ```
 
-Do not add any call to `GameEvidenceCatalog.DiscoverAsync`, `RunningProcessGameEvidence.ObserveAsync`, `GameCatalog.DiscoverAsync` or `DiscoverGamesAsync` inside `InitializeAsync()`.
+No discovery call is added to `InitializeAsync()`.
 
-- [ ] **Step 2: Inspect the AppServices diff before CI**
+- [ ] **Step 2: Inspect diff before CI**
 
-Expected functional changes only:
+Expected functional diff only:
 
-1. three new shared properties;
-2. construction of the running-process evidence source/catalog/binder;
-3. four-argument `GameDiscoveryCoordinator` construction.
+1. three shared properties;
+2. evidence source/catalog/binder construction;
+3. four-argument coordinator wiring.
 
-Any unrelated diff must be removed before validation.
+Remove unrelated edits before validation.
 
-- [ ] **Step 3: Run full Windows CI and require SUCCESS**
-
-Required gates:
+- [ ] **Step 3: Require full Windows CI GREEN**
 
 ```text
 Configure native   SUCCESS
@@ -991,36 +1074,25 @@ Upload application SUCCESS
 Complete job       SUCCESS
 ```
 
-- [ ] **Step 4: Verify explicit-startup invariant from source**
+- [ ] **Step 4: Re-read exact GREEN `InitializeAsync()`**
 
-Read `AppServices.InitializeAsync()` at the exact GREEN SHA and confirm it still performs Windows capability refresh, settings load and Guardian reconciliation only; no game/evidence discovery.
+Confirm it still performs Windows capability refresh, settings load and Guardian reconciliation only.
 
-- [ ] **Step 5: Commit/retain final application checkpoint**
+- [ ] **Step 5: Final application checkpoint**
 
-Commit message target: `feat: compose running process evidence discovery`.
+Target: `feat: compose running process evidence discovery`.
 
 ---
 
-### Task 7: Project-memory checkpoint and next-plan boundary
+### Task 7: Canonical project-memory checkpoint
 
 **Files:**
-- Modify: `docs/project-memory/HANDOFF_CURRENT.md`
-- Modify: `docs/project-memory/IMPLEMENTATION_STATUS.md`
+- Modify atomically: `docs/project-memory/HANDOFF_CURRENT.md`
+- Modify atomically: `docs/project-memory/IMPLEMENTATION_STATUS.md`
 
-**Interfaces:** none; documentation only.
+- [ ] **Step 1: Record exact RED/GREEN evidence**
 
-- [ ] **Step 1: Update both memory files atomically after Task 6 GREEN**
-
-Record:
-
-- RED and GREEN commit SHAs for Tasks 1–6;
-- exact Windows CI numbers/run ids;
-- stable architectural invariant: evidence cannot create identity;
-- current shared evidence plane contains running-process evidence only;
-- `DiscoverGamesAsync()` remains the sole explicit application entry point;
-- next approved Track 3 surface: installed-app / independent-launcher evidence as a new plan, not as ad-hoc identity creation.
-
-Update the current catalog diagram to distinguish:
+Record commit SHAs and Windows CI numbers/run ids for Tasks 1–6, plus these invariants:
 
 ```text
 Identity plane
@@ -1037,25 +1109,27 @@ Evidence plane
 └── Windows running processes
 ```
 
-- [ ] **Step 2: Commit documentation atomically and run Windows CI once**
+Also record:
 
-Commit target: `docs: checkpoint game evidence discovery foundation`.
+- evidence cannot create identity;
+- current binder rules are exact hint or unique safe path containment only;
+- ambiguous evidence remains unbound;
+- `DiscoverGamesAsync()` remains the explicit entry point;
+- next separate plan is installed-app / independent-launcher evidence.
 
-- [ ] **Step 3: Require final documentation HEAD GREEN before claiming completion**
+- [ ] **Step 2: Commit both memory files in one Git commit**
 
-Do not call this plan complete until the exact documentation HEAD has a successful Windows CI run.
+Target: `docs: checkpoint game evidence discovery foundation`.
+
+- [ ] **Step 3: Require Windows CI GREEN on the exact documentation HEAD**
+
+Only then claim the plan complete.
 
 ---
 
-## Plan Self-Review Checklist
+## Self-Review Result
 
-Before execution, verify:
-
-- Every spec rule about identity authority, exact hint precedence, path ambiguity, failure isolation and startup side effects maps to a task above.
-- No task creates `GameIdentity` from process/path/display evidence.
-- No task changes current launcher scanners.
-- The two-argument `GameDiscoveryCoordinator` remains source-compatible.
-- Running-process platform enumeration lives in App; testable transformation lives in Core.
-- No installed-app/independent-launcher implementation is mixed into this plan.
-- No placeholders/TODOs remain.
-- Every new public type used by a later task is defined by an earlier task.
+- Spec coverage: identity/evidence separation, exact-hint precedence, safe path binding, ambiguity, failure isolation, cancellation, coordinator compatibility, running-process evidence and startup invariants are all mapped to explicit tasks.
+- Placeholder scan: no `TBD`, `TODO`, “similar to”, unnamed handler or undefined implementation hook remains.
+- Type consistency: every public type used by a later task is defined in an earlier task; coordinator constructors are valid C# overloads and do not rely on nullability-only overload resolution.
+- Scope: installed-app and independent-launcher evidence are intentionally excluded from this plan and will consume the validated foundation in a later plan.
