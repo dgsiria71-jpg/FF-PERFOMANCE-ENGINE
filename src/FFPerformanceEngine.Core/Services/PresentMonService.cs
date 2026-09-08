@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -40,6 +41,84 @@ public sealed class PresentMonService
 
     public async Task<TelemetrySample?> CaptureProcessAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
     {
+        var csv = await CaptureProcessCsvAsync(processId, duration, cancellationToken).ConfigureAwait(false);
+        return csv is null ? null : ParseCsv(csv);
+    }
+
+    public async Task<TelemetryFrame?> CaptureProcessFrameAsync(
+        int processId,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        var csv = await CaptureProcessCsvAsync(processId, duration, cancellationToken).ConfigureAwait(false);
+        return csv is null ? null : ParseCsvFrame(csv);
+    }
+
+    public static IReadOnlyList<string> BuildCaptureArguments(int processId, TimeSpan duration, string outputPath)
+    {
+        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
+        if (string.IsNullOrWhiteSpace(outputPath)) throw new ArgumentException("Output path is required.", nameof(outputPath));
+        var seconds = Math.Clamp((int)Math.Ceiling(duration.TotalSeconds), 2, 300);
+        return [
+            "--process_id", processId.ToString(CultureInfo.InvariantCulture),
+            "--timed", seconds.ToString(CultureInfo.InvariantCulture),
+            "--terminate_after_timed",
+            "--output_file", outputPath,
+            "--no_console_stats",
+            "--exclude_dropped"
+        ];
+    }
+
+    public TelemetrySample? ParseCsv(string csv)
+    {
+        var statistics = ParseCsvStatistics(csv);
+        return statistics is null
+            ? null
+            : new TelemetrySample
+            {
+                Fps = statistics.FpsAverage,
+                OnePercentLow = statistics.FpsLow1,
+                PointOnePercentLow = statistics.FpsLow01,
+                FrameTimeMs = statistics.FrameTimeAverageMs,
+                FrameTimeP95Ms = statistics.FrameTimeP95Ms,
+                FrameTimeP99Ms = statistics.FrameTimeP99Ms,
+                StutterPercent = statistics.StutterPercent,
+                LatencyMs = statistics.LatencyAverageMs,
+                DataQuality = $"PresentMon · {statistics.AcceptedFrameRows} frames"
+            };
+    }
+
+    public TelemetryFrame? ParseCsvFrame(string csv)
+    {
+        var statistics = ParseCsvStatistics(csv);
+        if (statistics is null) return null;
+
+        var frameCoverage = (double)statistics.AcceptedFrameRows / statistics.DataRowCount;
+        var metrics = new List<TelemetryMetricObservation>(8)
+        {
+            Direct(TelemetryStandardMetrics.FrameFpsAverage, statistics.FpsAverage, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameFpsLow1, statistics.FpsLow1, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameFpsLow01, statistics.FpsLow01, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameTimeAverageMs, statistics.FrameTimeAverageMs, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameTimeP95Ms, statistics.FrameTimeP95Ms, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameTimeP99Ms, statistics.FrameTimeP99Ms, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameStutterPercent, statistics.StutterPercent, frameCoverage)
+        };
+
+        if (statistics.LatencyAverageMs is double latency)
+        {
+            var latencyCoverage = (double)statistics.AcceptedLatencyRows / statistics.DataRowCount;
+            metrics.Add(Direct(TelemetryStandardMetrics.FrameLatencyAverageMs, latency, latencyCoverage));
+        }
+
+        return new TelemetryFrame(DateTimeOffset.UtcNow, metrics);
+    }
+
+    private async Task<string?> CaptureProcessCsvAsync(
+        int processId,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
         if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
         var executable = FindExecutable();
         if (executable is null) return null;
@@ -61,25 +140,10 @@ public sealed class PresentMonService
         if (process is null) return null;
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         if (process.ExitCode != 0 || !File.Exists(output)) return null;
-        return ParseCsv(File.ReadAllText(output));
+        return File.ReadAllText(output);
     }
 
-    public static IReadOnlyList<string> BuildCaptureArguments(int processId, TimeSpan duration, string outputPath)
-    {
-        if (processId <= 0) throw new ArgumentOutOfRangeException(nameof(processId));
-        if (string.IsNullOrWhiteSpace(outputPath)) throw new ArgumentException("Output path is required.", nameof(outputPath));
-        var seconds = Math.Clamp((int)Math.Ceiling(duration.TotalSeconds), 2, 300);
-        return [
-            "--process_id", processId.ToString(CultureInfo.InvariantCulture),
-            "--timed", seconds.ToString(CultureInfo.InvariantCulture),
-            "--terminate_after_timed",
-            "--output_file", outputPath,
-            "--no_console_stats",
-            "--exclude_dropped"
-        ];
-    }
-
-    public TelemetrySample? ParseCsv(string csv)
+    private static PresentMonStatistics? ParseCsvStatistics(string csv)
     {
         var lines = csv.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         if (lines.Length < 2) return null;
@@ -106,19 +170,31 @@ public sealed class PresentMonService
         var stutterThreshold = Math.Max(medianFrameTime * 1.5, medianFrameTime + 4.0);
         var stutterPercent = 100d * frameTimes.Count(x => x >= stutterThreshold) / frameTimes.Count;
 
-        return new TelemetrySample
-        {
-            Fps = fpsSamples.Average(),
-            OnePercentLow = LowAverage(fpsSamples, 0.01),
-            PointOnePercentLow = LowAverage(fpsSamples, 0.001),
-            FrameTimeMs = frameTimes.Average(),
-            FrameTimeP95Ms = Percentile(sortedFrameTimes, 0.95),
-            FrameTimeP99Ms = Percentile(sortedFrameTimes, 0.99),
-            StutterPercent = stutterPercent,
-            LatencyMs = latencies.Count > 0 ? latencies.Average() : null,
-            DataQuality = $"PresentMon · {frameTimes.Count} frames"
-        };
+        return new PresentMonStatistics(
+            DataRowCount: lines.Length - 1,
+            AcceptedFrameRows: frameTimes.Count,
+            AcceptedLatencyRows: latencies.Count,
+            FpsAverage: fpsSamples.Average(),
+            FpsLow1: LowAverage(fpsSamples, 0.01),
+            FpsLow01: LowAverage(fpsSamples, 0.001),
+            FrameTimeAverageMs: frameTimes.Average(),
+            FrameTimeP95Ms: Percentile(sortedFrameTimes, 0.95),
+            FrameTimeP99Ms: Percentile(sortedFrameTimes, 0.99),
+            StutterPercent: stutterPercent,
+            LatencyAverageMs: latencies.Count > 0 ? latencies.Average() : null);
     }
+
+    private static TelemetryMetricObservation Direct(
+        TelemetryMetricDescriptor descriptor,
+        double value,
+        double coverage)
+        => new(
+            descriptor,
+            value,
+            TelemetryMetricQuality.Measured,
+            coverage,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
 
     private static int FindColumn(IReadOnlyList<string> headers, params string[] names)
     {
@@ -181,4 +257,17 @@ public sealed class PresentMonService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
+
+    private sealed record PresentMonStatistics(
+        int DataRowCount,
+        int AcceptedFrameRows,
+        int AcceptedLatencyRows,
+        double FpsAverage,
+        double FpsLow1,
+        double FpsLow01,
+        double FrameTimeAverageMs,
+        double FrameTimeP95Ms,
+        double FrameTimeP99Ms,
+        double StutterPercent,
+        double? LatencyAverageMs);
 }
