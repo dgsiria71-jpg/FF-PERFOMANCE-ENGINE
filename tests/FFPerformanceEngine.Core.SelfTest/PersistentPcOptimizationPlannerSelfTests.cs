@@ -35,6 +35,13 @@ internal static class PersistentPcOptimizationPlannerSelfTests
                     recommended: "new",
                     recommendation: Recommendation(CapabilityRecommendationSource.Diagnostic, 0.86, fingerprintId)),
                 Capability(
+                    "persist.controlled-only",
+                    CapabilityPersistenceScope.PersistentAllowed,
+                    CapabilityAvailability.Available,
+                    current: "old",
+                    recommended: "new",
+                    recommendation: Recommendation(CapabilityRecommendationSource.ControlledEvidence, 0.99, fingerprintId)),
+                Capability(
                     "persist.low-confidence",
                     CapabilityPersistenceScope.PersistentAllowed,
                     CapabilityAvailability.Available,
@@ -61,7 +68,7 @@ internal static class PersistentPcOptimizationPlannerSelfTests
                     CapabilityAvailability.Available,
                     current: "same",
                     recommended: "same",
-                    recommendation: Recommendation(CapabilityRecommendationSource.ControlledEvidence, 0.95, fingerprintId)),
+                    recommendation: Recommendation(CapabilityRecommendationSource.ValidatedEvidence, 0.95, fingerprintId)),
                 Capability(
                     "persist.unavailable",
                     CapabilityPersistenceScope.PersistentAllowed,
@@ -93,13 +100,15 @@ internal static class PersistentPcOptimizationPlannerSelfTests
         Require(preview.MachineFingerprintId == fingerprintId,
             "Persistent PC preview must bind itself to the exact machine fingerprint used for analysis.");
         Require(preview.ReadyEntries.Count == 1 && preview.ReadyEntries[0].CapabilityId == "persist.ready",
-            "Only a persistent, available, machine-bound, automatic recommendation above the confidence gate may become a mutation candidate.");
+            "Only a persistent, available, machine-bound, authorized automatic recommendation above the confidence gate may become a mutation candidate.");
         Require(preview.Mutations.Count == 1
                 && preview.Mutations[0] == new WindowsMutationRequest("persist.ready", "new"),
             "The preview must expose only the exact evidence-gated mutation request that the transaction engine may later apply.");
         Require(preview.ReadyEntries[0].ExpectedCurrentValue == "old",
             "Every ready entry must freeze the analyzed current value so Apply can reject preview-to-apply drift.");
 
+        Require(Disposition(preview, "persist.controlled-only") == PersistentPcOptimizationDisposition.UnsupportedRecommendationSource,
+            "ControlledEvidence must not bypass PendingValidation/fresh challenge/ValidatedEvidence by being injected directly into the registry.");
         Require(Disposition(preview, "persist.low-confidence") == PersistentPcOptimizationDisposition.LowConfidence,
             "Recommendations below the confidence policy must remain visible as skipped, not silently promoted.");
         Require(Disposition(preview, "persist.stale-machine") == PersistentPcOptimizationDisposition.EnvironmentMismatch,
@@ -115,7 +124,7 @@ internal static class PersistentPcOptimizationPlannerSelfTests
         Require(Disposition(preview, "persist.no-recommendation") == PersistentPcOptimizationDisposition.NoRecommendation,
             "A persistent capability without an explicit recommendation must remain a visible SKIP.");
 
-        Console.WriteLine("PASS Track 2 Otimizar este PC preview gates persistent mutations by availability, provenance, fingerprint, confidence and drift baseline");
+        Console.WriteLine("PASS Track 2 Otimizar este PC preview gates persistent mutations by validated provenance, availability, fingerprint, confidence and drift baseline");
     }
 
     private static CapabilityRecommendationSummary Recommendation(
