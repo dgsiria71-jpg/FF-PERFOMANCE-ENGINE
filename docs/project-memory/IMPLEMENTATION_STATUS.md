@@ -98,11 +98,17 @@ Representative checkpoints:
 - `7bd3e2a2a48b8c0cf058e609fb26ea92550b31e3` — read-only `product.db` discovery, CI #756 SUCCESS.
 - `1a3622770a7b8f4c7afe7099af6e42990189d80d` — Battle.net composed in shared catalog, CI #758 SUCCESS.
 
-## Current head at memory creation
+### EA App
+
+- RED contract: `3fc67a817cb9cc733a67a79afef4b38a3ceb430c`, CI #793 failed only because `EaAppGameDiscoverySource` did not yet exist.
+- `6d4278e9b6b9ed7a67ba7d8d0e5e9a00c6b4c823` — read-only `__Installer/installerdata.xml` discovery using stable primary `contentID`, full alias provenance, DTD/malformed XML rejection and no executable fabrication; CI #796 SUCCESS.
+- `4f35c66e5ff5bdf899a5f431e1de7433c36c23cd` — EA App composed in shared `GameCatalog`; CI #798 SUCCESS.
+
+## Current verified application head
 
 ```text
-1a3622770a7b8f4c7afe7099af6e42990189d80d
-Windows CI #758 — SUCCESS
+4f35c66e5ff5bdf899a5f431e1de7433c36c23cd
+Windows CI #798 — SUCCESS
 ```
 
-Next Track 3 slice: **EA App**.
+Next Track 3 slice: **Ubisoft Connect**.
