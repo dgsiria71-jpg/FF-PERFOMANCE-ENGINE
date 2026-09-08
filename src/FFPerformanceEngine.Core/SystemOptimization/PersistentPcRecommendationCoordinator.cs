@@ -43,10 +43,11 @@ public sealed record PersistentPcRecommendationBatchResult
 /// Sole automatic publication gate for recommendations consumed by the
 /// persistent "Otimizar este PC" planner. It never chooses a value and never
 /// mutates Windows. It only proves that an externally produced diagnostic or
-/// evidence candidate belongs to the current machine and can be represented by
-/// a concrete persistent mutation adapter before publishing it to the registry.
-/// Batch publication validates the complete set first so a rejected candidate
-/// cannot leave a mixed old/new recommendation state behind.
+/// fully validated evidence candidate belongs to the current machine and can be
+/// represented by a concrete persistent mutation adapter before publication.
+/// Raw ControlledEvidence is intentionally rejected: controlled A/B must advance
+/// through PendingValidation and an explicit fresh validation challenge first.
+/// Batch publication validates the complete set before the first registry write.
 /// </summary>
 public sealed class PersistentPcRecommendationCoordinator
 {
@@ -172,7 +173,9 @@ public sealed class PersistentPcRecommendationCoordinator
 
         if (!IsAutomaticSource(recommendation.Source))
             return Reject(CapabilityRecommendationPublicationDisposition.UnsupportedSource, id,
-                $"Recommendation source '{recommendation.Source}' is not authorized for automatic persistent publication.");
+                recommendation.Source == CapabilityRecommendationSource.ControlledEvidence
+                    ? "ControlledEvidence is not publishable before explicit PendingValidation and fresh validation challenge produce ValidatedEvidence."
+                    : $"Recommendation source '{recommendation.Source}' is not authorized for automatic persistent publication.");
 
         if (!double.IsFinite(recommendation.Confidence)
             || recommendation.Confidence < 0
@@ -235,7 +238,6 @@ public sealed class PersistentPcRecommendationCoordinator
 
     private static bool IsAutomaticSource(CapabilityRecommendationSource source)
         => source is CapabilityRecommendationSource.Diagnostic
-            or CapabilityRecommendationSource.ControlledEvidence
             or CapabilityRecommendationSource.ValidatedEvidence;
 
     private static CapabilityRecommendationPublicationResult Reject(
