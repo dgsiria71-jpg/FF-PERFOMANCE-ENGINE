@@ -33,6 +33,6 @@
 
 ### Task 4 — Verification
 
-- [ ] Verify all files exist on `build/initial-product`.
-- [ ] Verify documentation-only commit preserves application CI.
-- [ ] Update `HANDOFF_CURRENT.md` if the documentation commit becomes the new verified HEAD.
+- [x] Verify all files exist on `build/initial-product`.
+- [x] Verify documentation-only bootstrap preserves application CI (`6b15e87a...`, Windows CI #788 SUCCESS).
+- [x] Update `HANDOFF_CURRENT.md` with the verified memory-bootstrap checkpoint.
