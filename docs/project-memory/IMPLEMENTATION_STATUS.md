@@ -106,6 +106,7 @@ Canonical docs:
 - `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
 - `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
 - `docs/superpowers/plans/2026-09-08-telemetry-v2-current-collectors.md`
+- `docs/superpowers/plans/2026-09-08-telemetry-v2-realtime-buffer-aggregation.md`
 
 ### Metric schema v2 + immutable frame
 
@@ -142,7 +143,7 @@ Only exactly one stable catalog identity and one unambiguous bound RunningProces
 - RED `e3c766e58b6c3c0ef5086c927bacf74745658e68` — CI #894 / run `34276841999`; 0 warnings, failures only on missing system-v2 contracts.
 - GREEN `b9b1338828aa890380a8d689f8bb53ff737b517d` — CI #896 / run `34277078378` SUCCESS.
 
-`TelemetryService` now shares one internal native snapshot between legacy and v2 outputs. `CaptureSystemFrame()` emits only finite CPU utilization and physical memory used/total as `Measured / native-system / Direct / coverage 1`. Legacy `CaptureSystemSample()` remains callable and compatible. No GPU/thermal/clock/I/O/network value is invented.
+`TelemetryService` shares one internal native snapshot between legacy and v2 outputs. `CaptureSystemFrame()` emits only finite CPU utilization and physical memory used/total as `Measured / native-system / Direct / coverage 1`. Legacy `CaptureSystemSample()` remains callable and compatible. No GPU/thermal/clock/I/O/network value is invented.
 
 ### PresentMon direct v2
 
@@ -151,26 +152,58 @@ Only exactly one stable catalog identity and one unambiguous bound RunningProces
 
 `PresentMonService.ParseCsv()` and `ParseCsvFrame()` share one internal statistics object, so legacy and v2 FPS/lows/frame-time percentiles/stutter/latency formulas cannot drift. Legacy `DataQuality = "PresentMon · <accepted frames> frames"` remains unchanged. V2 emits only proven frame/latency metrics as `Measured / presentmon / Direct`; frame coverage uses accepted frame rows / data rows and latency coverage uses accepted latency rows / data rows. Missing latency remains absent. `CaptureProcessAsync()` and `CaptureProcessFrameAsync()` share the same one-shot CSV capture path.
 
+### Bounded realtime `TelemetryFrame` ring buffer
+
+- RED `24d09a17c60378b65c62314c697a1624d0f4e8f4` — CI #922 / run `34278694616`; native GREEN, managed failed with 0 warnings and exactly six missing-type errors for `TelemetryFrameRingBuffer`.
+- GREEN `dddb6d2a28559115412629637c40187a64dc1e4f` — CI #924 / run `34278856955` SUCCESS.
+
+Implemented:
+- validated positive capacity;
+- lock-protected concurrent append/read;
+- insertion-order FIFO eviction when saturated;
+- monotonic insertion sequence as equal-timestamp tie-breaker;
+- detached array snapshots ordered by `(Timestamp, Sequence)`;
+- half-open `[startInclusive, endExclusive)` window snapshots;
+- clear/null/range validation;
+- no disk persistence or timer dependency;
+- legacy `PerformanceTimelineBuffer` unchanged and separate.
+
+### Quality/coverage-aware 1-second aggregation
+
+- RED `5ef8ad730d02399b60733a066d87e6ce059c47bc` — CI #926 / run `34279119026`; native GREEN, managed failed with 0 warnings and exactly fourteen errors, all from missing `TelemetryFrameAggregator`.
+- GREEN `f5265286480662ffcfd3f89fbb03a1cd31a09e59` — CI #928 / run `34279297336` SUCCESS.
+
+Implemented:
+- pure Core aggregation over `[startInclusive, endExclusive)`;
+- result timestamp exactly equals the exclusive end;
+- empty windows produce an empty `TelemetryFrame` with `FrameQuality=Unavailable`;
+- grouping by stable metric id;
+- incompatible `Unit`, `Domain` or `Aggregation` for the same id throws rather than blending;
+- `Gauge` / `Average` → arithmetic mean;
+- `Minimum` → minimum;
+- `Maximum` → maximum;
+- `Sum` → sum;
+- absent metric observations are ignored rather than interpreted as zero;
+- aggregate quality is the weakest contributor;
+- aggregate coverage is the minimum contributor coverage;
+- aggregate origin is always `Derived`;
+- one homogeneous source id is preserved; multiple source ids become `aggregate-mixed`;
+- contributor ordering is canonicalized before floating-point arithmetic so input enumeration order cannot alter the result;
+- `AggregateOneSecond` is exactly `[start, start + 1s)`.
+
 ### Current verified application head
 
 ```text
-edfbba0845d60447e6fdd158b75eee6def39a60f
-Windows CI #900 / run 34277780294 — SUCCESS
+f5265286480662ffcfd3f89fbb03a1cd31a09e59
+Windows CI #928 / run 34279297336 — SUCCESS
 ```
 
 ### Next Track 4 boundary
 
-Implement **bounded realtime v2 storage + typed aggregation** with TDD:
+Continue with a separate TDD slice for:
 
-1. bounded `TelemetryFrame` ring buffer;
-2. deterministic capacity eviction / window snapshot;
-3. no raw-frame disk persistence yet;
-4. deterministic 1-second aggregate by stable metric id;
-5. absent channels are ignored, never zero-filled;
-6. descriptor incompatibility must not be blended;
-7. aggregate quality cannot exceed the weakest contributor;
-8. coverage must remain explicit and conservative;
-9. homogeneous provenance may be preserved, mixed provenance must not masquerade as one direct source;
-10. existing legacy `PerformanceTimelineBuffer` remains separate and unchanged.
-
-After 1-second aggregation is GREEN, extend to 10-second/session aggregation, then add real hardware channels one provider at a time. Performance/A-B migration away from free-form `DataQuality` parsing is later and must preserve all Track 2 validation/freshness authority.
+1. 10-second aggregation windows reusing the already-GREEN generic aggregator rather than duplicating metric math;
+2. bounded session aggregate/store semantics and retention policy, still without raw-frame disk persistence;
+3. explicit application-level realtime pipeline composition (`collectors → v2 ring buffer → 1s → 10s/session`) while legacy UI/A-B consumers stay untouched;
+4. only then add real hardware channels one provider at a time;
+5. Performance/A-B typed-quality migration remains later and must preserve every Track 2 freshness/fingerprint/ValidatedEvidence gate.
