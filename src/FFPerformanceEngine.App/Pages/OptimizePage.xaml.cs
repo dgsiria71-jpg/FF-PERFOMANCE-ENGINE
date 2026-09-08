@@ -186,6 +186,8 @@ public partial class OptimizePage : UserControl
             ApplyBusyState();
             RefreshReadiness();
         }
+
+        await ResumeValidatedEvidenceForSelectedCandidateAsync();
     }
 
     private async void CapabilityExperimentCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -194,11 +196,65 @@ public partial class OptimizePage : UserControl
         await RefreshCapabilityPlanForSelectionAsync();
     }
 
-    private void CapabilityCandidateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void CapabilityCandidateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_capabilityInitializing || IsBusy) return;
-        ResetCapabilityEvidencePresentation();
+        await ResumeValidatedEvidenceForSelectedCandidateAsync();
+    }
+
+    private async Task ResumeValidatedEvidenceForSelectedCandidateAsync()
+    {
+        if (IsBusy) return;
+
+        if (CapabilityExperimentCombo.SelectedItem is not WindowsPerformanceCapability capability
+            || CapabilityCandidateCombo.SelectedItem is not WindowsCapabilityCandidate candidate)
+        {
+            ResetCapabilityEvidencePresentation();
+            ApplyBusyState();
+            return;
+        }
+
+        var planStatus = _capabilityPlan?.CanExplore == true
+            ? "Plano pronto para A/B controlado"
+            : "Capability sem candidato executável";
+        var planDetail = _capabilityPlan?.Reason
+                         ?? "Nenhum plano de experimento ativo para este candidato.";
+
+        _capabilityInitializing = true;
         ApplyBusyState();
+        ResetCapabilityEvidencePresentation();
+        CapabilityStatusText.Text = "Verificando ValidatedEvidence durável";
+        CapabilityDetailText.Text = "Somente a evidência mais recente ainda compatível com máquina, workload, baseline e candidate-space atuais pode ser retomada.";
+
+        try
+        {
+            var evidence = await App.Services.ResolveCurrentValidatedWindowsCapabilityEvidenceAsync(
+                capability.CapabilityId,
+                candidate.TargetValue);
+
+            if (evidence is null)
+            {
+                CapabilityStatusText.Text = planStatus;
+                CapabilityDetailText.Text = planDetail;
+                return;
+            }
+
+            ApplyCapabilityPresentation(WindowsCapabilityExperimentPresentation.FromValidated(evidence));
+            CapabilityStatusText.Text = "ValidatedEvidence durável recuperada";
+            CapabilityDetailText.Text = "A evidência continua compatível com o contexto atual. Publicar recomendação ainda executará novamente todos os gates de freshness antes de qualquer preview persistente.";
+        }
+        catch (Exception ex)
+        {
+            ResetCapabilityEvidencePresentation();
+            CapabilityStatusText.Text = planStatus;
+            CapabilityDetailText.Text = $"{planDetail} Evidência anterior não foi retomada: {ex.Message}";
+        }
+        finally
+        {
+            _capabilityInitializing = false;
+            ApplyBusyState();
+            RefreshReadiness();
+        }
     }
 
     private async void CapabilityRefresh_Click(object sender, RoutedEventArgs e)
