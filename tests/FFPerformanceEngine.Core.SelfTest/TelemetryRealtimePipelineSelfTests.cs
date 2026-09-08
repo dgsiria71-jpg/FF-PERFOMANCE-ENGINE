@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Telemetry;
 
@@ -41,7 +40,7 @@ internal static class TelemetryRealtimePipelineSelfTests
             () => _ = new TelemetryRealtimePipeline(1, 1, 0),
             "Session ten-second capacity must be positive.");
 
-        _stage = "raw-ingress-and-one-second-finalization";
+        _stage = "raw-ingress-and-read-only-snapshot";
         var pipeline = new TelemetryRealtimePipeline(32, 32, 16);
         pipeline.AppendRaw(Frame(
             start.AddMilliseconds(100),
@@ -49,14 +48,15 @@ internal static class TelemetryRealtimePipelineSelfTests
         pipeline.AppendRaw(Frame(
             start.AddMilliseconds(800),
             Observation(metric, 30, 0.8)));
-        Require(pipeline.RawFrames.Count == 2,
+        Require(pipeline.RawFrameCount == 2,
             "Raw ingress must append exact frames to the bounded raw store.");
+        var detachedRaw = pipeline.SnapshotRawFrames();
 
         var oneSecond = pipeline.FinalizeOneSecond(start);
         Require(oneSecond.Timestamp == start.AddSeconds(1),
             "One-second finalization must preserve the exact bucket end timestamp.");
         RequireMetric(oneSecond, metric, 20, 0.8);
-        Require(pipeline.OneSecondAggregates.Count == 1,
+        Require(pipeline.OneSecondAggregateCount == 1,
             "Finalized one-second bucket must be stored exactly once.");
 
         _stage = "late-data-and-exact-end";
@@ -64,8 +64,10 @@ internal static class TelemetryRealtimePipelineSelfTests
             () => pipeline.AppendRaw(Frame(start.AddMilliseconds(999), Observation(metric, 99, 1))),
             "Raw data older than an already-finalized one-second end must be rejected.");
         pipeline.AppendRaw(Frame(start.AddSeconds(1), Observation(metric, 40, 1)));
-        Require(pipeline.RawFrames.Count == 3,
+        Require(pipeline.RawFrameCount == 3,
             "A frame exactly at the finalized end belongs to the next half-open window and must remain valid.");
+        Require(detachedRaw.Count == 2,
+            "Raw snapshots must stay detached from later pipeline mutations.");
 
         _stage = "one-second-exact-once-and-gap";
         RequireThrows<InvalidOperationException>(
@@ -111,7 +113,7 @@ internal static class TelemetryRealtimePipelineSelfTests
         var tenSeconds = sessionPipeline.FinalizeTenSeconds(start);
         RequireMetric(tenSeconds, metric, 5.5, 1);
         Require(tenSeconds.Timestamp == start.AddSeconds(10)
-                && sessionPipeline.SessionTenSecondAggregates.Count == 1,
+                && sessionPipeline.SessionTenSecondAggregateCount == 1,
             "Ten-second session aggregate must be end-stamped and stored exactly once.");
         RequireThrows<InvalidOperationException>(
             () => sessionPipeline.FinalizeTenSeconds(start),
@@ -141,16 +143,18 @@ internal static class TelemetryRealtimePipelineSelfTests
             list[0] = Frame(start.AddSeconds(10));
         }, "Completed session aggregate collection must be immutable to the caller.");
 
-        var previousRawCount = sessionPipeline.RawFrames.Count;
-        var previousOneSecondCount = sessionPipeline.OneSecondAggregates.Count;
+        var previousRawCount = sessionPipeline.RawFrameCount;
+        var previousOneSecondCount = sessionPipeline.OneSecondAggregateCount;
         sessionPipeline.BeginSession(start.AddSeconds(10));
-        Require(sessionPipeline.SessionTenSecondAggregates.Count == 0,
+        Require(sessionPipeline.SessionTenSecondAggregateCount == 0,
             "Beginning a new session must clear only the bounded session aggregate store.");
-        Require(sessionPipeline.RawFrames.Count == previousRawCount
-                && sessionPipeline.OneSecondAggregates.Count == previousOneSecondCount,
+        Require(sessionPipeline.RawFrameCount == previousRawCount
+                && sessionPipeline.OneSecondAggregateCount == previousOneSecondCount,
             "Beginning a new session must preserve rolling raw and one-second stores.");
         Require(completed.TenSecondAggregates.Count == 1,
             "Completed session snapshot must stay detached from later session-store clearing.");
+        Require(sessionPipeline.SnapshotSessionTenSecondAggregates().Count == 0,
+            "Session aggregate snapshot must expose only the new session after reset.");
 
         _stage = "session-start-cannot-rewind-one-second-cursor";
         RequireThrows<InvalidOperationException>(
