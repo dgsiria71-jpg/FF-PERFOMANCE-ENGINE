@@ -56,6 +56,7 @@ public sealed class AppServices : IAsyncDisposable
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public RunningProcessGameEvidenceSource RunningProcessGameEvidence { get; }
+    public KnownExecutableGameEvidenceSource KnownExecutableGameEvidence { get; }
     public GameEvidenceCatalogService GameEvidenceCatalog { get; }
     public GameEvidenceBinder GameEvidenceBinder { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -171,9 +172,12 @@ public sealed class AppServices : IAsyncDisposable
         ]);
         RunningProcessGameEvidence = new RunningProcessGameEvidenceSource(
             new WindowsRunningProcessObservationProvider());
+        KnownExecutableGameEvidence = new KnownExecutableGameEvidenceSource(
+            new WindowsAppPathsKnownExecutableObservationProvider());
         GameEvidenceCatalog = new GameEvidenceCatalogService(
         [
-            RunningProcessGameEvidence
+            RunningProcessGameEvidence,
+            KnownExecutableGameEvidence
         ]);
         GameEvidenceBinder = new GameEvidenceBinder();
         GameDiscovery = new GameDiscoveryCoordinator(
