@@ -32,8 +32,12 @@ internal static class SteamGameDiscoverySelfTests
             Directory.CreateDirectory(Path.Combine(root, "steamapps", "common", "Counter-Strike Global Offensive"));
             Directory.CreateDirectory(Path.Combine(library, "steamapps", "common", "dota 2 beta"));
 
+            // Module initializers execute before Main while the module initializer
+            // is synchronously blocked on RunAsync. Keep fixture filesystem setup
+            // synchronous so test preparation cannot depend on an async continuation
+            // during module initialization. The production discovery API remains async.
             _stage = "write-libraryfolders";
-            await File.WriteAllTextAsync(
+            File.WriteAllText(
                 Path.Combine(root, "steamapps", "libraryfolders.vdf"),
                 $$"""
                 "libraryfolders"
@@ -50,7 +54,7 @@ internal static class SteamGameDiscoverySelfTests
                 """);
 
             _stage = "write-root-manifest";
-            await File.WriteAllTextAsync(
+            File.WriteAllText(
                 Path.Combine(root, "steamapps", "appmanifest_730.acf"),
                 """
                 "AppState"
@@ -62,7 +66,7 @@ internal static class SteamGameDiscoverySelfTests
                 """);
 
             _stage = "write-library-manifest";
-            await File.WriteAllTextAsync(
+            File.WriteAllText(
                 Path.Combine(library, "steamapps", "appmanifest_570.acf"),
                 """
                 "AppState"
@@ -74,7 +78,7 @@ internal static class SteamGameDiscoverySelfTests
                 """);
 
             _stage = "write-broken-manifest";
-            await File.WriteAllTextAsync(
+            File.WriteAllText(
                 Path.Combine(library, "steamapps", "appmanifest_broken.acf"),
                 """
                 "AppState"
