@@ -49,6 +49,7 @@ public sealed class AppServices : IAsyncDisposable
     public SteamGameDiscoverySource SteamGameDiscovery { get; }
     public EpicGameDiscoverySource EpicGameDiscovery { get; }
     public RiotGameDiscoverySource RiotGameDiscovery { get; }
+    public BattleNetGameDiscoverySource BattleNetGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -140,12 +141,14 @@ public sealed class AppServices : IAsyncDisposable
         SteamGameDiscovery = new SteamGameDiscoverySource();
         EpicGameDiscovery = new EpicGameDiscoverySource();
         RiotGameDiscovery = new RiotGameDiscoverySource();
+        BattleNetGameDiscovery = new BattleNetGameDiscoverySource();
         GameCatalog = new LocalGameCatalogService(
         [
             BlueStacksGameDiscovery,
             SteamGameDiscovery,
             EpicGameDiscovery,
-            RiotGameDiscovery
+            RiotGameDiscovery,
+            BattleNetGameDiscovery
         ]);
         GameAdapters = new GameAdapterResolver(
         [
