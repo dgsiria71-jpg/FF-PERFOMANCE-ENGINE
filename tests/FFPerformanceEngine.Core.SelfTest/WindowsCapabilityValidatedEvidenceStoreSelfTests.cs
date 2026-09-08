@@ -24,6 +24,8 @@ internal static class WindowsCapabilityValidatedEvidenceStoreSelfTests
                     && loaded.Source == WindowsCapabilityValidatedEvidenceSource.ValidatedEvidence
                     && loaded.ObservationCount == 3,
                 "ValidatedEvidence must persist and reload with its exact evidence identity/provenance.");
+            if (loaded is null)
+                throw new InvalidOperationException("ValidatedEvidence unexpectedly disappeared after the persistence assertion.");
             Require(loaded.RecommendedValue is null,
                 "Persisted ValidatedEvidence must remain evidence, not a recommendation.");
 
