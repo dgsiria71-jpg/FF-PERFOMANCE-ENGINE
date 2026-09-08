@@ -150,8 +150,15 @@ internal static class TelemetryLegacyBridgeSelfTests
             PacketLossPercent = 17,
             DataQuality = "unknown"
         });
-        Require(all.Metrics.Count == TelemetryStandardMetrics.All.Count,
-            "Every legacy TelemetrySample field must map explicitly to the 17 approved v2 metrics.");
+        Require(all.Metrics.Count == 17,
+            "Every finite legacy TelemetrySample field must map explicitly to exactly the 17 legacy-mappable v2 metrics.");
+        Require(TelemetryStandardMetrics.All.Count == 20,
+            "The current v2 schema must contain the 17 legacy-compatible metrics plus three processor-power metrics.");
+        Require(!all.Metrics.Any(item =>
+                item.Metric.Id == TelemetryStandardMetrics.CpuClockCurrentAverageMhz.Id
+                || item.Metric.Id == TelemetryStandardMetrics.CpuClockMaximumAverageMhz.Id
+                || item.Metric.Id == TelemetryStandardMetrics.CpuClockLimitMinimumMhz.Id),
+            "The legacy bridge must never fabricate processor-power telemetry that TelemetrySample cannot prove.");
         Require(all.Metrics.All(item => item.Coverage == 1d),
             "Finite legacy values must carry full observation coverage in the compatibility bridge.");
 
