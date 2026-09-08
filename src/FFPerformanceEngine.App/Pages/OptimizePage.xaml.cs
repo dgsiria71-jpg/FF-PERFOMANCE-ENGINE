@@ -26,7 +26,7 @@ public partial class OptimizePage : UserControl
     private WindowsCapabilityCandidatePlan? _capabilityPlan;
     private WindowsCapabilityExperimentPresentation? _capabilityPresentation;
 
-    private bool IsBusy => _isRunning || _pcOperationRunning || _capabilityOperationRunning;
+    private bool IsBusy => _isRunning || _pcOperationRunning || _capabilityOperationRunning || _capabilityInitializing;
 
     public OptimizePage()
     {
@@ -96,6 +96,7 @@ public partial class OptimizePage : UserControl
         if (IsBusy) return;
 
         _capabilityInitializing = true;
+        ApplyBusyState();
         CapabilityStatusText.Text = "Atualizando capabilities do Windows";
         CapabilityDetailText.Text = "Lendo o estado atual pelos adapters concretos antes de formar qualquer candidato.";
         CapabilityRunButton.IsEnabled = false;
@@ -139,6 +140,7 @@ public partial class OptimizePage : UserControl
         finally
         {
             _capabilityInitializing = false;
+            ApplyBusyState();
         }
 
         await RefreshCapabilityPlanForSelectionAsync();
@@ -155,6 +157,7 @@ public partial class OptimizePage : UserControl
         }
 
         _capabilityInitializing = true;
+        ApplyBusyState();
         CapabilityExperimentIdText.Text = capability.CapabilityId;
         CapabilityStatusText.Text = "Construindo plano de exploração";
         CapabilityDetailText.Text = "O Core está atualizando o estado e limitando o espaço aos targets suportados pelo adapter.";
@@ -239,7 +242,7 @@ public partial class OptimizePage : UserControl
 
         BeginCapabilityOperation(
             "Validando candidato com rodada fresca",
-            "A evidência repetida já passou pelo gate. Agora uma nova rodada controlada deve confirmar o mesmo tuple antes de existir ValidatedEvidence.";
+            "A evidência repetida já passou pelo gate. Agora uma nova rodada controlada deve confirmar o mesmo tuple antes de existir ValidatedEvidence.");
 
         try
         {
@@ -270,7 +273,7 @@ public partial class OptimizePage : UserControl
 
         BeginCapabilityOperation(
             "Revalidando evidência para recomendação",
-            "O Core vai confirmar latest evidence, fingerprint, workload, baseline e candidate-space antes da autoridade persistente publicar o target.";
+            "O Core vai confirmar latest evidence, fingerprint, workload, baseline e candidate-space antes da autoridade persistente publicar o target.");
 
         try
         {
@@ -725,6 +728,7 @@ public partial class OptimizePage : UserControl
 
     private void SetRunningState(bool running)
     {
+        _ = running;
         ApplyBusyState();
     }
 
