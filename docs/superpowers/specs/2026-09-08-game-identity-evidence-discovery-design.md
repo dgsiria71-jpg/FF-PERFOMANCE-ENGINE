@@ -24,7 +24,7 @@ It is **not** correct for weak or transient observations such as:
 - a running process;
 - an executable path;
 - a generic installed-app registration;
-- an independently installed game whose only currently visible signal is a filesystem or process observation.
+- an independently installed game whose only currently visible signal is filesystem or process evidence.
 
 This design separates **identity authority** from **workload evidence** so the DG Performance Engine can detect more real workloads without inventing identity from file names, display names or paths.
 
@@ -32,14 +32,14 @@ This design separates **identity authority** from **workload evidence** so the D
 
 > A weak or transient observation may enrich or bind to a proven game identity, but it may not create a stable `GameIdentity` by itself.
 
-This is a new explicit invariant for Track 3 and must remain compatible with the existing canonical rules:
+This is an explicit Track 3 invariant and must remain compatible with the canonical rules:
 
 - display name is not identity;
 - executable name is not identity;
 - install path is not identity;
 - launcher process name is not identity;
 - unknown means unknown;
-- evidence quality and ambiguity must be preserved rather than guessed away.
+- evidence quality and ambiguity are preserved rather than guessed away.
 
 ## 3. Two discovery planes
 
@@ -55,9 +55,7 @@ GameDiscoveryCandidate
 GameIdentity
 ```
 
-Identity Sources are allowed to create `GameIdentity` only when they possess a stable source-native key.
-
-Current examples:
+Identity Sources may create `GameIdentity` only when they possess a stable source-native key.
 
 | Source | Stable identity basis |
 | --- | --- |
@@ -74,21 +72,23 @@ Current examples:
 
 ### 3.2 Evidence Sources
 
-A new separate contract handles transient or weak observations:
+A separate contract handles transient or weak observations:
 
 ```text
 IGameEvidenceSource
         ↓
 GameEvidenceObservation
         ↓
+GameEvidenceCatalogService
+        ↓
 GameEvidenceBinder
         ↓
-Bound evidence / Unbound evidence
+BoundGameEvidence / UnboundGameEvidence
 ```
 
 Evidence Sources do not return `GameIdentity` and cannot alter the identity catalog directly.
 
-Expected future evidence sources include:
+Approved future evidence sources include:
 
 - running Windows processes;
 - known executable observations;
@@ -96,80 +96,167 @@ Expected future evidence sources include:
 - independent launcher observations;
 - emulator/runtime process observations not already covered by a specialized identity source.
 
-## 4. Core evidence model
+## 4. Normative Core contracts
 
-The exact implementation names may follow repository conventions, but the model must represent at least:
+The first implementation uses these contract names and responsibilities.
+
+### 4.1 `GameEvidenceKind`
+
+Initial enum values:
 
 ```text
-GameEvidenceObservation
-- SourceId
-- ObservationId
-- Kind
-- Confidence
-- ObservedAtUtc
-- GameIdHint?          // exact only when source truly knows it
-- ExecutablePath?
-- ProcessId?
-- DisplayName?
-- EvidenceText
+RunningProcess
+KnownExecutable
+InstalledApplication
+IndependentLauncher
+EmulatorRuntime
+Other
 ```
-
-### 4.1 ObservationId
-
-`ObservationId` is an observation-instance key, not a game identity.
-
-It exists for:
-
-- deterministic deduplication;
-- stable ordering within one discovery pass;
-- joining the same observation through the binder.
-
-It must never be promoted into `GameIdentity.GameId` unless a future identity source separately proves that it is a stable game id.
-
-### 4.2 Evidence kind
-
-The evidence model should support explicit kinds rather than encoding semantics only in free text. Initial kinds may include:
-
-- `RunningProcess`;
-- `KnownExecutable`;
-- `InstalledApplication`;
-- `IndependentLauncher`;
-- `EmulatorRuntime`;
-- `Other`.
 
 Adding a kind does not grant identity authority.
 
-### 4.3 Confidence
+### 4.2 `GameEvidenceObservation`
 
-Confidence measures the quality of the observation itself, not certainty that the observation uniquely identifies a game.
+Required shape:
 
-Examples:
+```text
+GameEvidenceObservation
+- ObservationId: string
+- Kind: GameEvidenceKind
+- Confidence: double
+- ObservedAtUtc: DateTimeOffset
+- GameIdHint: string?
+- ExecutablePath: string?
+- ProcessId: int?
+- DisplayName: string?
+- EvidenceText: string
+```
 
-- a live PID with a fully resolved executable path can be high-confidence process evidence;
-- a generic installed-app registration with no stable product id may be lower-confidence evidence;
-- ambiguity during binding must remain ambiguity even when the raw observation confidence is high.
+`ObservationId` is an observation-instance key, not a game identity. It exists only for deterministic deduplication, ordering and joining within the evidence plane.
+
+It must never be promoted into `GameIdentity.GameId` unless a future Identity Source independently proves the same value as a stable game id.
+
+`Confidence` measures the quality of the observation itself, not certainty that the observation uniquely identifies a game.
+
+### 4.3 `IGameEvidenceSource`
+
+Required contract:
+
+```text
+SourceId: string
+Priority: int
+ObserveAsync(CancellationToken): Task<IReadOnlyList<GameEvidenceObservation>>
+```
+
+Construction must be side-effect free.
+
+`SourceId` is normalized by the evidence catalog, just as identity-source ids are normalized by `LocalGameCatalogService`.
+
+### 4.4 `GameEvidenceCatalogService`
+
+Responsibilities:
+
+- order evidence sources deterministically by descending priority, then normalized `SourceId`;
+- execute each source at most once per explicit discovery pass;
+- propagate caller cancellation;
+- isolate non-cancellation failure of one source from all others;
+- normalize confidence to `[0,1]`;
+- reject blank source ids and blank observation ids;
+- deduplicate observations by normalized `(SourceId, ObservationId)`;
+- when the same `(SourceId, ObservationId)` appears more than once, keep the observation with highest normalized confidence, then earliest input order as the deterministic tie-breaker;
+- preserve source provenance separately from the observation payload;
+- return deterministic observations and warnings.
+
+The evidence catalog must not create or modify `GameIdentity`.
+
+### 4.5 Evidence provenance wrapper
+
+Catalog output wraps each accepted observation with source provenance:
+
+```text
+GameEvidenceSourceObservation
+- SourceId
+- Priority
+- Observation
+```
+
+The raw observation does not get to self-declare its own source authority.
+
+### 4.6 `GameEvidenceBinder`
+
+The binder is the only Core authority that associates accepted evidence with existing stable identities.
+
+Input:
+
+```text
+IReadOnlyList<GameIdentity>
+IReadOnlyList<GameEvidenceSourceObservation>
+```
+
+Output:
+
+```text
+GameEvidenceBindingResult
+- BoundEvidence
+- UnboundEvidence
+```
+
+### 4.7 Bound/unbound records
+
+```text
+BoundGameEvidence
+- GameId
+- BindingReason
+- SourceId
+- Priority
+- Observation
+
+UnboundGameEvidence
+- UnboundReason
+- SourceId
+- Priority
+- Observation
+```
+
+Initial binding reasons:
+
+```text
+ExactGameIdHint
+UniqueInstallPathContainment
+```
+
+Initial unbound reasons:
+
+```text
+NoMatchingIdentity
+AmbiguousInstallPath
+InvalidExecutablePath
+UnsupportedEvidence
+```
 
 ## 5. Binding rules
 
-`GameEvidenceBinder` is the only Core authority that may associate Evidence Source observations with existing `GameIdentity` entries.
-
 The binder is deterministic and fail-safe.
 
-### Rule 1 — Exact GameIdHint has highest authority
+### Rule 1 — Exact `GameIdHint` has highest authority
 
 If an evidence source genuinely knows the stable `GameId`, it may supply `GameIdHint`.
 
-Binding succeeds only when the normalized hint matches **exactly one existing catalog identity**.
+The hint is normalized with the same lowercasing/trim semantics as `GameIdentity.GameId`.
 
-A hint that does not match an existing identity stays unbound. It must not cause creation of a new game.
+Binding succeeds only when the normalized hint matches an existing catalog identity exactly.
+
+A non-empty hint that does not match an existing identity returns `NoMatchingIdentity`. The binder does **not** fall through to path containment after an explicit but unmatched hint, because doing so would silently override source intent.
+
+A hint never creates a new game.
 
 ### Rule 2 — Executable path containment is secondary
 
-When there is no valid exact hint, a fully qualified executable path may bind only when it is safely contained inside the `InstallPaths` of **exactly one** existing game.
+When `GameIdHint` is absent/blank, a fully qualified executable path may bind only when it is safely contained inside the normalized `InstallPaths` of **exactly one** existing game.
 
-Containment must be based on normalized path segments, not string prefix.
+Containment uses normalized directory boundaries, never simple string prefix.
 
-Valid example:
+Valid:
 
 ```text
 InstallPath: C:\Games\Foo
@@ -185,49 +272,70 @@ Executable:  C:\Games\Foobar\foo.exe
 → no match
 ```
 
-### Rule 3 — Ambiguity means Unbound
+The executable path equal to the install directory itself is invalid evidence for this rule because it is not a file path beneath the install root.
 
-If an executable path is contained in install paths belonging to more than one `GameIdentity`, the observation remains unbound.
+### Rule 3 — Ambiguity means unbound
 
-No source priority, display name, executable filename or adapter id may be used to break that ambiguity silently.
+If the executable path is contained in install paths belonging to more than one distinct `GameId`, the observation returns `AmbiguousInstallPath`.
 
-### Rule 4 — Filename alone never binds
+No source priority, display name, executable filename, launcher value, adapter id or confidence score may silently break that ambiguity.
+
+### Rule 4 — Filename/text alone never binds
 
 These do **not** qualify as binding keys:
 
-- `foo.exe` without a full path;
+- `foo.exe` without a fully qualified path;
 - display name;
 - parent folder name;
 - process title/window title;
 - launcher name;
 - case-insensitive text similarity.
 
-They may remain evidence metadata only.
+They remain evidence metadata only.
+
+If neither an exact hint nor a valid fully qualified executable path exists, the observation returns `UnsupportedEvidence` in the first implementation.
 
 ### Rule 5 — Evidence cannot mutate identity fields
 
-Bound evidence must never change:
+Bound evidence never changes:
 
 - `GameId`;
 - `Name`;
 - `Launcher`;
 - `Engine`;
 - `AdapterId`;
-- `LegacyGameKind`.
+- `LegacyGameKind`;
+- stable `Executables`;
+- stable `InstallPaths`;
+- `AuxiliaryProcesses`.
 
 It also cannot create specialized adapter capabilities.
 
-### Rule 6 — Evidence cannot fabricate executable authority
+### Rule 6 — Runtime evidence is transient
 
-A running process path proves that a process exists at that path now. It does **not** automatically make that path a persistent launcher executable or install manifest field on `GameIdentity`.
+A running process path proves that a process exists at that path for the current observation. It does **not** become a persistent launcher executable or manifest field on `GameIdentity`.
 
-Transient runtime evidence must remain transient.
+PID, observation timestamp and running state remain transient evidence.
 
-## 6. Result model
+## 6. Path safety
 
-The existing application-facing result remains backward compatible for current consumers while gaining evidence collections.
+Path binding is correctness-sensitive.
 
-Conceptually:
+Requirements:
+
+- only fully qualified executable paths participate;
+- install roots and executable paths are normalized with platform-safe path APIs;
+- malformed/non-normalizable paths are rejected as `InvalidExecutablePath`;
+- Windows paths compare case-insensitively;
+- trailing directory separators are normalized consistently;
+- containment requires a real directory boundary after the install root;
+- `C:\Games\Foo` must never contain `C:\Games\Foobar\...`;
+- no filesystem traversal is required to prove containment;
+- symlink/junction canonicalization is outside the first slice and therefore cannot be used to claim a match that lexical normalized containment does not prove.
+
+## 7. Application-facing result
+
+`ResolvedGameCatalogResult` is extended additively:
 
 ```text
 ResolvedGameCatalogResult
@@ -237,27 +345,18 @@ ResolvedGameCatalogResult
 - UnboundEvidence
 ```
 
-Each bound evidence entry must carry:
+`Games` and `Warnings` keep their current semantics.
 
-- the stable target `GameId`;
-- the original observation unchanged or normalized only structurally;
-- binding reason (`ExactGameIdHint`, `UniqueInstallPathContainment`, etc.).
+Existing consumers that read only those two properties remain source-compatible.
 
-Unbound evidence carries the original observation plus an explicit reason when useful:
+Evidence-source warnings join the existing warning stream with their own `SourceId`; no warning creates or removes a game identity.
 
-- `NoMatchingIdentity`;
-- `AmbiguousInstallPath`;
-- `InvalidPath`;
-- `UnsupportedEvidence`.
+## 8. Discovery flow
 
-Current consumers that only read `Games` and `Warnings` must continue to behave unchanged.
-
-## 7. Discovery flow
-
-The coordinator evolves from one-plane discovery to two-plane discovery:
+The coordinator becomes two-plane but remains explicit:
 
 ```text
-Explicit DiscoverGamesAsync()
+DiscoverGamesAsync()
         │
         ├── Identity plane
         │     └── LocalGameCatalogService
@@ -265,11 +364,11 @@ Explicit DiscoverGamesAsync()
         │
         ├── Evidence plane
         │     └── GameEvidenceCatalogService
-        │            └── transient observations
+        │            └── GameEvidenceSourceObservation list
         │
         └── GameEvidenceBinder
-              ├── BoundEvidence
-              └── UnboundEvidence
+              ├── BoundGameEvidence
+              └── UnboundGameEvidence
 
 Stable identities
         ↓
@@ -278,42 +377,32 @@ GameAdapterResolver
 Resolved games + evidence
 ```
 
+`GameDiscoveryCoordinator` owns orchestration of both planes after composition.
+
 Construction remains side-effect free. Neither identity sources nor evidence sources run in `AppServices.InitializeAsync()`.
 
 Only explicit game/workload discovery executes either plane.
 
-## 8. Failure isolation and cancellation
+## 9. Failure isolation and cancellation
 
-Evidence discovery must follow the same reliability principles as the existing local game catalog:
+Evidence discovery follows the same reliability principles as the identity catalog:
 
-- one evidence source failure does not suppress other sources;
-- pre-cancelled discovery must not touch platform sources;
-- cancellation propagates, not converted into a warning;
-- malformed observations are skipped or surfaced as warnings without inventing defaults;
-- deterministic source ordering must not depend on filesystem enumeration order or process enumeration order.
+- one evidence-source failure does not suppress other evidence sources;
+- identity-source failures remain governed by `LocalGameCatalogService`;
+- pre-cancelled discovery touches neither identity nor evidence platform sources;
+- cancellation propagates and is never converted into a warning;
+- malformed observations are skipped with deterministic warnings when appropriate;
+- source/process/filesystem enumeration order cannot change final ordering.
 
-## 9. Path safety
-
-Path binding is security- and correctness-sensitive.
-
-Requirements:
-
-- only fully qualified paths participate in containment binding;
-- normalize with platform-safe path APIs;
-- compare using Windows-appropriate case-insensitive semantics for Windows paths;
-- trim directory separators consistently;
-- enforce a directory boundary after the install root;
-- reject malformed or non-normalizable paths;
-- never resolve identity from simple filename matching;
-- do not require walking protected directories to prove containment.
+The binder itself is pure Core logic and performs no platform I/O.
 
 ## 10. Source priority semantics
 
-Identity source priority and evidence source priority are separate concepts.
+Identity-source priority and evidence-source priority are independent.
 
-An evidence source with high priority can provide high-quality evidence but cannot outrank an Identity Source and replace its `GameId`.
+Evidence priority affects deterministic evidence deduplication/provenance only. It can never outrank an Identity Source and replace `GameId`.
 
-The binder uses explicit rule precedence, not a weighted score that could silently convert ambiguous evidence into identity.
+Binding uses the explicit rule precedence in Section 5, not a weighted score.
 
 ## 11. Downstream contract
 
@@ -321,114 +410,119 @@ The binder uses explicit rule precedence, not a weighted score that could silent
 
 The generic adapter may later consume bound running-process evidence for safe session actions such as:
 
-- process priority/affinity when allowed by policy;
+- process priority/affinity when policy permits;
 - active workload telemetry targeting;
 - session-state detection;
 - generic Guardian observations.
 
-This design does not implement those actions yet.
+This design does not implement those actions.
 
 ### 11.2 Specialized adapters
 
-Specialized adapters remain selected only from the stable `GameIdentity` / adapter registry.
+Specialized adapters remain selected only from stable `GameIdentity` through the shared adapter registry.
 
 Evidence cannot create a specialized adapter match.
 
 ### 11.3 Telemetry / Track 4
 
-Track 4 can use bound evidence as a source of runtime process targets without changing the historical identity key used by evidence, profiles and learning.
+Track 4 may use bound evidence as a runtime process target without changing the durable `GameId` used by evidence history, profiles and learning.
 
-This separation is the primary reason for introducing the two-plane model before Universal Telemetry.
+This separation is the primary reason to establish the two-plane model before Universal Telemetry.
 
 ### 11.4 Profiles / Auto Tuner / Guardian
 
-Profiles, Auto Tuner and Guardian must continue binding durable knowledge to stable `GameId` and machine/environment context.
+Profiles, Auto Tuner and Guardian continue binding durable knowledge to stable `GameId` plus machine/environment context.
 
-Runtime evidence may identify the current process/session, but it must not replace the durable game identity.
+Runtime evidence identifies a current process/session only; it never replaces the durable game identity.
 
 ## 12. Migration and backward compatibility
 
 The current identity stack remains intact:
 
 - `GameIdentity` remains the durable identity object;
-- `IGameDiscoverySource` remains an identity source contract;
+- `IGameDiscoverySource` remains the identity-source contract;
 - `LocalGameCatalogService` remains the identity aggregation authority;
 - existing launcher scanners remain unchanged unless a later test proves a required improvement;
 - `GameAdapterResolver` continues resolving stable identities;
 - current `ResolvedGameCatalogResult.Games` semantics remain unchanged.
 
-The new evidence plane is additive.
+The evidence plane is additive.
 
-No existing source is converted into an Evidence Source merely for architectural symmetry.
+No existing identity source is converted into an Evidence Source merely for symmetry.
 
 ## 13. Rejected alternatives
 
-### 13.1 Provisional GameIdentity
+### 13.1 Provisional `GameIdentity`
 
-Rejected because downstream code could accidentally treat provisional identities as durable identities, contaminating profiles, History, telemetry and learning.
+Rejected because downstream code could accidentally treat provisional identities as durable identities, contaminating Profiles, History, telemetry and learning.
 
 ### 13.2 `standalone:<hash(path)>`
 
-Rejected because install-directory relocation or reinstall changes the identity, and path is not a source-native stable game key.
+Rejected because install relocation/reinstall changes the identity, and path is not a source-native stable game key.
 
-### 13.3 executable filename as GameId
+### 13.3 Executable filename as `GameId`
 
 Rejected because filenames collide across unrelated games and versions.
 
-### 13.4 fuzzy matching by display name/folder/window title
+### 13.4 Fuzzy matching by display name/folder/window title
 
 Rejected because it trades correctness for recall and silently invents identity.
 
-### 13.5 weighted heuristic binder
+### 13.5 Weighted heuristic binder
 
 Rejected for the first implementation because scores can hide ambiguity. The first binder uses explicit deterministic rules only.
 
-## 14. Initial implementation sequence
+## 14. Implementation sequence
 
-Implementation must be incremental and TDD-driven.
+Implementation is incremental and TDD-driven.
 
-### Slice A — Core evidence contracts + binder
+### Slice A — Core evidence contracts + catalog + binder
 
 RED first for:
 
 1. evidence alone cannot create a game;
 2. exact `GameIdHint` binding;
-3. unique install-path containment;
-4. path-boundary correctness (`Foo` vs `Foobar`);
-5. ambiguous containment stays unbound;
-6. filename-only evidence stays unbound;
-7. evidence cannot mutate stable identity fields;
-8. deterministic ordering/deduplication;
-9. evidence-source failure isolation;
-10. cancellation before source invocation.
+3. unmatched explicit hint does not fall through to path matching;
+4. unique install-path containment;
+5. `Foo` vs `Foobar` boundary correctness;
+6. ambiguous containment stays unbound;
+7. filename-only evidence stays unbound;
+8. invalid/non-qualified path handling;
+9. evidence cannot mutate stable identity fields;
+10. deterministic source ordering and `(SourceId, ObservationId)` deduplication;
+11. evidence-source failure isolation;
+12. pre-cancelled discovery does not invoke evidence sources;
+13. coordinator returns existing games plus bound/unbound evidence without changing adapter resolution.
 
-Then implement minimum Core contracts/services and require full Windows CI GREEN.
+Then implement the minimum Core contracts/services and require full Windows CI GREEN.
 
 ### Slice B — Running Windows process evidence
 
 After Slice A is GREEN:
 
-- add a Windows-only provider/source outside the neutral Core where platform APIs require it;
+- add a Windows-only evidence source in the App/platform layer;
 - enumerate running processes read-only;
-- resolve process id and full executable path when permitted;
+- capture PID, observation time and fully qualified executable path when permitted;
 - inaccessible/system processes are skipped or reported safely;
 - do not classify a process as a game by filename;
 - feed observations into the evidence plane;
-- full Windows CI GREEN before composition.
+- require full Windows CI GREEN before AppServices composition.
 
 ### Slice C — AppServices composition
 
-Compose shared evidence catalog/binder authorities without adding discovery to `InitializeAsync()`.
+Compose one shared evidence catalog/binder authority and the running-process evidence source.
+
+`InitializeAsync()` remains unchanged with respect to game/evidence discovery.
 
 Require another full Windows CI GREEN.
 
 ### Slice D — Installed-app / independent surfaces
 
-Only after running-process evidence is validated, add installed-app / independent-launcher evidence one source at a time, each with its own RED/GREEN cycle.
+Only after running-process evidence is validated, add installed-app and independent-launcher evidence one source at a time, each with its own RED/GREEN cycle.
 
 No generic standalone `GameIdentity` fabrication is introduced.
 
-## 15. Non-goals of this design
+## 15. Non-goals
 
 This design does not yet:
 
@@ -436,6 +530,7 @@ This design does not yet:
 - infer game engines from executables;
 - inspect arbitrary binaries for signatures;
 - crawl the entire disk;
+- canonicalize filesystem links/junctions for identity;
 - mutate processes;
 - launch games;
 - alter priorities/affinity;
@@ -453,8 +548,8 @@ This architecture is successful when the DG Performance Engine can:
 1. preserve every current stable launcher/package identity exactly;
 2. collect runtime/installed-app evidence without manufacturing new identities;
 3. bind evidence only through exact hints or unique safe path containment;
-4. keep ambiguous evidence explicitly unbound;
+4. keep explicit unmatched hints and ambiguous paths unbound rather than falling back to guesses;
 5. expose bound runtime evidence to future Telemetry/Guardian work without changing durable `GameId`;
 6. remain deterministic, cancellation-aware and failure-isolated;
 7. keep `AppServices.InitializeAsync()` free of game/evidence scanning;
-8. pass the existing Windows CI plus new adversarial self-tests.
+8. pass all existing Windows CI gates plus new adversarial self-tests.
