@@ -60,12 +60,37 @@ public sealed class BlueStacksAutomationService
     public static IReadOnlyList<string> BuildForegroundQueryArguments(BlueStacksInstance instance)
         => ["-s", EndpointFor(instance), "shell", "dumpsys", "window", "windows"];
 
+    public static IReadOnlyList<string> BuildInstalledPackagesArguments(BlueStacksInstance instance)
+        => ["-s", EndpointFor(instance), "shell", "pm", "list", "packages"];
+
     public static GameKind ParseForegroundGame(string? dumpsysOutput)
     {
         if (string.IsNullOrWhiteSpace(dumpsysOutput)) return GameKind.None;
         if (dumpsysOutput.Contains(FreeFireMaxPackage, StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFireMax;
         if (dumpsysOutput.Contains(FreeFirePackage, StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFire;
         return GameKind.None;
+    }
+
+    public static IReadOnlyList<GameKind> ParseInstalledGames(string? packageListOutput)
+    {
+        if (string.IsNullOrWhiteSpace(packageListOutput)) return Array.Empty<GameKind>();
+
+        var freeFire = false;
+        var freeFireMax = false;
+        foreach (var rawLine in packageListOutput.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var line = rawLine.Trim();
+            const string prefix = "package:";
+            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var package = line[prefix.Length..].Trim();
+            if (string.Equals(package, FreeFirePackage, StringComparison.OrdinalIgnoreCase)) freeFire = true;
+            else if (string.Equals(package, FreeFireMaxPackage, StringComparison.OrdinalIgnoreCase)) freeFireMax = true;
+        }
+
+        var games = new List<GameKind>(2);
+        if (freeFire) games.Add(GameKind.FreeFire);
+        if (freeFireMax) games.Add(GameKind.FreeFireMax);
+        return games;
     }
 
     public string? FindAdbExecutable()
@@ -102,6 +127,16 @@ public sealed class BlueStacksAutomationService
         if (string.IsNullOrWhiteSpace(adb)) return GameKind.None;
         var result = await _processExecutor.RunAsync(adb, BuildForegroundQueryArguments(instance), TimeSpan.FromSeconds(6), cancellationToken).ConfigureAwait(false);
         return result.Success ? ParseForegroundGame(result.StandardOutput) : GameKind.None;
+    }
+
+    public async Task<IReadOnlyList<GameKind>> QueryInstalledGamesAsync(BlueStacksInstance instance, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (instance.AdbEnabled == false) return Array.Empty<GameKind>();
+        var adb = FindAdbExecutable();
+        if (string.IsNullOrWhiteSpace(adb)) return Array.Empty<GameKind>();
+        var result = await _processExecutor.RunAsync(adb, BuildInstalledPackagesArguments(instance), TimeSpan.FromSeconds(8), cancellationToken).ConfigureAwait(false);
+        return result.Success ? ParseInstalledGames(result.StandardOutput) : Array.Empty<GameKind>();
     }
 
     public async Task<AutomationActionResult> LaunchGameAsync(BlueStacksInstance instance, GameKind game, CancellationToken cancellationToken = default)
