@@ -9,12 +9,12 @@
 
 ### Last verified application-code checkpoint
 
-- Application HEAD: `de38db0487af48eef9441b6869c18550b4785d58`
-- Commit: `feat: register Microsoft Store GDK discovery in shared catalog`
-- Windows CI: **#820 — SUCCESS**
-- CI run id: `34249611622`
+- Application HEAD: `1f99581daa9d09ac4cd12473d43f630062c0fd46`
+- Commit: `feat: compose running process evidence discovery`
+- Windows CI: **#854 — SUCCESS**
+- CI run id: `34270208022`
 
-The #820 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish and artifact upload.
+The #854 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish, artifact upload and complete-job finalization.
 
 ### Repository-native memory bootstrap
 
@@ -26,12 +26,11 @@ Current Git + fresh CI remain authoritative if this handoff ever becomes stale.
 
 **Track 3 — Game Discovery + Adapter Framework**.
 
-### GREEN, composed in the application
+### Stable identity plane — GREEN and composed
 
 - BlueStacks package discovery for Free Fire / Free Fire MAX
-- neutral GameIdentity / LocalGameCatalog
+- neutral `GameIdentity` / `LocalGameCatalogService`
 - Generic Game Adapter + specialized BlueStacks FF/FF MAX adapters
-- GameDiscoveryCoordinator
 - Steam manifest discovery
 - Epic manifest discovery
 - Riot product metadata discovery
@@ -40,7 +39,7 @@ Current Git + fresh CI remain authoritative if this handoff ever becomes stale.
 - Ubisoft Connect registry install discovery
 - Microsoft Store / Xbox GDK package discovery
 
-Current shared catalog composition:
+Current identity catalog composition:
 
 ```text
 GameCatalog
@@ -56,56 +55,109 @@ GameCatalog
 └── Microsoft Store / Xbox GDK
 ```
 
-`AppServices.InitializeAsync()` intentionally does **not** perform game discovery. `DiscoverGamesAsync()` remains the explicit authority.
+Stable identity still comes only from source-native keys. Display names, executable names and install paths are not cross-launcher identity authorities.
 
-## Microsoft Store / Xbox GDK checkpoint just closed
+## Game Identity + Evidence Discovery foundation — GREEN
 
-TDD / verification sequence:
+The approved two-plane design is now implemented and composed:
 
-- RED contract: `3aee884c950f1eda64dfecbc4a9d7fea4bff7b80` → Windows CI #810 failed only because the Microsoft Store observation/provider/source contracts did not yet exist.
-- Core production: `dd36f0bfcb51982972bf0f8e3d59b5b7f311c847` → CI #812 exposed one nullable-flow compile error (`CS8602`).
-- Core null-safety fix: `d8294b9bcee3e522e6acbc1bc17acbf3a610c1f0` → Windows CI #814 SUCCESS.
-- Windows WinRT provider: `9c7662217af4bb9f0638e795a6b06c2e91f163a8` → CI #816 proved WinRT projection compatibility and exposed only a missing `System.IO` import.
-- Provider import fix: `d3d2bce47685f11452c089d03c804fedb204d42d` → Windows CI #818 SUCCESS.
-- App composition: `de38db0487af48eef9441b6869c18550b4785d58` → Windows CI #820 SUCCESS.
+```text
+Identity Sources
+      ↓
+LocalGameCatalogService
+      ↓
+stable GameIdentity list
+      ↓
+GameAdapterResolver
 
-Microsoft Store / Xbox GDK rules:
+Evidence Sources
+      ↓
+GameEvidenceCatalogService
+      ↓
+GameEvidenceBinder
+      ├── BoundGameEvidence
+      └── UnboundGameEvidence
+```
 
-- the neutral Core never references WinRT; `IMicrosoftStoreGamePackageProvider` is the platform boundary;
-- the Windows WPF layer uses `PackageManager.FindPackagesForUser("")` only on explicit discovery;
-- normalized Package Family Name is the stable local identity: `xbox:<pfn>`;
-- versioned PackageFullName, StoreId, TitleId, package name and executable declarations are provenance/evidence, not identity keys;
-- a valid `MicrosoftGame.config` is required as positive GDK game evidence;
-- framework, resource, bundle and optional packages are rejected as main playable titles;
-- DLC semantics carrying `AllowedProducts` are rejected from the base-game catalog;
-- malformed XML and DTD/external-entity payloads are rejected safely;
-- unresolved `ms-resource:` display names fall back to config `Identity.Name` rather than path/title guessing;
-- the Core does not fabricate directly accessible gameplay executables from config declarations;
-- the Windows provider uses supported `Package.EffectiveLocation` / `InstalledLocation` + Storage APIs instead of traversing protected `WindowsApps` manually;
-- `MicrosoftGame.config` size is bounded before text read, and inaccessible/stale individual packages are isolated rather than aborting the entire source;
-- construction is side-effect free; `AppServices.InitializeAsync()` still does not enumerate games.
+The first real evidence source is Windows running-process observation. It is intentionally non-authoritative: PID/path/runtime state can enrich or bind to an already-proven `GameIdentity`, but cannot manufacture a new durable game identity.
+
+### TDD / verification provenance
+
+#### Task 1 — evidence contracts + deterministic catalog
+
+- RED: `4a7dd620d0a132d0f25d1dc3319cc01eb96434fd` → Windows CI #832 / run `34265469006`; native remained GREEN and managed failed only on missing evidence contracts.
+- GREEN: `3b836e13e79f3eb8d6a0b1a7dae420103df48f50` → Windows CI #836 / run `34265674843` SUCCESS.
+
+#### Task 2 — deterministic evidence binder
+
+- RED: `7bef375c4d5a366171468fd82e5c874357e313d8` → Windows CI #838 / run `34265859816`; failed only because `GameEvidenceBinder` did not exist.
+- GREEN: `b564d3a35e05c32236a38e9cdb594835fe5c6b47` → Windows CI #840 / run `34266012506` SUCCESS.
+
+#### Task 3 — coordinator composition + backward compatibility
+
+- RED: `3570b94dbdb23ec95baaaf9fd86e72a598b163df` → Windows CI #842 / run `34266191172`; failed only on the new four-argument coordinator contract and additive `BoundEvidence` / `UnboundEvidence` fields.
+- GREEN: `11ae5104938924035b4cd1e13658b619205236a6` → Windows CI #844 / run `34266428959` SUCCESS.
+
+#### Task 4 — neutral running-process evidence source
+
+- RED: `a92e045c63fdaae6a741e3b477d8768625b995b5` → Windows CI #846 / run `34266610116`; failed only because the running-process observation/provider contracts did not exist.
+- GREEN: `94a47907b7384680dcf324af39bdabeb91ab319e` → Windows CI #848 / run `34266765471` SUCCESS.
+
+#### Task 5 — Windows running-process provider
+
+- Provider: `a638765c4a968ea4088e6ac69719f8a2b27e2a67` → Windows CI #850 / run `34266941632`; managed build exposed one compile-only issue: missing `System.IO` import for `Path`.
+- Root-cause fix: `bf1a35a86440f9b5ff704aca6dc9b2514da411bb` → Windows CI #852 / run `34267108921` SUCCESS.
+
+#### Task 6 — AppServices composition
+
+- `1f99581daa9d09ac4cd12473d43f630062c0fd46` → Windows CI #854 / run `34270208022` SUCCESS.
+- Diff against `bf1a35a8...`: only `src/FFPerformanceEngine.App/AppServices.cs`, with the three shared evidence properties, running-process source/catalog/binder construction and four-argument `GameDiscoveryCoordinator` wiring.
+- `InitializeAsync()` was re-read on the exact GREEN SHA and still performs only Windows capability refresh, settings load and Guardian reconciliation.
+
+## Current binding rules
+
+The binder is deterministic and fail-safe:
+
+1. exact normalized `GameIdHint` binds only to an existing catalog identity;
+2. a non-empty unmatched hint returns `NoMatchingIdentity` and does not fall through to path matching;
+3. without a hint, a fully-qualified executable path may bind only by safe install-root containment to exactly one existing `GameId`;
+4. lexical prefix collisions such as `C:\Games\Foo` versus `C:\Games\Foobar` do not bind;
+5. evidence contained by more than one game stays `AmbiguousInstallPath`;
+6. filename-only or invalid paths do not bind;
+7. evidence never mutates `GameId`, name, launcher, engine, adapter, stable executable lists or stable install paths;
+8. running PID/path/timestamp remains transient evidence.
+
+## Startup / authority invariant
+
+`AppServices.InitializeAsync()` intentionally does **not** perform identity discovery or evidence discovery.
+
+The explicit application authority remains:
+
+```text
+AppServices.DiscoverGamesAsync()
+        ↓
+GameDiscoveryCoordinator
+        ├── identity plane
+        └── evidence plane
+```
+
+No launcher, Microsoft Store package or process enumeration runs merely because `AppServices` is constructed or initialized.
 
 ## Exact next action
 
-Before writing another Track 3 scanner, **re-read `docs/project-memory/ROADMAP.md` and the canonical unified architecture spec** and reconcile them with the now-completed launcher/package discovery surface.
+The foundation plan `docs/superpowers/plans/2026-09-08-game-evidence-discovery-foundation.md` is complete through Task 6. After this memory checkpoint itself receives fresh Windows CI GREEN, start the **next separate Track 3 plan** for installed-app / independent-launcher evidence.
 
-Then choose the next already-approved Track 3 boundary. Do not automatically create a broad standalone/executable/process scanner merely to increase game count. Any next discovery source must preserve the established rules:
+The next plan must consume the existing evidence plane rather than inventing provisional durable identities. Add one evidence source at a time with RED → intended failure → minimum production → full Windows CI GREEN → composition → another full GREEN.
 
-1. stable, truthful local identity before catalog admission;
-2. positive evidence instead of filename/folder/display-name guessing;
-3. read-only discovery and side-effect-free construction;
-4. no startup scanning;
-5. no fabricated engine, executable or specialized adapter capabilities;
-6. RED first, intended Windows CI failure, minimum production, full GREEN, then composition and another full GREEN.
-
-If the roadmap confirms generic standalone/executable/running-process evidence as next, design the identity model first so those lower-confidence observations **enrich** already-known games or remain explicitly provisional instead of accidentally becoming cross-launcher identity authorities.
+Do not create a generic `standalone:<hash(path)>`, executable-name identity, folder-name identity or fuzzy display-name identity.
 
 ## Do not regress
 
-- Do not reimplement Optimize integration; it is already complete beyond the old `20490bd...` handoff.
-- Do not weaken Track 2 validated-evidence gates to make game discovery easier.
-- Do not scan launchers or Windows packages at application startup.
-- Do not use display names, executable names or install directories as cross-launcher identity keys.
-- Do not create specialized game adapters until the project can truthfully prove the corresponding capabilities.
-- Do not treat Windows package identity, Microsoft Store product identity and a physical executable path as interchangeable concepts.
-- Do not broaden Microsoft Store recall using "large EXE = game" or similar heuristics; the current source is intentionally precision-first GDK discovery.
+- Do not reimplement Optimize integration; Track 2 already owns validated recommendation authority and rollback.
+- Do not weaken `ValidatedEvidence` / freshness / fingerprint gates to make game discovery easier.
+- Do not scan launchers, Windows packages or running processes at application startup.
+- Do not use display names, executable names or install directories as durable cross-launcher identity keys.
+- Do not let evidence create specialized adapter capabilities.
+- Do not persist running-process paths into stable launcher-manifest executable fields automatically.
+- Do not treat Windows package identity, Store product identity and a physical executable path as interchangeable concepts.
+- Do not broaden discovery using heuristic rules such as “large EXE = game”.

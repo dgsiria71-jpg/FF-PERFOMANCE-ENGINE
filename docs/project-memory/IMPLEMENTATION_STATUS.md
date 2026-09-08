@@ -121,11 +121,56 @@ Representative checkpoints:
 
 Identity is normalized Package Family Name (`xbox:<pfn>`). The current source is precision-first: valid `MicrosoftGame.config` is required; PackageFullName, StoreId, TitleId and configured executable declarations remain evidence; framework/resource/bundle/optional/DLC packages are excluded; the Windows provider uses PackageManager + supported Storage APIs and does not enumerate at startup.
 
+### Game Identity + Evidence Discovery foundation
+
+Approved architecture: stable identity authority and weak/transient evidence are separate planes. `IGameDiscoverySource` remains the only path that can create durable `GameIdentity`; `IGameEvidenceSource` cannot create identities.
+
+#### Evidence contracts + catalog
+
+- RED: `4a7dd620d0a132d0f25d1dc3319cc01eb96434fd` — CI #832 / run `34265469006`; native GREEN, managed failed only on missing evidence contracts.
+- GREEN: `3b836e13e79f3eb8d6a0b1a7dae420103df48f50` — CI #836 / run `34265674843` SUCCESS.
+- Added deterministic source ordering, `(SourceId, ObservationId)` deduplication, confidence normalization, failure isolation, provenance and cancellation behavior.
+
+#### Evidence binder
+
+- RED: `7bef375c4d5a366171468fd82e5c874357e313d8` — CI #838 / run `34265859816`; failed only because `GameEvidenceBinder` did not exist.
+- GREEN: `b564d3a35e05c32236a38e9cdb594835fe5c6b47` — CI #840 / run `34266012506` SUCCESS.
+- Binding rules: exact existing `GameIdHint` first; otherwise unique safe install-path containment; unmatched explicit hint does not fall through; prefix collisions do not match; ambiguous containment remains unbound; invalid/filename-only paths do not bind; identity objects remain immutable.
+
+#### Two-plane coordinator
+
+- RED: `3570b94dbdb23ec95baaaf9fd86e72a598b163df` — CI #842 / run `34266191172`; failed only on the new four-argument constructor and additive evidence result fields.
+- GREEN: `11ae5104938924035b4cd1e13658b619205236a6` — CI #844 / run `34266428959` SUCCESS.
+- Legacy two-argument coordinator remains compatible and executes no evidence plane.
+
+#### Running-process evidence
+
+- RED: `a92e045c63fdaae6a741e3b477d8768625b995b5` — CI #846 / run `34266610116`; failed only on missing running-process observation/provider contracts.
+- Core GREEN: `94a47907b7384680dcf324af39bdabeb91ab319e` — CI #848 / run `34266765471` SUCCESS.
+- Windows provider first build: `a638765c4a968ea4088e6ac69719f8a2b27e2a67` — CI #850 / run `34266941632`; exposed only missing `System.IO` import for `Path`.
+- Provider GREEN: `bf1a35a86440f9b5ff704aca6dc9b2514da411bb` — CI #852 / run `34267108921` SUCCESS.
+- AppServices composition: `1f99581daa9d09ac4cd12473d43f630062c0fd46` — CI #854 / run `34270208022` SUCCESS.
+
+Current evidence plane:
+
+```text
+GameEvidenceCatalog
+└── Windows running processes
+        ↓
+GameEvidenceBinder
+├── BoundGameEvidence
+└── UnboundGameEvidence
+```
+
+Running-process evidence is read-only and transient. It captures PID, timestamp and fully-qualified executable path when available, performs no filename/game classification, never fills `GameIdHint`, and never persists the runtime path into durable identity fields automatically.
+
+`AppServices.InitializeAsync()` was re-read on the exact #854 GREEN SHA and still performs only Windows capability refresh, settings load and Guardian reconciliation. Identity/evidence discovery still runs only through explicit `DiscoverGamesAsync()`.
+
 ## Current verified application head
 
 ```text
-de38db0487af48eef9441b6869c18550b4785d58
-Windows CI #820 — SUCCESS
+1f99581daa9d09ac4cd12473d43f630062c0fd46
+Windows CI #854 / run 34270208022 — SUCCESS
 ```
 
-Next Track 3 action: re-read `docs/project-memory/ROADMAP.md` and the canonical unified architecture spec, reconcile them with the completed discovery sources, and choose the next already-approved discovery boundary before writing code.
+Next Track 3 action: after the repository-memory checkpoint for this foundation is itself GREEN, create a separate plan for installed-app / independent-launcher evidence. It must consume the evidence plane one source at a time and must not introduce provisional durable `GameIdentity` values derived from paths, filenames, folders or fuzzy display names.
