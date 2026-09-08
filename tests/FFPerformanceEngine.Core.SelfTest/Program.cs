@@ -133,6 +133,7 @@ try
     await WindowsCapabilityEvidenceEvaluationSelfTests.RunAsync();
     WindowsCapabilityValidationGateSelfTests.Run();
     await WindowsCapabilityValidationChallengeSelfTests.RunAsync();
+    await WindowsCapabilityValidatedEvidenceStoreSelfTests.RunAsync();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
