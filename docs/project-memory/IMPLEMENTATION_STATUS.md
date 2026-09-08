@@ -1,237 +1,176 @@
 # DG Performance Engine — Implementation Status Ledger
 
-This is a curated ledger of important verified milestones. Git history remains the complete commit ledger.
+This is a curated ledger of important verified milestones. Git history remains the complete commit ledger and current code/tests + fresh exact-commit Windows CI are authoritative.
 
 ## Baseline application foundation
 
-The repository already contains a functional Windows WPF + C++ product foundation: navigation/UI, BlueStacks discovery/configuration, PresentMon, profiles, Guardian, Auto Tuner, History/snapshots, Mini Mode themes and native interop.
+The repository contains a functional Windows WPF + C++ product foundation: navigation/UI, BlueStacks discovery/configuration, PresentMon, profiles, Guardian, Auto Tuner, History/snapshots, Mini Mode themes and native interop.
 
 ## Performance A/B and profile evidence
 
+Representative verified milestones:
+
 - `8062c318...` — real Performance A/B presentation/service transformation.
-- `c259c723c443a819bfae540017d0f76aecbceeef` — adversarial hardening: recompute aggregates from actual frozen points; Windows CI run 268 / `34015937217` SUCCESS.
-- `6e2e6a9667dc04f5a8f654a5cb0696fed6100b4f` — exact configuration/fingerprint attached to evidence and Validated profile origin; Windows CI #316 SUCCESS.
-- `225f2776d8709ebf51ab3e77b91550c4d89003d7` — profile challenge/freshness/drift block GREEN, Windows CI #342 SUCCESS.
+- `c259c723c443a819bfae540017d0f76aecbceeef` — aggregates recomputed from frozen points; Windows CI run 268 / `34015937217` SUCCESS.
+- `6e2e6a9667dc04f5a8f654a5cb0696fed6100b4f` — exact configuration/fingerprint attached to evidence and Validated profile origin; CI #316 SUCCESS.
+- `225f2776d8709ebf51ab3e77b91550c4d89003d7` — challenge/freshness/drift block; CI #342 SUCCESS.
 - later hardening added incumbent freshness, challenge progress and physical A/B rounds before DG expansion.
 
-## Track 0 — Experimental Integrity
+## Track 0 — Experimental Integrity — GREEN
 
-- `985688276cd7937b74a870d61445fa239ac570ad` — Global Controlled Benchmark Lease + Guardian suspension/reconciliation + concurrency hardening.
+- `985688276cd7937b74a870d61445fa239ac570ad`
+- Global Controlled Benchmark Lease + Guardian suspension/reconciliation + concurrency hardening.
 - Windows CI #402 SUCCESS.
 
-## Track 1 — Universal Diagnostic Foundation
+## Track 1 — Universal Diagnostic Foundation — GREEN
 
 - `f1c932b7ce7af8c61c424c3c619b66784917ee22`
-- Windows CI #426 / run `34075848480` SUCCESS.
 - MachineContext v2, Hardware Discovery, Capability Registry/Graph, fingerprint v2, Universal Bottleneck Analyzer.
+- Windows CI #426 / run `34075848480` SUCCESS.
 
-## Track 2 — System Optimizer and evidence authority
+## Track 2 — System Optimizer / evidence authority — GREEN through current branch
 
 Representative checkpoints:
 
-- `b21330602f2eeba1d04336da8df32a3a73daf6fa` — hardened SystemOptimizationTransactionEngine, CI #456 SUCCESS.
-- `1b6cc31c5c28ae2fe846d2a5862c3ce7c68be83a` — real active power policy adapter, CI #462 SUCCESS.
-- runtime capability discovery — CI #468 SUCCESS.
-- shared AppServices composition — CI #470 SUCCESS.
-- `24aae2fa4ba69a1829ec1379f2c436993f55d360` — CPU boost via PowrProf, CI #478 SUCCESS.
-- `d91380378d4689197d43519f83ffd44fe8b6c56c` — boost adapter composed, CI #480 SUCCESS.
-- Core Parking refactor/adapter — CI #490 SUCCESS.
-- `0af02c25f2a8e8a8a2f48880fae5483316ef2cf4` — Core Parking AppServices, CI #492 SUCCESS.
-- `58b92eb...` — dependency closure availability hardening, CI #496 SUCCESS.
-- `1224cc3...` — evidence-gated Persistent PC planner, CI #504 SUCCESS.
-- `75fb715...` — Analyze/Preview/Revalidate/Apply/History/Restore, CI #510 SUCCESS.
-- `22d4494...` — compare-and-set drift protection, CI #520 SUCCESS.
-- `798d4ed...` — persistent PC backend in AppServices, CI #522 SUCCESS.
-- Global lease protection for persistent Apply/Restore — CI #554 SUCCESS.
-- shared application-level benchmark lease — CI #556 SUCCESS.
-- WPF “Otimizar este PC” surface — CI #560 SUCCESS.
-- atomic recommendation batch publication — CI #568 SUCCESS.
-- Candidate Planner `766091...` — CI #586 SUCCESS.
-- controlled Windows capability A/B `771aed...` — CI #592 SUCCESS.
-- PresentMon evidence-quality hardening `77e344...` — CI #598 SUCCESS.
-- Guardian-bound operational benchmark probe — CI #604 SUCCESS.
-- Windows capability Cost Map — CI #612 SUCCESS.
-- stale PID/Guardian suspension hardening — CI #616 SUCCESS.
-- Experiment Coordinator — CI #622 SUCCESS.
-- AppServices experiment stack — CI #624 SUCCESS.
-- Evidence Evaluation — CI #630 SUCCESS.
-- PendingValidation gate — CI #636 SUCCESS.
-- coordinator returns cost/evaluation/validation decision — CI #640 SUCCESS.
-- shared evaluator/gate in AppServices — CI #642 SUCCESS.
-- fresh validation challenge → ValidatedEvidence — CI #648 SUCCESS.
-- ControlledEvidence bypass test RED at CI #658; production was hardened so automatic evidence recommendations require `ValidatedEvidence` (or authorized Diagnostic provenance).
-- `20490bd8643c724019674a3c896c1cf952958f34` — Windows capability experiment presentation gate later confirmed GREEN at CI #686.
-- branch subsequently advanced through additional Optimize integration/hardening; actual repository state was trusted over the old handoff, and HEAD was confirmed GREEN at CI #710 before Track 3 continued.
+- `b21330602f2eeba1d04336da8df32a3a73daf6fa` — hardened transaction engine, CI #456.
+- `1b6cc31c5c28ae2fe846d2a5862c3ce7c68be83a` — active power policy adapter, CI #462.
+- runtime capability discovery — CI #468.
+- shared AppServices composition — CI #470.
+- `24aae2fa4ba69a1829ec1379f2c436993f55d360` — CPU boost via PowrProf, CI #478.
+- `d91380378d4689197d43519f83ffd44fe8b6c56c` — boost adapter composition, CI #480.
+- Core Parking adapter + AppServices — CI #490/#492.
+- dependency closure availability — CI #496.
+- evidence-gated Persistent PC planner — CI #504.
+- Analyze/Preview/Revalidate/Apply/History/Restore — CI #510.
+- compare-and-set drift protection — CI #520.
+- persistent backend — CI #522.
+- Global lease protection for Apply/Restore — CI #554.
+- shared application benchmark lease — CI #556.
+- WPF Optimize surface — CI #560.
+- atomic recommendation publication — CI #568.
+- Candidate Planner — CI #586.
+- controlled Windows capability A/B — CI #592.
+- PresentMon evidence-quality hardening — CI #598.
+- Guardian-bound operational probe — CI #604.
+- capability Cost Map — CI #612.
+- stale PID/Guardian hardening — CI #616.
+- Experiment Coordinator — CI #622.
+- AppServices experiment stack — CI #624.
+- Evidence Evaluation — CI #630.
+- PendingValidation — CI #636.
+- coordinator cost/evaluation/validation — CI #640.
+- shared evaluator/gate — CI #642.
+- fresh validation challenge → ValidatedEvidence — CI #648.
+- raw ControlledEvidence bypass deliberately RED at CI #658 and then blocked in production.
+- Optimize presentation authority hardened through CI #686; branch later remained GREEN through Track 3 entry.
+
+Track 2 authority remains unchanged by later tracks: `Observed != Validated`, exact machine fingerprint/freshness, durable ValidatedEvidence and existing recommendation gates remain required for automatic persistent recommendations.
 
 ## Track 3 — Game Discovery + Adapter Framework — GREEN
 
-### BlueStacks / Game identity foundation
+### Stable identity / adapters
 
-- `4087f9449347aeca6c3cb2f1d8c41771b25c5910` — BlueStacks installed FF/FFMAX package discovery, CI #718 SUCCESS.
-- `f309aeda70b9ae3756eeab08d34313cd1206a440` — neutral Game Adapter framework, CI #722 SUCCESS.
+- `4087f9449347aeca6c3cb2f1d8c41771b25c5910` — BlueStacks installed FF/FFMAX package discovery, CI #718.
+- `f309aeda70b9ae3756eeab08d34313cd1206a440` — neutral Game Adapter framework, CI #722.
 - `1820f99e731ac3b5945a18a67587c825c015f420` — GameDiscoveryCoordinator.
-- `b7bb91164140ef3c6f9e8b5f75b596983662ecad` — AppServices composition, CI #728 SUCCESS.
+- `b7bb91164140ef3c6f9e8b5f75b596983662ecad` — AppServices composition, CI #728.
 
-### Steam
+### Launcher/package sources
 
-- RED: CI #730.
-- `e300de2d8696a006367aa6d25315fdffe289ef7a` — platform annotation fix after CA1416.
-- original #734 run was externally cancelled after a long self-test hang; root cause was async fixture I/O inside ModuleInitializer, not Steam scanner behavior.
-- `0a58a44d...` — fixture made synchronous; CI #738 SUCCESS.
-- `42f83e53...` — Steam composed in AppServices; CI #740 SUCCESS.
+- Steam — RED #730; production + fixture hardening GREEN #738; AppServices #740.
+- Epic — RED `cfcaccb1...` #742; production `12e9dda5...` #744; composition #746.
+- Riot — RED `ca8b90c4...` #748; production `ea15de4b...` #750; composition `23cafd31...` #752.
+- Battle.net — RED `a1529cf4...` #754; `product.db` source `7bd3e2a2...` #756; composition `1a362277...` #758.
+- EA App — RED `3fc67a81...` #793; `installerdata.xml` source `6d4278e9...` #796; composition `4f35c66e...` #798.
+- Ubisoft Connect — RED `25efac79...` #801; registry source `956667cd...` #803; composition `8603a2ba...` #805.
+- Microsoft Store / Xbox GDK — RED `3aee884c...` #810; Core PFN/GDK source + safety fixes #812/#814; Windows provider #818; composition `de38db04...` #820.
 
-### Epic
+Stable identity comes only from source-native keys. Display names, executable names, install folders and runtime paths are never cross-launcher identity authorities.
 
-- RED: `cfcaccb1...`, CI #742.
-- `12e9dda5...` — Epic `.item` manifest discovery GREEN, CI #744 SUCCESS.
-- `3080f1d8...` — Epic composed, CI #746 SUCCESS.
+### Identity/evidence two-plane architecture
 
-### Riot
+- Evidence contracts/catalog RED `4a7dd620...` #832 → GREEN `3b836e13...` #836.
+- Deterministic evidence binder RED `7bef375c...` #838 → GREEN `b564d3a3...` #840.
+- Two-plane coordinator RED `3570b94d...` #842 → GREEN `11ae5104...` #844.
+- Running-process evidence RED `a92e045c...` #846 → Core GREEN `94a47907...` #848 → Windows provider GREEN `bf1a35a8...` #852 → composition `1f99581d...` #854.
+- Windows App Paths KnownExecutable evidence RED `5e51412d...` #858 → Core GREEN `d420ef16...` #860 → provider `4039f044...` #862 → composition `6832557b...` #864.
 
-- RED: `ca8b90c4...`, CI #748.
-- `ea15de4b...` — Riot product metadata discovery GREEN, CI #750 SUCCESS.
-- `23cafd31fba0740c1762881c3063d6ce6ddca9f2` — Riot composed, CI #752 SUCCESS.
+Evidence cannot create durable identity. Runtime PID/path and App Paths registration remain evidence. `AppServices.InitializeAsync()` still performs no game/process/App-Paths discovery; explicit authority remains `DiscoverGamesAsync()`.
 
-### Battle.net
-
-- RED contract: `a1529cf41214fedd646864f747995e6b757c09be`, CI #754 failed only on missing source type.
-- `7bd3e2a2a48b8c0cf058e609fb26ea92550b31e3` — read-only `product.db` discovery, CI #756 SUCCESS.
-- `1a3622770a7b8f4c7afe7099af6e42990189d80d` — Battle.net composed in shared catalog, CI #758 SUCCESS.
-
-### EA App
-
-- RED contract: `3fc67a817cb9cc733a67a79afef4b38a3ceb430c`, CI #793 failed only because `EaAppGameDiscoverySource` did not yet exist.
-- `6d4278e9b6b9ed7a67ba7d8d0e5e9a00c6b4c823` — read-only `__Installer/installerdata.xml` discovery using stable primary `contentID`, full alias provenance, DTD/malformed XML rejection and no executable fabrication; CI #796 SUCCESS.
-- `4f35c66e5ff5bdf899a5f431e1de7433c36c23cd` — EA App composed in shared `GameCatalog`; CI #798 SUCCESS.
-
-### Ubisoft Connect
-
-- RED contract: `25efac795392fc424d6004d6e478d40604987da7`, CI #801 failed only because `UbisoftInstallRegistration` / `UbisoftGameDiscoverySource` did not yet exist.
-- `956667cd798198a703575b34f2710eb13fbfdff7` — read-only HKLM Ubisoft launcher install discovery, numeric local install identity normalization, 32/64-bit view deduplication, stale registration rejection, optional uninstall DisplayName and no executable/title guessing; CI #803 SUCCESS.
-- `8603a2ba946c481051fd85f0944df03ea0810abd` — Ubisoft composed in the shared `GameCatalog`; CI #805 SUCCESS.
-
-### Microsoft Store / Xbox GDK
-
-- RED contract: `3aee884c950f1eda64dfecbc4a9d7fea4bff7b80`, CI #810 failed only because the neutral Microsoft Store observation/provider/source contracts did not yet exist.
-- `dd36f0bfcb51982972bf0f8e3d59b5b7f311c847` — neutral Core PFN-based GDK discovery + safe `MicrosoftGame.config` parser; CI #812 exposed one nullable-flow compile error.
-- `d8294b9bcee3e522e6acbc1bc17acbf3a610c1f0` — explicit PFN null-safety; CI #814 SUCCESS.
-- `9c7662217af4bb9f0638e795a6b06c2e91f163a8` — Windows PackageManager/Storage provider; CI #816 proved WinRT projection compatibility and exposed only a missing `System.IO` import.
-- `d3d2bce47685f11452c089d03c804fedb204d42d` — provider import fix; CI #818 SUCCESS.
-- `de38db0487af48eef9441b6869c18550b4785d58` — Microsoft Store/Xbox GDK composed in shared `GameCatalog`; CI #820 SUCCESS.
-
-Identity is normalized Package Family Name (`xbox:<pfn>`). The current source is precision-first: valid `MicrosoftGame.config` is required; PackageFullName, StoreId, TitleId and configured executable declarations remain evidence; framework/resource/bundle/optional/DLC packages are excluded; the Windows provider uses PackageManager + supported Storage APIs and does not enumerate at startup.
-
-### Game Identity + Evidence Discovery foundation
-
-Approved architecture: stable identity authority and weak/transient evidence are separate planes. `IGameDiscoverySource` remains the only path that can create durable `GameIdentity`; `IGameEvidenceSource` cannot create identities.
-
-#### Evidence contracts + catalog
-
-- RED: `4a7dd620d0a132d0f25d1dc3319cc01eb96434fd` — CI #832 / run `34265469006`; native GREEN, managed failed only on missing evidence contracts.
-- GREEN: `3b836e13e79f3eb8d6a0b1a7dae420103df48f50` — CI #836 / run `34265674843` SUCCESS.
-- Added deterministic source ordering, `(SourceId, ObservationId)` deduplication, confidence normalization, failure isolation, provenance and cancellation behavior.
-
-#### Evidence binder
-
-- RED: `7bef375c4d5a366171468fd82e5c874357e313d8` — CI #838 / run `34265859816`; failed only because `GameEvidenceBinder` did not exist.
-- GREEN: `b564d3a35e05c32236a38e9cdb594835fe5c6b47` — CI #840 / run `34266012506` SUCCESS.
-- Binding rules: exact existing `GameIdHint` first; otherwise unique safe install-path containment; unmatched explicit hint does not fall through; prefix collisions do not match; ambiguous containment remains unbound; invalid/filename-only paths do not bind; identity objects remain immutable.
-
-#### Two-plane coordinator
-
-- RED: `3570b94dbdb23ec95baaaf9fd86e72a598b163df` — CI #842 / run `34266191172`; failed only on the new four-argument constructor and additive evidence result fields.
-- GREEN: `11ae5104938924035b4cd1e13658b619205236a6` — CI #844 / run `34266428959` SUCCESS.
-- Legacy two-argument coordinator remains compatible and executes no evidence plane.
-
-#### Running-process evidence
-
-- RED: `a92e045c63fdaae6a741e3b477d8768625b995b5` — CI #846 / run `34266610116`; failed only on missing running-process observation/provider contracts.
-- Core GREEN: `94a47907b7384680dcf324af39bdabeb91ab319e` — CI #848 / run `34266765471` SUCCESS.
-- Windows provider first build: `a638765c4a968ea4088e6ac69719f8a2b27e2a67` — CI #850 / run `34266941632`; exposed only missing `System.IO` import for `Path`.
-- Provider GREEN: `bf1a35a86440f9b5ff704aca6dc9b2514da411bb` — CI #852 / run `34267108921` SUCCESS.
-- AppServices composition: `1f99581daa9d09ac4cd12473d43f630062c0fd46` — CI #854 / run `34270208022` SUCCESS.
-
-#### Known-executable / Windows App Paths evidence
-
-- RED: `5e51412d61bcfb8c53f068492ba772cd08a4ca98` — CI #858 / run `34271363808`; native GREEN and managed failed only on the missing `KnownExecutable*` contracts.
-- Core GREEN: `d420ef1613eb495ad994da2d0211ae8e642a4cfb` — CI #860 / run `34271553807` SUCCESS.
-- Windows App Paths provider: `4039f044f242dbb714bb282d8b90b5f737921a26` — CI #862 / run `34271718079` SUCCESS.
-- AppServices composition: `6832557bb7ce0e62fad894d09077ae5d7593f397` — CI #864 / run `34271999758` SUCCESS.
-- Source id `windows-app-paths`, priority `30`, confidence `0.92`, kind `KnownExecutable`, no `GameIdHint`, no PID/runtime claim.
-- Provider reads HKCU/HKLM App Paths across applicable registry views, accepts only a fully-qualified default-value path whose file currently exists, isolates stale/protected entries and does not parse command lines or use registry key names as identity.
-- Duplicate executable paths collapse deterministically by canonical case-insensitive path before catalog binding.
-
-Current evidence plane:
-
-```text
-GameEvidenceCatalog
-├── Windows running processes       priority 40
-└── Windows App Paths executables   priority 30
-        ↓
-GameEvidenceBinder
-├── BoundGameEvidence
-└── UnboundGameEvidence
-```
-
-Running-process evidence is read-only and transient. App Paths evidence is read-only static executable provenance. Neither can create a durable game identity, mutate stable identity fields or promote a specialized adapter.
-
-Track 3 original exit criteria are satisfied. Further discovery sources are optional enrichment and must still obey native stable identity and non-authoritative evidence rules; they are not a blocker for Track 4.
-
-`AppServices.InitializeAsync()` still performs only Windows capability refresh, settings load and Guardian reconciliation. Identity/evidence discovery still runs only through explicit `DiscoverGamesAsync()`.
+Track 3 original exit criteria are satisfied. Additional discovery sources are optional enrichment, not a blocker for Track 4.
 
 ## Track 4 — Universal Telemetry / Evidence — ACTIVE
 
-Canonical design and execution plan:
+Canonical docs:
 
 - `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
 - `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
-
-The first additive foundation keeps all existing `TelemetrySample`, `TelemetryService`, `PresentMonService`, Performance Timeline and A/B APIs intact while creating a typed `FFPerformanceEngine.Core.Telemetry` layer.
+- `docs/superpowers/plans/2026-09-08-telemetry-v2-current-collectors.md`
 
 ### Metric schema v2 + immutable frame
 
-- RED: `86953dca06fd278383d35f5a9202371dfe1a0410` — CI #878 / run `34273684420`; native GREEN, managed failed with 0 warnings and only missing `Core.Telemetry` contracts.
-- GREEN: `4ced969a17b41e4cad56c9e413c626d9cd2326d6` — CI #880 / run `34275125229` SUCCESS.
-- Added 17 stable standard metric descriptors, typed domain/unit/aggregation, per-metric `Partial`/`Measured` quality, coverage, source provenance and origin.
-- Numeric observations must be finite; coverage must be finite in `[0,1]`; `Unavailable` cannot be attached to a stored number.
-- `TelemetryFrame` copies and sorts observations deterministically, rejects duplicate metric ids, computes summary quality and returns absent metrics as absent rather than synthetic zero.
+- RED `86953dca06fd278383d35f5a9202371dfe1a0410` — CI #878 / run `34273684420`; native GREEN, managed failed only on missing telemetry-v2 contracts.
+- GREEN `4ced969a17b41e4cad56c9e413c626d9cd2326d6` — CI #880 / run `34275125229` SUCCESS.
 
-### Conservative legacy `TelemetrySample` bridge
+Implemented:
+- 17 stable standard metric descriptors;
+- typed domain/unit/aggregation;
+- per-metric `Partial` / `Measured` quality;
+- `[0,1]` coverage;
+- normalized source provenance;
+- `Direct` / `Derived` / `Legacy` origin;
+- finite numeric enforcement;
+- absence instead of fake `Unavailable` numeric values;
+- immutable/deterministic `TelemetryFrame` with duplicate rejection and typed lookup.
 
-- RED: `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` — CI #882 / run `34275316122`; 0 warnings, failures only because `TelemetryLegacyBridge` did not exist.
-- GREEN: `476df79441e0c8770f23f260a2824908595d461a` — CI #884 / run `34275483157` SUCCESS.
-- Explicit mapping covers all 17 legacy nullable fields with no reflection and no mutation of the source sample.
-- PresentMon labels promote only Frame-domain values to direct measured evidence.
-- `System` / `Frame+System` promote only the CPU + physical-memory channels currently proven by `TelemetryService`; GPU/thermal/network remain Partial unless a future real collector proves them.
-- Unknown labels stay Partial; null/NaN/infinity emit no metric.
+### Conservative legacy bridge
+
+- RED `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` — CI #882 / run `34275316122`.
+- GREEN `476df79441e0c8770f23f260a2824908595d461a` — CI #884 / run `34275483157` SUCCESS.
+
+All 17 legacy nullable numeric fields are mapped explicitly. PresentMon labels prove only Frame-domain metrics; `System` / `Frame+System` prove only CPU + physical memory; unrelated or unknown-label values remain Partial. Null/NaN/infinity emit no observation. `TelemetrySample` remains unchanged.
 
 ### Universal workload target resolver
 
-- RED: `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` — CI #886 / run `34275838695`; native GREEN and managed failed only on missing workload-target contracts.
-- GREEN: `8392892e7ad658928e7b7aca1719df2b64399125` — CI #888 / run `34276000513` SUCCESS.
-- Resolver is pure Core logic over `ResolvedGameCatalogResult`; no process enumeration, filesystem existence checks or Guardian dependency.
-- Only exactly one proven stable `GameId` plus exactly one unambiguous bound `RunningProcess` PID/path can become process-capture eligible.
-- KnownExecutable/App Paths evidence cannot yield a live PID.
-- Zero valid running evidence preserves the stable game but reports Unavailable; multiple PIDs or conflicting paths remain Ambiguous; unknown/non-unique GameId is not promoted.
+- RED `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` — CI #886 / run `34275838695`.
+- GREEN `8392892e7ad658928e7b7aca1719df2b64399125` — CI #888 / run `34276000513` SUCCESS.
 
-### Track 4 invariants established
+Only exactly one stable catalog identity and one unambiguous bound RunningProcess PID/path becomes process-capture eligible. Zero running evidence stays unavailable; multiple PIDs/conflicting paths remain ambiguous; KnownExecutable/App Paths never yields a live PID. Resolver is pure Core logic with no process/file probing.
 
-- legacy `TelemetrySample` preserved;
-- per-metric typed quality/provenance exists;
-- unavailable values are absent, not zero-filled;
-- finite numbers do not become measured without accepted provenance;
-- unknown GameId is not echoed into proven identity;
-- only unambiguous bound RunningProcess evidence yields a PID;
-- App Paths/KnownExecutable never yields a live PID;
-- runtime PID/path never replaces durable GameId;
-- existing `Observed != Validated`, freshness, fingerprint, Global Benchmark Lease and recommendation authority remain unchanged;
-- no startup discovery was added.
+### Native system collector v2
 
-## Current verified application head
+- RED `e3c766e58b6c3c0ef5086c927bacf74745658e68` — CI #894 / run `34276841999`; 0 warnings, failures only on missing system-v2 contracts.
+- GREEN `b9b1338828aa890380a8d689f8bb53ff737b517d` — CI #896 / run `34277078378` SUCCESS.
+
+`TelemetryService` now shares one internal native snapshot between legacy and v2 outputs. `CaptureSystemFrame()` emits only finite CPU utilization and physical memory used/total as `Measured / native-system / Direct / coverage 1`. Legacy `CaptureSystemSample()` remains callable and compatible. No GPU/thermal/clock/I/O/network value is invented.
+
+### PresentMon direct v2
+
+- RED `053ec156bfa2a260e6a53ec14169b818a646f786` — CI #898 / run `34277312296`; native GREEN, 0 warnings and exactly six missing-method errors for the new v2 APIs.
+- GREEN `edfbba0845d60447e6fdd158b75eee6def39a60f` — CI #900 / run `34277780294` SUCCESS.
+
+`PresentMonService.ParseCsv()` and `ParseCsvFrame()` share one internal statistics object, so legacy and v2 FPS/lows/frame-time percentiles/stutter/latency formulas cannot drift. Legacy `DataQuality = "PresentMon · <accepted frames> frames"` remains unchanged. V2 emits only proven frame/latency metrics as `Measured / presentmon / Direct`; frame coverage uses accepted frame rows / data rows and latency coverage uses accepted latency rows / data rows. Missing latency remains absent. `CaptureProcessAsync()` and `CaptureProcessFrameAsync()` share the same one-shot CSV capture path.
+
+### Current verified application head
 
 ```text
-8392892e7ad658928e7b7aca1719df2b64399125
-Windows CI #888 / run 34276000513 — SUCCESS
+edfbba0845d60447e6fdd158b75eee6def39a60f
+Windows CI #900 / run 34277780294 — SUCCESS
 ```
 
-Next Track 4 action: migrate the existing collectors additively into schema v2 while preserving all legacy APIs. Start with the current native CPU/physical-memory telemetry, then PresentMon direct frame evidence. After those collector adapters are GREEN, add a bounded realtime v2 ring buffer and quality-aware aggregation. New GPU/thermal/clock/I/O/network channels must be introduced one proven provider at a time; do not fabricate them. A/B migration away from free-form `DataQuality` parsing comes only after v2 collectors are stable.
+### Next Track 4 boundary
+
+Implement **bounded realtime v2 storage + typed aggregation** with TDD:
+
+1. bounded `TelemetryFrame` ring buffer;
+2. deterministic capacity eviction / window snapshot;
+3. no raw-frame disk persistence yet;
+4. deterministic 1-second aggregate by stable metric id;
+5. absent channels are ignored, never zero-filled;
+6. descriptor incompatibility must not be blended;
+7. aggregate quality cannot exceed the weakest contributor;
+8. coverage must remain explicit and conservative;
+9. homogeneous provenance may be preserved, mixed provenance must not masquerade as one direct source;
+10. existing legacy `PerformanceTimelineBuffer` remains separate and unchanged.
+
+After 1-second aggregation is GREEN, extend to 10-second/session aggregation, then add real hardware channels one provider at a time. Performance/A-B migration away from free-form `DataQuality` parsing is later and must preserve all Track 2 validation/freshness authority.
