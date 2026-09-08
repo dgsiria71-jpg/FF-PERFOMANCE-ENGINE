@@ -2,6 +2,7 @@ using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.SystemOptimization;
+using FFPerformanceEngine.Core.Workloads;
 
 namespace FFPerformanceEngine.App;
 
@@ -44,6 +45,10 @@ public sealed class AppServices : IAsyncDisposable
     public UniversalBottleneckAnalyzer BottleneckAnalyzer { get; }
     public UniversalDiagnosticService Diagnostics { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
+    public BlueStacksInstalledGameDiscoverySource BlueStacksGameDiscovery { get; }
+    public LocalGameCatalogService GameCatalog { get; }
+    public GameAdapterResolver GameAdapters { get; }
+    public GameDiscoveryCoordinator GameDiscovery { get; }
     public ProfileApplicationService ProfileApplication { get; }
     public ProfileChallengeService ProfileChallenges { get; }
     public ProfileChallengeProgressService ProfileChallengeProgress { get; }
@@ -121,6 +126,22 @@ public sealed class AppServices : IAsyncDisposable
         Diagnostics = new UniversalDiagnosticService(MachineContext, BottleneckAnalyzer);
 
         BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
+
+        // Track 3 stays side-effect free at composition time. The catalog, source
+        // and resolver are shared application authorities, but no emulator/package
+        // scan runs until DiscoverGamesAsync is explicitly requested by a workflow.
+        BlueStacksGameDiscovery = new BlueStacksInstalledGameDiscoverySource(
+            BlueStacks,
+            BlueStacksAutomation);
+        GameCatalog = new LocalGameCatalogService([BlueStacksGameDiscovery]);
+        GameAdapters = new GameAdapterResolver(
+        [
+            new GenericGameAdapter(),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
+        ]);
+        GameDiscovery = new GameDiscoveryCoordinator(GameCatalog, GameAdapters);
+
         ProfileApplication = new ProfileApplicationService(BlueStacks, Snapshots, History);
         ProfileChallenges = new ProfileChallengeService(Profiles, History);
         ProfileChallengeProgress = new ProfileChallengeProgressService(Profiles, History);
@@ -257,6 +278,10 @@ public sealed class AppServices : IAsyncDisposable
     public Task<IReadOnlyList<WindowsPerformanceCapability>> RefreshWindowsCapabilitiesAsync(
         CancellationToken cancellationToken = default)
         => WindowsCapabilityDiscovery.RefreshAsync(cancellationToken);
+
+    public Task<ResolvedGameCatalogResult> DiscoverGamesAsync(
+        CancellationToken cancellationToken = default)
+        => GameDiscovery.DiscoverAsync(cancellationToken);
 
     public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
         string capabilityId,
