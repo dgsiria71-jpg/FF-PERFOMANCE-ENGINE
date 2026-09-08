@@ -63,7 +63,7 @@ Track 3 original exit criteria are satisfied. Additional discovery/evidence surf
 
 ### Track 4 — Universal Telemetry / Evidence — ACTIVE
 
-Foundation already GREEN through application head `8392892e7ad658928e7b7aca1719df2b64399125`, Windows CI #888 SUCCESS:
+Foundation and current collector migration are GREEN through application head `edfbba0845d60447e6fdd158b75eee6def39a60f`, Windows CI #900 SUCCESS:
 
 - metric schema v2 ✅
 - 17 canonical initial metric descriptors ✅
@@ -73,16 +73,32 @@ Foundation already GREEN through application head `8392892e7ad658928e7b7aca1719d
 - universal workload target resolver from bound Track 3 evidence ✅
 - KnownExecutable/App Paths prevented from claiming a live PID ✅
 - existing legacy telemetry and A/B APIs preserved ✅
+- native CPU + physical-memory collector direct v2 path ✅ (`b9b13388...`, CI #896)
+- PresentMon direct v2 frame path ✅ (`edfbba08...`, CI #900)
+- shared legacy/v2 PresentMon statistics; no formula fork ✅
+- explicit accepted-row coverage for PresentMon frame/latency metrics ✅
 
-Next sequence:
+Current sequence:
 
-1. adapt current native CPU + physical-memory telemetry into v2 while preserving legacy APIs;
-2. adapt PresentMon into direct measured v2 frame metrics with explicit source/coverage;
-3. bounded realtime v2 ring buffer;
-4. quality/coverage-aware 1 s aggregates, then 10 s/session layers;
+1. **bounded realtime v2 `TelemetryFrame` ring buffer** ← NEXT;
+2. quality/coverage-aware deterministic 1 s aggregates;
+3. 10 s aggregate layer;
+4. session aggregation/store (no raw-frame disk persistence before approved design);
 5. add real GPU/VRAM/clocks/thermals/I/O/network channels one proven provider at a time;
-6. migrate Performance/A-B away from free-form `DataQuality` parsing only after v2 collectors are stable;
+6. migrate Performance/A-B away from free-form `DataQuality` parsing only after v2 collectors/storage are stable;
 7. extend universal A/B configuration/workload context without weakening existing validation/freshness authority.
+
+Ring-buffer / aggregation invariants:
+
+- bounded memory only;
+- deterministic capacity eviction and snapshots;
+- aggregate by stable metric id/descriptor semantics;
+- absent metrics are ignored, never zero-filled;
+- incompatible descriptors never blend;
+- aggregated quality cannot exceed the weakest contributor;
+- coverage remains explicit and conservative;
+- mixed provenance cannot masquerade as one direct collector;
+- legacy `PerformanceTimelineBuffer` remains separate and unchanged.
 
 ### Track 5 — Universal Auto Tuner + Profiles — PLANNED
 
