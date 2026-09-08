@@ -27,8 +27,49 @@ internal static class TelemetryMetricSchemaV2SelfTests
             "FPS average metric id must be canonical and stable.");
         Require(TelemetryStandardMetrics.SystemCpuUtilizationPercent.Id == "system.cpu.utilization.percent",
             "CPU utilization metric id must be canonical and stable.");
-        Require(TelemetryStandardMetrics.All.Count == 17,
-            "The first v2 standard catalog must expose the 17 approved metrics exactly.");
+
+        var legacyApproved = new[]
+        {
+            TelemetryStandardMetrics.FrameFpsAverage,
+            TelemetryStandardMetrics.FrameFpsLow1,
+            TelemetryStandardMetrics.FrameFpsLow01,
+            TelemetryStandardMetrics.FrameTimeAverageMs,
+            TelemetryStandardMetrics.FrameTimeP95Ms,
+            TelemetryStandardMetrics.FrameTimeP99Ms,
+            TelemetryStandardMetrics.FrameStutterPercent,
+            TelemetryStandardMetrics.FrameLatencyAverageMs,
+            TelemetryStandardMetrics.SystemCpuUtilizationPercent,
+            TelemetryStandardMetrics.SystemMemoryUsedGb,
+            TelemetryStandardMetrics.SystemMemoryTotalGb,
+            TelemetryStandardMetrics.SystemGpuUtilizationPercent,
+            TelemetryStandardMetrics.CpuTemperatureCelsius,
+            TelemetryStandardMetrics.GpuTemperatureCelsius,
+            TelemetryStandardMetrics.NetworkPingMs,
+            TelemetryStandardMetrics.NetworkJitterMs,
+            TelemetryStandardMetrics.NetworkPacketLossPercent
+        };
+        Require(legacyApproved.Length == 17,
+            "The original v2 compatibility surface must remain exactly 17 metrics.");
+        Require(legacyApproved.All(descriptor => TelemetryStandardMetrics.All.Contains(descriptor)),
+            "Expanding v2 must preserve every original standard metric descriptor.");
+
+        var processorPower = new[]
+        {
+            TelemetryStandardMetrics.CpuClockCurrentAverageMhz,
+            TelemetryStandardMetrics.CpuClockMaximumAverageMhz,
+            TelemetryStandardMetrics.CpuClockLimitMinimumMhz
+        };
+        Require(TelemetryStandardMetrics.CpuClockCurrentAverageMhz.Id == "system.cpu.clock.current_avg_mhz"
+                && TelemetryStandardMetrics.CpuClockMaximumAverageMhz.Id == "system.cpu.clock.max_avg_mhz"
+                && TelemetryStandardMetrics.CpuClockLimitMinimumMhz.Id == "system.cpu.clock.limit_min_mhz",
+            "Processor-power metric ids must remain canonical and stable.");
+        Require(processorPower.All(descriptor =>
+                descriptor.Unit == TelemetryUnit.Megahertz
+                && descriptor.Domain == TelemetryMetricDomain.System
+                && descriptor.Aggregation == TelemetryAggregationKind.Gauge),
+            "Processor-power metrics must use MHz/System/Gauge semantics.");
+        Require(TelemetryStandardMetrics.All.Count == 20,
+            "The current v2 standard catalog must expose 17 compatibility metrics plus three processor-power metrics.");
         Require(TelemetryStandardMetrics.All
                     .Select(item => item.Id)
                     .Distinct(StringComparer.Ordinal)
