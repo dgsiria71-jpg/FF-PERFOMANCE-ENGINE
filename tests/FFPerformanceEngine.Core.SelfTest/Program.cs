@@ -135,6 +135,7 @@ try
     await WindowsCapabilityValidationChallengeSelfTests.RunAsync();
     await WindowsCapabilityValidatedEvidenceStoreSelfTests.RunAsync();
     await WindowsCapabilityValidationWorkflowSelfTests.RunAsync();
+    await WindowsCapabilityValidatedRecommendationSelfTests.RunAsync();
     await SystemOptimizerTransactionSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
