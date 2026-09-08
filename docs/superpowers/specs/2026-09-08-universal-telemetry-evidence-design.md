@@ -141,9 +141,12 @@ TelemetryMetricObservation
 Requirements:
 
 - `Value` must be finite;
-- `Coverage` is normalized `[0,1]`;
+- stored numeric observations may have `Partial` or `Measured` quality only;
+- `Unavailable` is represented by absence from the frame and by typed lookup/frame-summary results, never by pairing an unavailable quality with a fake numeric value;
+- `Coverage` is `[0,1]` and represents the producer's valid coverage of its own measurement window/sample, not confidence and not a cross-source score;
+- the first compatibility bridge uses `Coverage = 1` for a finite value emitted from one accepted legacy sample; quality/provenance still determine whether that value is `Measured` or `Partial`;
 - `SourceId` is nonblank normalized provenance such as `presentmon`, `native-system`, `legacy-bridge`;
-- duplicate metric ids inside one frame are not silently averaged in the first slice; the frame builder/resolver must reject or deterministically resolve according to explicit source policy later;
+- duplicate metric ids inside one frame are rejected in the first slice rather than silently averaged;
 - a value does not carry a fake default when unavailable.
 
 ## 5. Typed data quality
@@ -160,9 +163,9 @@ Measured
 
 Meaning:
 
-- `Unavailable`: no trustworthy numeric observation exists for the requested channel;
-- `Partial`: a numeric observation exists but coverage/provenance/completeness is insufficient for direct measured authority;
-- `Measured`: direct measurement from an accepted collector with sufficient coverage for that metric.
+- `Unavailable`: no trustworthy numeric observation exists for the requested channel; it is a lookup/frame state, not a stored numeric observation;
+- `Partial`: a numeric observation exists but provenance/completeness is insufficient for direct measured authority;
+- `Measured`: direct measurement from an accepted collector with sufficient collector-local coverage for that metric.
 
 The initial schema deliberately does not add an `Estimated` level because the current product has no approved estimator contract. If estimators are added later, they receive a separate explicit provenance/quality rule rather than being hidden under `Measured`.
 
@@ -185,11 +188,21 @@ A frame can legitimately contain:
 CPU utilization       Measured / native-system
 memory used           Measured / native-system
 FPS                    Measured / presentmon
-latency                Unavailable
-GPU utilization        Unavailable
+latency                absent → Unavailable on lookup
+GPU utilization        absent → Unavailable on lookup
 ```
 
 No sample-wide string is allowed to upgrade all metrics together.
+
+### 5.4 Frame quality summary
+
+`TelemetryFrame.FrameQuality` is computed only:
+
+- no metrics → `Unavailable`;
+- all metrics `Measured` → `Measured`;
+- otherwise → `Partial`.
+
+It is presentation/diagnostic summary only and cannot increase a metric's own quality.
 
 ## 6. Telemetry frame v2
 
@@ -201,7 +214,12 @@ TelemetryFrame
 - FrameQuality
 ```
 
-`FrameQuality` is a summary for diagnostics/UI convenience only. It is computed from the contained metrics and cannot override their individual quality.
+Construction rules:
+
+- metric list is copied/immutable from the frame's point of view;
+- duplicate normalized metric ids are rejected;
+- frame timestamp is explicit and preserved from the producer/legacy sample;
+- `TryGetMetric`/lookup returns absence rather than synthesizing zero.
 
 ### 6.1 Workload context
 
@@ -220,15 +238,17 @@ Rules:
 - no process name/display name becomes GameId;
 - a frame may be system-only with no workload target.
 
-Binding states:
+Initial binding states:
 
 ```text
 SystemOnly
-StableGameOnly
 ExactRunningProcess
 AmbiguousRunningProcess
 UnavailableRunningProcess
+UnknownGame
 ```
+
+`UnknownGame` means a caller requested a GameId not present in the stable discovered catalog. Such an input is not echoed back as if it were proven stable identity.
 
 ## 7. Universal workload-target resolver
 
@@ -236,14 +256,15 @@ Track 4 consumes Track 3 `BoundGameEvidence` instead of inventing another proces
 
 For a requested stable `GameId`:
 
-1. normalize and locate that game in `ResolvedGameCatalogResult`;
-2. consider only bound evidence whose `Observation.Kind == RunningProcess`;
-3. require positive PID and fully-qualified executable path;
-4. group by distinct PID;
-5. exactly one valid running PID → `ExactRunningProcess`;
-6. zero running PIDs → `UnavailableRunningProcess` while preserving stable `GameId`;
-7. more than one distinct running PID → `AmbiguousRunningProcess`; do not guess highest PID, newest PID, biggest working set or filename;
-8. `KnownExecutable`/App Paths evidence may enrich static metadata later but can never claim a live PID.
+1. trim/lowercase the request and locate exactly one matching stable game in `ResolvedGameCatalogResult`;
+2. if the GameId is blank or absent from the stable catalog, return `UnknownGame` with no process/path and no promoted GameId;
+3. consider only bound evidence for that stable GameId whose `Observation.Kind == RunningProcess`;
+4. require positive PID and fully-qualified executable path;
+5. group by distinct PID; duplicate observations of the same PID do not create ambiguity;
+6. exactly one valid running PID → `ExactRunningProcess` with stable canonical GameId + PID/path;
+7. zero running PIDs → `UnavailableRunningProcess` with stable canonical GameId but no PID/path;
+8. more than one distinct running PID → `AmbiguousRunningProcess` with stable canonical GameId but no selected PID/path; do not guess highest PID, newest PID, biggest working set or filename;
+9. `KnownExecutable`/App Paths evidence can never supply a live PID or convert `UnavailableRunningProcess` into exact running state.
 
 This resolver is pure Core logic and performs no process enumeration. Discovery already produced the evidence.
 
@@ -266,22 +287,27 @@ It is intentionally conservative.
 The bridge maps known historical labels without widening their authority:
 
 - `PresentMon · <n> frames`:
-  - finite frame/FPS metrics → `Measured`, source `presentmon`, origin `Direct`;
-  - unrelated populated fields not proven by the label remain `Partial`, source `legacy-bridge`.
+  - finite frame/FPS metrics → `Measured`, source `presentmon`, origin `Direct`, coverage `1` for that emitted legacy sample;
+  - unrelated populated fields not proven by the label remain `Partial`, source `legacy-bridge`, origin `Legacy`.
 - `System`:
-  - CPU/memory metrics → `Measured`, source `native-system`, origin `Direct`;
+  - CPU/memory metrics → `Measured`, source `native-system`, origin `Direct`, coverage `1` for that emitted legacy sample;
   - unrelated populated fields remain `Partial`.
 - `Frame+System`:
   - system CPU/memory channels may be `Measured` when present;
   - frame values are `Partial`/`Legacy` because the label does not prove which collector supplied the FPS argument.
 - exact historical `Measured`:
   - finite frame metrics retain compatibility as `Measured`, source `legacy-measured`, origin `Legacy`, because current A/B logic already accepts that label as direct historical measured evidence;
+  - unrelated populated non-frame fields remain `Partial` unless another explicit legacy label proves their source.
 - any unknown/free-form label:
   - finite values become `Partial`, source `legacy-bridge`, origin `Legacy`.
 
 The bridge never converts null/NaN/infinity into numeric zero.
 
-### 8.3 Legacy model remains immutable in migration
+### 8.3 Standard legacy field mapping
+
+Every currently defined numeric `TelemetrySample` field has an explicit standard metric id. No reflection-based property-name-to-id convention is used.
+
+### 8.4 Legacy model remains immutable in migration
 
 The first slice does not add v2 properties to `TelemetrySample` and does not change its serialized shape. This avoids accidental History/UI compatibility breakage.
 
@@ -368,27 +394,32 @@ This does not replace the existing exact BlueStacks `PerformanceConfigurationSna
 RED first for:
 
 1. standard metric ids/descriptors are stable;
-2. invalid/non-finite metric values are rejected;
-3. coverage clamps/rejects according to contract (first implementation rejects outside `[0,1]`);
-4. duplicate metric ids in one frame are rejected;
-5. per-metric quality is independent;
-6. PresentMon legacy frame metrics map to measured while unrelated fields do not;
-7. `System` maps CPU/memory only to measured;
-8. unknown labels map populated fields to Partial;
-9. null/nonfinite legacy values produce no metric;
-10. `TelemetrySample` source compatibility remains intact.
+2. invalid/malformed metric ids and source ids are rejected;
+3. non-finite metric values are rejected;
+4. coverage outside `[0,1]` is rejected;
+5. numeric observations with `Unavailable` quality are rejected;
+6. duplicate metric ids in one frame are rejected;
+7. frame-quality summary is computed, never caller-promoted;
+8. PresentMon legacy frame metrics map to measured while unrelated fields do not;
+9. `System` maps CPU/memory only to measured;
+10. `Frame+System` does not promote frame metrics to measured;
+11. unknown labels map populated fields to Partial;
+12. null/nonfinite legacy values produce no metric;
+13. `TelemetrySample` source compatibility remains intact.
 
 ### Slice B — Universal workload target resolver
 
 RED first for:
 
 1. one bound RunningProcess PID resolves exactly;
-2. KnownExecutable evidence never supplies a PID;
-3. zero running evidence returns stable-game-only/unavailable process state;
-4. multiple distinct PIDs are ambiguous and no PID is chosen;
-5. evidence for another GameId is ignored;
-6. invalid PID/path evidence is ignored;
-7. stable GameId remains unchanged.
+2. duplicate evidence for one PID does not create ambiguity;
+3. KnownExecutable evidence never supplies a PID;
+4. zero running evidence returns `UnavailableRunningProcess` with the proven GameId;
+5. multiple distinct PIDs are ambiguous and no PID/path is selected;
+6. evidence for another GameId is ignored;
+7. invalid PID/path evidence is ignored;
+8. unknown/blank requested GameId returns `UnknownGame` and is not promoted;
+9. stable canonical GameId remains unchanged.
 
 ### Slice C — Current collector adapters
 
@@ -444,9 +475,11 @@ Additional discovery sources remain allowed later when they add a proven signal,
 The first Track 4 milestone is complete when:
 
 1. a typed v2 metric frame exists alongside legacy telemetry;
-2. every metric carries explicit source, quality, coverage and origin;
-3. legacy telemetry can be conservatively transformed without fabricating measurements;
-4. a stable game can resolve an exact runtime PID only through unambiguous Track 3 bound RunningProcess evidence;
-5. current Performance/A-B/Guardian/AutoTuner tests remain green;
-6. no discovery is added to application startup;
-7. exact commits receive fresh full Windows CI before GREEN claims.
+2. every stored numeric metric carries explicit source, quality, coverage and origin;
+3. unavailable metrics are represented by absence/typed lookup state rather than fake numeric values;
+4. legacy telemetry can be conservatively transformed without fabricating measurements;
+5. a stable game can resolve an exact runtime PID only through unambiguous Track 3 bound RunningProcess evidence;
+6. unknown GameId input cannot be promoted to stable workload identity;
+7. current Performance/A-B/Guardian/AutoTuner tests remain green;
+8. no discovery is added to application startup;
+9. exact commits receive fresh full Windows CI before GREEN claims.
