@@ -6,12 +6,26 @@
 - Branch: `build/initial-product`
 - PR: `#1` — open, draft, mergeable, not merged
 - PR base: `main`
-- Current verified HEAD at memory creation: `1a3622770a7b8f4c7afe7099af6e42990189d80d`
+
+### Last application-code checkpoint before memory bootstrap
+
+- Application HEAD: `1a3622770a7b8f4c7afe7099af6e42990189d80d`
 - Commit: `feat: register Battle.net game discovery in shared catalog`
 - Windows CI: **#758 — SUCCESS**
 - CI run id: `34239479269`
 
 The #758 job passed: native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish and artifact upload.
+
+### Repository-native memory bootstrap checkpoint
+
+- Memory bootstrap HEAD: `6b15e87a491de32aa7997147d2074f719978d23d`
+- Windows CI: **#788 — SUCCESS**
+- CI run id: `34242129832`
+- Runtime code changed by bootstrap: **none**
+
+The #788 job passed native configure/build/tests, managed/WPF build, all Core self-tests, `win-x64` publish and artifact upload. The repository now contains root `AGENTS.md`, canonical project memory, decisions, roadmap, implementation ledger, chat reconstruction, source catalog/update protocol, immutable session handoff and the three raw source snapshots available in the 2026-09-08 runtime.
+
+Current Git + fresh CI remain authoritative if this handoff ever becomes stale.
 
 ## Active Track
 
