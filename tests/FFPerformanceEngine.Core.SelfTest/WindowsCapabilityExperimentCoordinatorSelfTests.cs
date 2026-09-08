@@ -79,18 +79,30 @@ internal static class WindowsCapabilityExperimentCoordinatorSelfTests
                     && first.Observation.WorkloadKey == "bluestacks:pie64:free-fire-max"
                     && first.CostSummary.Maturity == WindowsCapabilityCostEvidenceMaturity.Observed,
                 "A successful coordinator round must bind restored controlled A/B evidence to the exact machine/workload tuple as Observed knowledge.");
-            Require(first.CostSummary.RecommendedValue is null,
-                "Experiment coordination must not turn a single successful controlled round into a recommendation.");
+            Require(first.CostSummary.RecommendedValue is null
+                    && first.Evaluation.RecommendedValue is null
+                    && first.Validation.RecommendedValue is null,
+                "Experiment coordination, evidence evaluation and validation gating must never auto-publish a recommendation.");
+            Require(first.Evaluation.Verdict == WindowsCapabilityEvidenceVerdict.InsufficientEvidence
+                    && first.Validation.Disposition == WindowsCapabilityValidationDisposition.NotEligible,
+                "One controlled round must remain insufficient evidence and ineligible for PendingValidation.");
 
             var second = await coordinator.RunAsync(candidate);
             Require(benchmarkCount == 2
                     && second.CostSummary.ObservationCount == 2
                     && second.CostSummary.Maturity == WindowsCapabilityCostEvidenceMaturity.Repeated,
                 "Repeated controlled rounds for the exact tuple must raise Cost Map maturity without auto-promotion.");
+            Require(second.Evaluation.Verdict == WindowsCapabilityEvidenceVerdict.Beneficial
+                    && second.Validation.Disposition == WindowsCapabilityValidationDisposition.PendingValidation,
+                "Two consistent beneficial controlled rounds must advance the exact tuple only to PendingValidation.");
+            Require(second.Validation.MachineFingerprintId == "machine-a"
+                    && second.Validation.WorkloadKey == "bluestacks:pie64:free-fire-max"
+                    && second.Validation.CandidateTarget == "aggressive",
+                "PendingValidation returned by the experiment coordinator must stay bound to the exact measured tuple.");
             Require(refreshCount >= 4,
                 "Coordinator must refresh capability discovery for planning and again immediately before every controlled run.");
 
-            Console.WriteLine("PASS Track 2 Windows capability experiment coordinator fresh-plan/benchmark/cost-map contract");
+            Console.WriteLine("PASS Track 2 Windows capability experiment coordinator fresh-plan/benchmark/cost-map/evaluation/PendingValidation contract");
         }
         finally
         {
