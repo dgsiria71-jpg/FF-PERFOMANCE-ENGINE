@@ -7,6 +7,8 @@ public sealed record WindowsCapabilityExperimentRunResult
     public required WindowsCapabilityControlledBenchmarkResult Benchmark { get; init; }
     public required WindowsCapabilityCostObservation Observation { get; init; }
     public required WindowsCapabilityCostSummary CostSummary { get; init; }
+    public required WindowsCapabilityEvidenceEvaluation Evaluation { get; init; }
+    public required WindowsCapabilityValidationDecision Validation { get; init; }
 }
 
 /// <summary>
@@ -14,7 +16,8 @@ public sealed record WindowsCapabilityExperimentRunResult
 /// authority. Capability discovery is refreshed immediately before planning and
 /// again immediately before execution so stale candidates are rejected before any
 /// controlled mutation/measurement. Only restored controlled A/B results are stored
-/// in the local Performance Cost Map.
+/// in the local Performance Cost Map. Repeated evidence is evaluated and may advance
+/// only as far as PendingValidation; this coordinator never publishes a recommendation.
 /// </summary>
 public sealed class WindowsCapabilityExperimentCoordinator
 {
@@ -24,6 +27,8 @@ public sealed class WindowsCapabilityExperimentCoordinator
     private readonly WindowsCapabilityPerformanceCostMapService _costMap;
     private readonly Func<string> _machineFingerprintIdProvider;
     private readonly Func<string> _workloadKeyProvider;
+    private readonly WindowsCapabilityEvidenceEvaluationService _evidenceEvaluator;
+    private readonly WindowsCapabilityValidationGate _validationGate;
 
     public WindowsCapabilityExperimentCoordinator(
         Func<CancellationToken, Task<IReadOnlyList<WindowsPerformanceCapability>>> refreshCapabilities,
@@ -31,7 +36,9 @@ public sealed class WindowsCapabilityExperimentCoordinator
         Func<WindowsCapabilityCandidate, CancellationToken, Task<WindowsCapabilityControlledBenchmarkResult>> runBenchmark,
         WindowsCapabilityPerformanceCostMapService costMap,
         Func<string> machineFingerprintIdProvider,
-        Func<string> workloadKeyProvider)
+        Func<string> workloadKeyProvider,
+        WindowsCapabilityEvidenceEvaluationService? evidenceEvaluator = null,
+        WindowsCapabilityValidationGate? validationGate = null)
     {
         _refreshCapabilities = refreshCapabilities ?? throw new ArgumentNullException(nameof(refreshCapabilities));
         _candidatePlanner = candidatePlanner ?? throw new ArgumentNullException(nameof(candidatePlanner));
@@ -39,6 +46,8 @@ public sealed class WindowsCapabilityExperimentCoordinator
         _costMap = costMap ?? throw new ArgumentNullException(nameof(costMap));
         _machineFingerprintIdProvider = machineFingerprintIdProvider ?? throw new ArgumentNullException(nameof(machineFingerprintIdProvider));
         _workloadKeyProvider = workloadKeyProvider ?? throw new ArgumentNullException(nameof(workloadKeyProvider));
+        _evidenceEvaluator = evidenceEvaluator ?? new WindowsCapabilityEvidenceEvaluationService(costMap);
+        _validationGate = validationGate ?? new WindowsCapabilityValidationGate();
     }
 
     public async Task<WindowsCapabilityCandidatePlan> PlanAsync(
@@ -111,11 +120,22 @@ public sealed class WindowsCapabilityExperimentCoordinator
             cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Windows capability Performance Cost Map did not retain the just-recorded controlled observation.");
 
+        var evaluation = await _evidenceEvaluator.EvaluateAsync(
+            benchmark.CapabilityId,
+            benchmark.BaselineValue,
+            benchmark.CandidateTarget,
+            machineFingerprintId,
+            workloadKey,
+            cancellationToken).ConfigureAwait(false);
+        var validation = _validationGate.Evaluate(evaluation);
+
         return new WindowsCapabilityExperimentRunResult
         {
             Benchmark = benchmark,
             Observation = observation,
-            CostSummary = summary
+            CostSummary = summary,
+            Evaluation = evaluation,
+            Validation = validation
         };
     }
 
