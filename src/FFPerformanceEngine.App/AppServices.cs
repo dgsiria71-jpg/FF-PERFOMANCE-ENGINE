@@ -1,6 +1,7 @@
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.SystemOptimization;
 using FFPerformanceEngine.Core.Workloads;
 
@@ -9,6 +10,9 @@ namespace FFPerformanceEngine.App;
 public sealed class AppServices : IAsyncDisposable
 {
     private static readonly TimeSpan GuardianLoopInterval = TimeSpan.FromSeconds(2);
+    private const int TelemetryRawFrameCapacity = 4096;
+    private const int TelemetryOneSecondAggregateCapacity = 4096;
+    private const int TelemetrySessionTenSecondAggregateCapacity = 4096;
 
     public BlueStacksService BlueStacks { get; } = new();
     public SettingsService SettingsService { get; } = new();
@@ -17,6 +21,7 @@ public sealed class AppServices : IAsyncDisposable
     public SnapshotService Snapshots { get; } = new();
     public TelemetryService Telemetry { get; } = new();
     public PresentMonService PresentMon { get; } = new();
+    public TelemetryRealtimePipeline TelemetryRealtime { get; }
     public AutoTunerEngine AutoTuner { get; } = new();
     public GuardianEngine Guardian { get; } = new();
     public ProcessTuningService ProcessTuning { get; } = new();
@@ -86,6 +91,14 @@ public sealed class AppServices : IAsyncDisposable
     public AppServices()
     {
         Environment = new EnvironmentProbe(BlueStacks);
+
+        // Track 4 composes one bounded realtime telemetry authority. These values
+        // are memory-count limits only; they intentionally make no retention-time
+        // promise because collector frequency is a separate runtime policy.
+        TelemetryRealtime = new TelemetryRealtimePipeline(
+            TelemetryRawFrameCapacity,
+            TelemetryOneSecondAggregateCapacity,
+            TelemetrySessionTenSecondAggregateCapacity);
 
         // Track 1 is a universal bridge over the existing EnvironmentSnapshot,
         // not a second machine model. Every higher-level subsystem shares these
@@ -318,6 +331,25 @@ public sealed class AppServices : IAsyncDisposable
 
     public MachineContext CaptureMachineContext()
         => MachineContext.Capture(Environment.Capture());
+
+    public TelemetryFrame CaptureSystemTelemetryFrame()
+    {
+        var frame = Telemetry.CaptureSystemFrame();
+        TelemetryRealtime.AppendRaw(frame);
+        return frame;
+    }
+
+    public async Task<TelemetryFrame?> CaptureProcessTelemetryFrameAsync(
+        int processId,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        var frame = await PresentMon
+            .CaptureProcessFrameAsync(processId, duration, cancellationToken)
+            .ConfigureAwait(false);
+        if (frame is not null) TelemetryRealtime.AppendRaw(frame);
+        return frame;
+    }
 
     public Task<IReadOnlyList<WindowsPerformanceCapability>> RefreshWindowsCapabilitiesAsync(
         CancellationToken cancellationToken = default)
