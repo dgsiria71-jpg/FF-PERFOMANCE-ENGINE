@@ -1,9 +1,14 @@
+using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.Workloads;
 
 internal static class BlueStacksInstalledGameDiscoverySelfTests
 {
+    [ModuleInitializer]
+    internal static void Run()
+        => RunAsync().GetAwaiter().GetResult();
+
     internal static async Task RunAsync()
     {
         const string config = """
