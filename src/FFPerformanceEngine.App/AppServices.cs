@@ -46,6 +46,7 @@ public sealed class AppServices : IAsyncDisposable
     public UniversalDiagnosticService Diagnostics { get; }
     public BlueStacksAutomationService BlueStacksAutomation { get; }
     public BlueStacksInstalledGameDiscoverySource BlueStacksGameDiscovery { get; }
+    public SteamGameDiscoverySource SteamGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
     public GameDiscoveryCoordinator GameDiscovery { get; }
@@ -127,13 +128,19 @@ public sealed class AppServices : IAsyncDisposable
 
         BlueStacksAutomation = new BlueStacksAutomationService(BlueStacks);
 
-        // Track 3 stays side-effect free at composition time. The catalog, source
-        // and resolver are shared application authorities, but no emulator/package
-        // scan runs until DiscoverGamesAsync is explicitly requested by a workflow.
+        // Track 3 stays side-effect free at composition time. The catalog, sources
+        // and resolver are shared application authorities, but neither BlueStacks
+        // package discovery nor launcher manifest scans run until DiscoverGamesAsync
+        // is explicitly requested by a workflow.
         BlueStacksGameDiscovery = new BlueStacksInstalledGameDiscoverySource(
             BlueStacks,
             BlueStacksAutomation);
-        GameCatalog = new LocalGameCatalogService([BlueStacksGameDiscovery]);
+        SteamGameDiscovery = new SteamGameDiscoverySource();
+        GameCatalog = new LocalGameCatalogService(
+        [
+            BlueStacksGameDiscovery,
+            SteamGameDiscovery
+        ]);
         GameAdapters = new GameAdapterResolver(
         [
             new GenericGameAdapter(),
