@@ -275,8 +275,8 @@ public sealed class MicrosoftStoreGdkGameDiscoverySource : IGameDiscoverySource
     private static string? NormalizePackageFamilyName(string? value)
     {
         var cleaned = CleanEvidenceValue(value);
-        if (!IsEvidenceToken(cleaned, 256)) return null;
-        if (cleaned!.Any(char.IsWhiteSpace)) return null;
+        if (cleaned is null || !IsEvidenceToken(cleaned, 256)) return null;
+        if (cleaned.Any(char.IsWhiteSpace)) return null;
 
         var separator = cleaned.LastIndexOf('_');
         if (separator <= 0 || separator == cleaned.Length - 1) return null;
