@@ -14,7 +14,7 @@ public sealed class WindowsCapabilityValidationWorkflowService
     public WindowsCapabilityValidationWorkflowService(
         WindowsCapabilityValidationChallengeService challenge,
         WindowsCapabilityValidatedEvidenceStore store)
-        : this(challenge?.ValidateAsync ?? throw new ArgumentNullException(nameof(challenge)), store)
+        : this(CreateValidator(challenge), store)
     {
     }
 
@@ -36,5 +36,12 @@ public sealed class WindowsCapabilityValidationWorkflowService
         cancellationToken.ThrowIfCancellationRequested();
         await _store.SaveAsync(validated, cancellationToken).ConfigureAwait(false);
         return validated;
+    }
+
+    private static Func<WindowsCapabilityValidationDecision, CancellationToken, Task<WindowsCapabilityValidatedEvidence>> CreateValidator(
+        WindowsCapabilityValidationChallengeService challenge)
+    {
+        ArgumentNullException.ThrowIfNull(challenge);
+        return challenge.ValidateAsync;
     }
 }
