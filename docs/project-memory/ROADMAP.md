@@ -63,7 +63,7 @@ Track 3 original exit criteria are satisfied. Additional discovery/evidence surf
 
 ### Track 4 — Universal Telemetry / Evidence — ACTIVE
 
-Foundation and current collector migration are GREEN through application head `edfbba0845d60447e6fdd158b75eee6def39a60f`, Windows CI #900 SUCCESS:
+GREEN through application head `f5265286480662ffcfd3f89fbb03a1cd31a09e59`, Windows CI #928 SUCCESS:
 
 - metric schema v2 ✅
 - 17 canonical initial metric descriptors ✅
@@ -77,28 +77,38 @@ Foundation and current collector migration are GREEN through application head `e
 - PresentMon direct v2 frame path ✅ (`edfbba08...`, CI #900)
 - shared legacy/v2 PresentMon statistics; no formula fork ✅
 - explicit accepted-row coverage for PresentMon frame/latency metrics ✅
+- bounded thread-safe realtime `TelemetryFrame` ring buffer ✅ (`dddb6d2a...`, CI #924)
+- deterministic half-open window snapshots + FIFO capacity eviction ✅
+- quality/coverage-aware generic aggregation ✅ (`f5265286...`, CI #928)
+- deterministic 1-second aggregate helper ✅
+- incompatible metric descriptors blocked from blending ✅
+- absent metrics remain absent, never zero-filled ✅
+- mixed provenance explicitly becomes `aggregate-mixed` ✅
 
 Current sequence:
 
-1. **bounded realtime v2 `TelemetryFrame` ring buffer** ← NEXT;
-2. quality/coverage-aware deterministic 1 s aggregates;
-3. 10 s aggregate layer;
-4. session aggregation/store (no raw-frame disk persistence before approved design);
+1. **10-second aggregation layer reusing the generic aggregator** ← NEXT;
+2. bounded session aggregate/store + retention semantics;
+3. application-level realtime pipeline composition (`collectors → ring buffer → 1s → 10s/session`);
+4. keep legacy `PerformanceTimelineBuffer` / UI / A-B consumers intact while migration is additive;
 5. add real GPU/VRAM/clocks/thermals/I/O/network channels one proven provider at a time;
-6. migrate Performance/A-B away from free-form `DataQuality` parsing only after v2 collectors/storage are stable;
+6. migrate Performance/A-B away from free-form `DataQuality` parsing only after v2 realtime/session storage is stable;
 7. extend universal A/B configuration/workload context without weakening existing validation/freshness authority.
 
-Ring-buffer / aggregation invariants:
+Realtime aggregation invariants:
 
-- bounded memory only;
+- bounded memory only for raw realtime frames;
+- no raw v2 frame disk persistence yet;
 - deterministic capacity eviction and snapshots;
 - aggregate by stable metric id/descriptor semantics;
 - absent metrics are ignored, never zero-filled;
 - incompatible descriptors never blend;
 - aggregated quality cannot exceed the weakest contributor;
 - coverage remains explicit and conservative;
+- aggregate output is `Derived`;
 - mixed provenance cannot masquerade as one direct collector;
-- legacy `PerformanceTimelineBuffer` remains separate and unchanged.
+- legacy `PerformanceTimelineBuffer` remains separate and unchanged;
+- no Track 2 validation/recommendation authority changes.
 
 ### Track 5 — Universal Auto Tuner + Profiles — PLANNED
 
