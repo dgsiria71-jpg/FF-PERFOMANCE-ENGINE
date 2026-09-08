@@ -9,12 +9,12 @@
 
 ### Last verified application-code checkpoint
 
-- Application HEAD: `4f35c66e5ff5bdf899a5f431e1de7433c36c23cd`
-- Commit: `feat: register EA App game discovery in shared catalog`
-- Windows CI: **#798 — SUCCESS**
-- CI run id: `34244307403`
+- Application HEAD: `8603a2ba946c481051fd85f0944df03ea0810abd`
+- Commit: `feat: register Ubisoft game discovery in shared catalog`
+- Windows CI: **#805 — SUCCESS**
+- CI run id: `34245559188`
 
-The #798 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish and artifact upload.
+The #805 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish and artifact upload.
 
 ### Repository-native memory bootstrap
 
@@ -37,6 +37,7 @@ Current Git + fresh CI remain authoritative if this handoff ever becomes stale.
 - Riot product metadata discovery
 - Battle.net `product.db` discovery
 - EA App `__Installer/installerdata.xml` discovery
+- Ubisoft Connect registry install discovery
 
 Current shared catalog composition:
 
@@ -49,47 +50,51 @@ GameCatalog
 ├── Epic Games
 ├── Riot
 ├── Battle.net
-└── EA App
+├── EA App
+└── Ubisoft Connect
 ```
 
 `AppServices.InitializeAsync()` intentionally does **not** perform game discovery. `DiscoverGamesAsync()` is the explicit authority.
 
-## EA App checkpoint just closed
+## Ubisoft Connect checkpoint just closed
 
 TDD sequence:
 
-- RED contract: `3fc67a817cb9cc733a67a79afef4b38a3ceb430c` → Windows CI #793 failed only because `EaAppGameDiscoverySource` did not yet exist.
-- Production: `6d4278e9b6b9ed7a67ba7d8d0e5e9a00c6b4c823` → Windows CI #796 SUCCESS.
-- App composition: `4f35c66e5ff5bdf899a5f431e1de7433c36c23cd` → Windows CI #798 SUCCESS.
+- RED contract: `25efac795392fc424d6004d6e478d40604987da7` → Windows CI #801 failed only because `UbisoftInstallRegistration` / `UbisoftGameDiscoverySource` did not yet exist.
+- Production: `956667cd798198a703575b34f2710eb13fbfdff7` → Windows CI #803 SUCCESS.
+- App composition: `8603a2ba946c481051fd85f0944df03ea0810abd` → Windows CI #805 SUCCESS.
 
-EA App rules:
+Ubisoft rules:
 
-- read each installed game's `__Installer/installerdata.xml` only;
-- no EA App/Origin process execution;
-- no EA network/API dependency;
-- first usable `contentID` is the stable local identity: `ea:<primary-content-id>`;
-- preserve the full contentID list as provenance/evidence;
-- title is display metadata, not identity;
-- bind the install path only to the directory that actually owns the manifest;
-- do not fabricate gameplay executable, engine or specialized adapter;
-- malformed XML, DTD/external entity payloads and manifests without content IDs are rejected safely;
-- discovery is deterministic and cancellation-aware;
-- default discovery may use known EA/Origin filesystem roots and read-only registry install-path evidence to locate manifests.
+- read HKLM Ubisoft Launcher install registrations through both 64-bit and 32-bit registry views;
+- use the normalized positive numeric `Ubisoft\Launcher\Installs\<id>` key as a stable **local installation identity**: `ubisoft:<id>`;
+- do **not** claim that registry install ID is necessarily the same identifier used by `uplay://launch/...`;
+- `InstallDir` must be fully qualified and exist, otherwise the registration is stale and rejected;
+- optional uninstall `DisplayName` may supply display metadata only;
+- when `DisplayName` is absent, use the transparent label `Ubisoft game <id>` rather than guessing from the folder name;
+- duplicate 32/64-bit views are collapsed deterministically by normalized numeric ID;
+- do not fabricate gameplay executable, engine, auxiliary processes or specialized adapter;
+- no Ubisoft Connect process execution;
+- discovery is read-only, side-effect free at construction and cancellation-aware.
 
 ## Exact next action
 
-Continue Track 3 with **Ubisoft Connect**, using a new isolated TDD slice:
+Continue Track 3 with **Xbox / Microsoft Store / Gaming Services** as a new isolated research + TDD slice.
 
-1. determine the strongest stable local Ubisoft installed-game identity/metadata source;
-2. prefer Ubisoft-native stable identifiers over folder/executable/display-name guesses;
-3. write RED first, including malformed metadata, false-positive and cancellation cases;
-4. verify intended RED in Windows CI;
-5. implement the smallest read-only scanner, with no Ubisoft launcher execution;
-6. require full Windows CI GREEN;
-7. compose one shared Ubisoft discovery source into `AppServices` without startup scanning;
-8. require full Windows CI GREEN before opening the next launcher.
+This surface must be designed more carefully than ordinary launcher registries because Windows package identity, Microsoft Store product identity, Gaming Services metadata and physical install location are distinct concepts. Before writing a scanner:
 
-After Ubisoft, continue remaining Track 3 discovery surfaces only through stable, non-fabricated evidence: Xbox/Microsoft Store and then other independent launcher/executable/running-process evidence where architecture justifies it.
+1. identify the strongest supported local APIs/data sources for installed game packages;
+2. distinguish stable package identity from Store/Product IDs instead of conflating them;
+3. exclude system/framework packages and non-game apps using positive evidence rather than name guesses;
+4. preserve package family/full names and install-location evidence without assuming an executable is directly accessible;
+5. avoid unauthorized traversal of protected `WindowsApps` content; prefer supported package APIs/metadata;
+6. write RED first for deterministic identity, false-positive filtering, inaccessible package metadata and cancellation;
+7. verify intended RED in Windows CI;
+8. implement the minimum read-only source;
+9. require full Windows CI GREEN;
+10. compose it into the shared catalog without startup scanning and require another full GREEN.
+
+After Xbox/Microsoft Store, reassess Track 3 against the canonical roadmap before adding generic standalone/executable/running-process discovery. Do not create a broad heuristic scanner merely to increase game count; stable identity and truthful evidence remain more important than recall.
 
 ## Do not regress
 
@@ -98,3 +103,4 @@ After Ubisoft, continue remaining Track 3 discovery surfaces only through stable
 - Do not scan launchers at application startup.
 - Do not use display names, executable names or install directories as cross-launcher identity keys.
 - Do not create specialized game adapters until the project can truthfully prove the corresponding capabilities.
+- Do not treat Windows package identity, Microsoft Store product identity and a physical executable path as interchangeable concepts.

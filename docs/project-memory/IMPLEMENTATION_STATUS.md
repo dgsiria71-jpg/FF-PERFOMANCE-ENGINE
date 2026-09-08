@@ -104,11 +104,17 @@ Representative checkpoints:
 - `6d4278e9b6b9ed7a67ba7d8d0e5e9a00c6b4c823` — read-only `__Installer/installerdata.xml` discovery using stable primary `contentID`, full alias provenance, DTD/malformed XML rejection and no executable fabrication; CI #796 SUCCESS.
 - `4f35c66e5ff5bdf899a5f431e1de7433c36c23cd` — EA App composed in shared `GameCatalog`; CI #798 SUCCESS.
 
+### Ubisoft Connect
+
+- RED contract: `25efac795392fc424d6004d6e478d40604987da7`, CI #801 failed only because `UbisoftInstallRegistration` / `UbisoftGameDiscoverySource` did not yet exist.
+- `956667cd798198a703575b34f2710eb13fbfdff7` — read-only HKLM Ubisoft launcher install discovery, numeric local install identity normalization, 32/64-bit view deduplication, stale registration rejection, optional uninstall DisplayName and no executable/title guessing; CI #803 SUCCESS.
+- `8603a2ba946c481051fd85f0944df03ea0810abd` — Ubisoft composed in the shared `GameCatalog`; CI #805 SUCCESS.
+
 ## Current verified application head
 
 ```text
-4f35c66e5ff5bdf899a5f431e1de7433c36c23cd
-Windows CI #798 — SUCCESS
+8603a2ba946c481051fd85f0944df03ea0810abd
+Windows CI #805 — SUCCESS
 ```
 
-Next Track 3 slice: **Ubisoft Connect**.
+Next Track 3 slice: **Xbox / Microsoft Store / Gaming Services**, after explicit local-identity/API research.
