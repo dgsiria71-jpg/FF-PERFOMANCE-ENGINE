@@ -29,6 +29,8 @@ public sealed class AppServices : IAsyncDisposable
     public WindowsPerformanceCapabilityDiscoveryService WindowsCapabilityDiscovery { get; }
     public WindowsCapabilityCandidatePlanner WindowsCapabilityCandidates { get; }
     public WindowsCapabilityPerformanceCostMapService WindowsCapabilityCostMap { get; }
+    public WindowsCapabilityEvidenceEvaluationService WindowsCapabilityEvidenceEvaluator { get; }
+    public WindowsCapabilityValidationGate WindowsCapabilityValidationGate { get; }
     public SystemOptimizationTransactionEngine SystemOptimizer { get; }
     public MachineContextService MachineContext { get; }
     public PersistentPcOptimizationPlanner PersistentPcPlanner { get; }
@@ -86,6 +88,9 @@ public sealed class AppServices : IAsyncDisposable
             WindowsMutationAdapters);
         WindowsCapabilityCandidates = new WindowsCapabilityCandidatePlanner();
         WindowsCapabilityCostMap = new WindowsCapabilityPerformanceCostMapService();
+        WindowsCapabilityEvidenceEvaluator = new WindowsCapabilityEvidenceEvaluationService(
+            WindowsCapabilityCostMap);
+        WindowsCapabilityValidationGate = new WindowsCapabilityValidationGate();
         SystemOptimizer = new SystemOptimizationTransactionEngine(
             WindowsCapabilities,
             WindowsMutationAdapters,
@@ -153,8 +158,9 @@ public sealed class AppServices : IAsyncDisposable
 
         // Windows controlled experimentation reuses the exact same Guardian binding,
         // process probe, PresentMon capture, global benchmark lease, transaction
-        // engine and machine fingerprint authorities. No parallel FPS/rollback/
-        // recommendation system is introduced here.
+        // engine and machine fingerprint authorities. Evidence interpretation and
+        // PendingValidation gating are also single shared services: the experiment
+        // coordinator cannot bypass or fork their policy.
         WindowsCapabilityBenchmarkProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             () => GuardianHost.CurrentStatus,
             PerformanceCapture,
@@ -170,7 +176,9 @@ public sealed class AppServices : IAsyncDisposable
             (candidate, cancellationToken) => WindowsCapabilityBenchmarks.RunAsync(candidate, cancellationToken),
             WindowsCapabilityCostMap,
             () => CaptureMachineContext().Fingerprint.Id,
-            CaptureWindowsBenchmarkWorkloadKey);
+            CaptureWindowsBenchmarkWorkloadKey,
+            WindowsCapabilityEvidenceEvaluator,
+            WindowsCapabilityValidationGate);
 
         AutoTunerRuntimeFactory = new BlueStacksAutoTunerRuntimeFactory(BlueStacks, BlueStacksAutomation, PresentMon);
         ProfileChallengeRounds = new ProfileChallengeRoundService(
