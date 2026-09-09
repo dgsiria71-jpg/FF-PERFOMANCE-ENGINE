@@ -155,6 +155,7 @@ try
     PerformanceTimelineEventRecorderSelfTests.Run();
     await GameDiscoveryFoundationSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
+    GameAdapterTuningDimensionSelfTests.Run();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
