@@ -16,5 +16,7 @@ jobs:
           dotnet-version: 8.0.x
       - name: Run Core self-tests
         run: dotnet run --project tests/FFPerformanceEngine.Core.SelfTest/FFPerformanceEngine.Core.SelfTest.csproj -c Release
+      - name: Run WPF application self-tests
+        run: dotnet run --project tests/FFPerformanceEngine.App.SelfTest/FFPerformanceEngine.App.SelfTest.csproj -c Release
       - name: Build WPF application composition
         run: dotnet build src/FFPerformanceEngine.App/FFPerformanceEngine.App.csproj -c Release
