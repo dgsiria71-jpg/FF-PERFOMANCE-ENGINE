@@ -16,6 +16,14 @@ internal static class UniversalBottleneckAnalyzerV2SelfTests
                 && cpuWithoutGpuEvidence.Candidates.All(candidate => candidate.Kind != BottleneckKind.Cpu),
             "Typed bottleneck analysis must not treat an absent GPU metric as proven GPU headroom for a CPU bottleneck claim.");
 
+        var negativeGpuCannotProveCpuHeadroom = analyzer.Analyze(
+            Frame(timestamp,
+                Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
+                Metric(TelemetryStandardMetrics.SystemGpuUtilizationPercent, -5, coverage: 1)),
+            Context(targetFps: 120, criticalCpu: 96));
+        Require(negativeGpuCannotProveCpuHeadroom.Candidates.All(candidate => candidate.Kind != BottleneckKind.Cpu),
+            "Out-of-range negative GPU utilization must fail closed instead of proving GPU headroom for a CPU bottleneck.");
+
         var gpuWithoutCpuEvidence = analyzer.Analyze(
             Frame(timestamp,
                 Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
@@ -24,6 +32,14 @@ internal static class UniversalBottleneckAnalyzerV2SelfTests
         Require(gpuWithoutCpuEvidence.Primary != BottleneckKind.Gpu
                 && gpuWithoutCpuEvidence.Candidates.All(candidate => candidate.Kind != BottleneckKind.Gpu),
             "Typed bottleneck analysis must not treat an absent critical-thread CPU signal as proof that CPU has headroom.");
+
+        var negativeCriticalCpuCannotProveGpuHeadroom = analyzer.Analyze(
+            Frame(timestamp,
+                Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
+                Metric(TelemetryStandardMetrics.SystemGpuUtilizationPercent, 99, coverage: 1)),
+            Context(targetFps: 120, criticalCpu: -5));
+        Require(negativeCriticalCpuCannotProveGpuHeadroom.Candidates.All(candidate => candidate.Kind != BottleneckKind.Gpu),
+            "Out-of-range negative critical CPU utilization must fail closed instead of proving CPU headroom for a GPU bottleneck.");
 
         var cpuBound = analyzer.Analyze(
             Frame(timestamp,
@@ -34,6 +50,14 @@ internal static class UniversalBottleneckAnalyzerV2SelfTests
                 && cpuBound.Candidates.Any(candidate => candidate.Kind == BottleneckKind.Cpu),
             "Measured frame pressure plus saturated critical CPU and measured GPU headroom must allow a CPU bottleneck candidate.");
 
+        var overRangeCriticalCpuCannotProveCpuSaturation = analyzer.Analyze(
+            Frame(timestamp,
+                Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
+                Metric(TelemetryStandardMetrics.SystemGpuUtilizationPercent, 68, coverage: 1)),
+            Context(targetFps: 120, criticalCpu: 150));
+        Require(overRangeCriticalCpuCannotProveCpuSaturation.Candidates.All(candidate => candidate.Kind != BottleneckKind.Cpu),
+            "Out-of-range critical CPU utilization above 100% must fail closed instead of proving critical-thread saturation.");
+
         var gpuBound = analyzer.Analyze(
             Frame(timestamp,
                 Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
@@ -42,6 +66,14 @@ internal static class UniversalBottleneckAnalyzerV2SelfTests
         Require(gpuBound.Primary == BottleneckKind.Gpu
                 && gpuBound.Candidates.Any(candidate => candidate.Kind == BottleneckKind.Gpu),
             "Measured frame pressure plus measured saturated GPU and explicit critical CPU headroom must allow a GPU bottleneck candidate.");
+
+        var overRangeGpuCannotProveGpuSaturation = analyzer.Analyze(
+            Frame(timestamp,
+                Metric(TelemetryStandardMetrics.FrameFpsAverage, 80, coverage: 1),
+                Metric(TelemetryStandardMetrics.SystemGpuUtilizationPercent, 150, coverage: 1)),
+            Context(targetFps: 120, criticalCpu: 54));
+        Require(overRangeGpuCannotProveGpuSaturation.Candidates.All(candidate => candidate.Kind != BottleneckKind.Gpu),
+            "Out-of-range GPU utilization above 100% must fail closed instead of proving GPU saturation.");
 
         var partialGpu = analyzer.Analyze(
             Frame(timestamp,
@@ -105,7 +137,7 @@ internal static class UniversalBottleneckAnalyzerV2SelfTests
         Require(exhaustedHeadroom.Primary == BottleneckKind.Thermal,
             "Explicit exhausted thermal headroom must remain sufficient evidence for a Thermal candidate in the typed analyzer.");
 
-        Console.WriteLine("PASS Track 4 typed bottleneck analyzer is fail-closed for missing/incomplete causal telemetry and keeps coverage as completeness");
+        Console.WriteLine("PASS Track 4 typed bottleneck analyzer is fail-closed for missing/incomplete/out-of-range causal telemetry and keeps coverage as completeness");
     }
 
     private static BottleneckAnalysisContext Context(double? targetFps, double? criticalCpu)
