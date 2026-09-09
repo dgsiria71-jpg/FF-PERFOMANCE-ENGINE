@@ -246,7 +246,8 @@ public sealed class AppServices : IAsyncDisposable
         GuardianHost.StatusChanged += GuardianHost_StatusChanged;
         PerformanceCapture = new PerformanceCaptureCoordinator(
             (processId, duration, cancellationToken) => PresentMon.CaptureProcessAsync(processId, duration, cancellationToken),
-            PerformanceTimeline);
+            PerformanceTimeline,
+            (processId, duration, cancellationToken) => CaptureProcessTelemetryFrameAsync(processId, duration, cancellationToken));
 
         // Windows controlled experimentation reuses the exact same Guardian binding,
         // process probe, PresentMon capture, global benchmark lease, transaction
@@ -430,6 +431,11 @@ public sealed class AppServices : IAsyncDisposable
         TelemetrySample sample,
         BottleneckAnalysisContext context)
         => Diagnostics.Analyze(Environment.Capture(), sample, context);
+
+    public UniversalDiagnosticSnapshot AnalyzeCurrentMachine(
+        TelemetryFrame frame,
+        BottleneckAnalysisContext context)
+        => Diagnostics.Analyze(Environment.Capture(), frame, context);
 
     public async ValueTask DisposeAsync()
     {
