@@ -324,3 +324,85 @@ History is not just logs. It answers what changed, when, why, by whom/which engi
 Snapshots are system/tuning recovery points. Backups are internal DG data backups. They are separate concepts.
 
 Raw telemetry can be compacted into session aggregates/events/long-term summaries to avoid unbounded storage.
+
+## 20. Universal telemetry / workload capture authority — Track 4 closed 2026-09-09
+
+Track 4 is the canonical typed measurement/evidence foundation for every later engine. Its completed model is:
+
+```text
+stable workload identity
+        +
+bound transient runtime evidence
+        ↓
+exact capture target or explicit unavailable/ambiguous state
+        ↓
+direct typed collectors
+        ↓
+TelemetryFrame(source + quality + coverage + origin)
+        ↓
+bounded aggregation / typed diagnostics / A-B evidence
+        ↓
+existing validation, freshness, fingerprint and recommendation authority
+```
+
+### Stable identity versus runtime targeting
+
+Stable workload identity remains a Track 3 concern and comes from source-native GameId contracts. Runtime process targeting is separate transient evidence.
+
+For process-specific universal Performance capture:
+
+1. an application workflow explicitly selects a stable GameId from a resolved Track 3 catalog;
+2. only bound evidence for that selected GameId is retained for capture targeting;
+3. only `RunningProcess` observations with positive PID and fully qualified path are candidates;
+4. duplicate evidence for the same PID is equivalent, not ambiguity;
+5. exactly one distinct valid PID resolves `ExactRunningProcess`;
+6. zero valid running PIDs resolves unavailable with the proven GameId but no PID/path;
+7. more than one distinct valid PID resolves ambiguous with no guessed PID/path;
+8. `KnownExecutable`/App Paths never authorizes a live process capture;
+9. blank/unknown GameId is never promoted;
+10. PID/path/process/display name never manufactures stable GameId.
+
+### Application capture-route precedence
+
+When a universal stable GameId is explicitly selected, that selection owns Performance capture routing.
+
+- exact target → direct typed process capture is allowed;
+- unavailable/ambiguous target → capture is blocked;
+- while that selection exists, the app must **not** silently fall back to an unrelated Guardian/BlueStacks workload;
+- when no universal selection exists, the legacy Guardian/BlueStacks typed route remains the compatibility path.
+
+This rule prevents cross-workload telemetry contamination while preserving all previously validated FF/BlueStacks behavior.
+
+### Layer ownership
+
+- Core owns target resolution and typed capture contracts.
+- Application services own current route selection/composition.
+- WPF owns presentation/orchestration only and consumes the resolved route/presentation contract.
+- UI must not guess process identity or decide fallback independently.
+
+### Typed evidence invariants
+
+- each numeric observation has explicit source, quality, coverage and origin;
+- missing metrics remain absent/Unknown, never zero-filled;
+- coverage is completeness, never probability;
+- direct typed universal capture does not promote legacy `TelemetrySample` fallback data;
+- old History remains readable without acquiring new authority;
+- `Observed != Validated`;
+- Global Controlled Benchmark Lease, freshness/fingerprint checks and durable validation gates remain unchanged;
+- no startup workload discovery was introduced;
+- no raw v2 telemetry database was introduced;
+- no anti-cheat/integrity bypass was introduced.
+
+### Track 4 completion checkpoint
+
+Closing application SHA:
+
+`71991379e01518adf2e1c539491a9c0339a56735`
+
+Windows CI:
+
+`#993` / run `34407420906` — SUCCESS.
+
+Track 4 is therefore **GREEN for its current canonical scope**. Future VRAM/thermal/I/O/network sensors are capability-driven extensions only when real providers and concrete consumers exist; they do not justify fabricated measurements or indefinite Track 4 status.
+
+The next canonical engineering track is **Track 5 — Universal Auto Tuner + Profiles**, beginning with additive generic search-space/candidate abstractions while preserving the working FF/BlueStacks tuner as the first specialized implementation and retaining all typed evidence/validation authority.
