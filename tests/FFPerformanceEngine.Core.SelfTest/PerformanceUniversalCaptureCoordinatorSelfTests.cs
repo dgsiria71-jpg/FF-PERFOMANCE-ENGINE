@@ -47,7 +47,7 @@ internal static class PerformanceUniversalCaptureCoordinatorSelfTests
             GameId = "steam:730",
             BindingQuality = TelemetryWorkloadBindingQuality.UnavailableRunningProcess
         };
-        var blocked = await coordinator.CaptureTypedAsync(unavailable, TimeSpan.FromSeconds(2));
+        var blocked = await coordinator.CaptureWorkloadTypedAsync(unavailable, TimeSpan.FromSeconds(2));
         Require(!blocked.Captured
                 && blocked.Frame is null
                 && typedCalls == 0
@@ -60,7 +60,7 @@ internal static class PerformanceUniversalCaptureCoordinatorSelfTests
             GameId = "steam:730",
             BindingQuality = TelemetryWorkloadBindingQuality.AmbiguousRunningProcess
         };
-        var ambiguousResult = await coordinator.CaptureTypedAsync(ambiguous, TimeSpan.FromSeconds(2));
+        var ambiguousResult = await coordinator.CaptureWorkloadTypedAsync(ambiguous, TimeSpan.FromSeconds(2));
         Require(!ambiguousResult.Captured
                 && typedCalls == 0
                 && legacyCalls == 0
@@ -76,7 +76,7 @@ internal static class PerformanceUniversalCaptureCoordinatorSelfTests
             ExecutablePath = executablePath,
             BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
         };
-        var captured = await coordinator.CaptureTypedAsync(exact, TimeSpan.FromSeconds(2));
+        var captured = await coordinator.CaptureWorkloadTypedAsync(exact, TimeSpan.FromSeconds(2));
         Require(captured.Captured
                 && ReferenceEquals(captured.Frame, frame)
                 && captured.Target.GameId == "steam:730"
@@ -97,7 +97,7 @@ internal static class PerformanceUniversalCaptureCoordinatorSelfTests
         var legacyOnly = new PerformanceCaptureCoordinator(
             (processId, duration, cancellationToken) => Task.FromResult<TelemetrySample?>(new TelemetrySample { Fps = 1 }),
             new PerformanceTimelineBuffer(capacity: 2));
-        var noTypedProvider = await legacyOnly.CaptureTypedAsync(exact, TimeSpan.FromSeconds(2));
+        var noTypedProvider = await legacyOnly.CaptureWorkloadTypedAsync(exact, TimeSpan.FromSeconds(2));
         Require(!noTypedProvider.Captured
                 && noTypedProvider.Frame is null
                 && noTypedProvider.Message.Contains("typed", StringComparison.OrdinalIgnoreCase),
