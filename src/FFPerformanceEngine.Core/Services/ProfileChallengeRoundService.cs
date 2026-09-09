@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -44,8 +44,6 @@ public sealed record ProfileChallengeRoundPolicy
 
 public sealed class ProfileChallengeRoundService
 {
-    private static readonly Regex PresentMonFrameCount = new(@"(?<count>\d+)\s+frames?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     private readonly ProfileService _profiles;
     private readonly HistoryService _history;
     private readonly IAutoTunerRuntimeFactory _runtimeFactory;
@@ -151,8 +149,8 @@ public sealed class ProfileChallengeRoundService
             .ConfigureAwait(false);
 
         var runtime = _runtimeFactory.Create(instance);
-        var baselineAccepted = Array.Empty<TelemetrySample>();
-        var candidateAccepted = Array.Empty<TelemetrySample>();
+        var baselineAccepted = Array.Empty<TelemetryFrame>();
+        var candidateAccepted = Array.Empty<TelemetryFrame>();
         try
         {
             var baselineResult = await MeasureSideAsync(
@@ -221,7 +219,7 @@ public sealed class ProfileChallengeRoundService
         }
     }
 
-    private async Task<(bool Success, string Message, TelemetrySample[] Samples)> MeasureSideAsync(
+    private async Task<(bool Success, string Message, TelemetryFrame[] Samples)> MeasureSideAsync(
         IAutoTunerRuntime runtime,
         PerformanceProfile profile,
         GameKind game,
@@ -233,7 +231,7 @@ public sealed class ProfileChallengeRoundService
         CancellationToken cancellationToken)
     {
         var applied = false;
-        var accepted = new List<TelemetrySample>(_policy.RequiredSamplesPerSide);
+        var accepted = new List<TelemetryFrame>(_policy.RequiredSamplesPerSide);
         try
         {
             progress?.Invoke(new(applyingStage, $"Aplicando {profile.Name}."));
@@ -252,13 +250,13 @@ public sealed class ProfileChallengeRoundService
                     $"Medindo {profile.Name}: tentativa {attempt}/{_policy.MaxAttemptsPerSide} · {accepted.Count}/{_policy.RequiredSamplesPerSide} aceita(s).",
                     accepted.Count,
                     _policy.RequiredSamplesPerSide));
-                var sample = await runtime.CaptureBenchmarkAsync(cancellationToken).ConfigureAwait(false);
-                if (!IsAcceptableCapture(sample)) continue;
-                accepted.Add(sample!);
+                var frame = await runtime.CaptureBenchmarkFrameAsync(cancellationToken).ConfigureAwait(false);
+                if (!IsAcceptableCapture(frame)) continue;
+                accepted.Add(frame!);
             }
 
             if (accepted.Count < _policy.RequiredSamplesPerSide)
-                return (false, $"{profile.Name} did not produce {_policy.RequiredSamplesPerSide} acceptable PresentMon windows.", accepted.ToArray());
+                return (false, $"{profile.Name} did not produce {_policy.RequiredSamplesPerSide} acceptable direct typed PresentMon windows.", accepted.ToArray());
             if (FpsCoefficientOfVariation(accepted) > _policy.MaximumFpsCoefficientOfVariation)
                 return (false, $"{profile.Name} benchmark windows were too variable for a controlled A/B round.", accepted.ToArray());
 
@@ -274,32 +272,68 @@ public sealed class ProfileChallengeRoundService
         }
     }
 
-    private bool IsAcceptableCapture(TelemetrySample? sample)
+    private bool IsAcceptableCapture(TelemetryFrame? frame)
     {
-        if (sample is null
-            || sample.Fps is not double fps || !double.IsFinite(fps) || fps <= 0
-            || sample.FrameTimeMs is not double frameTime || !double.IsFinite(frameTime) || frameTime <= 0
-            || string.IsNullOrWhiteSpace(sample.DataQuality))
+        if (frame is null || frame.FrameQuality != TelemetryMetricQuality.Measured)
+            return false;
+        if (!TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameFpsAverage, out var fps)
+            || fps.Value <= 0)
+            return false;
+        if (!TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameTimeAverageMs, out var frameTime)
+            || frameTime.Value <= 0)
+            return false;
+        if (!TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameAcceptedSampleCount, out var acceptedCount)
+            || acceptedCount.Coverage != 1d
+            || acceptedCount.Value < 0
+            || Math.Abs(acceptedCount.Value - Math.Round(acceptedCount.Value)) > 1e-9)
             return false;
 
-        var match = PresentMonFrameCount.Match(sample.DataQuality);
-        return match.Success
-               && int.TryParse(match.Groups["count"].Value, out var frames)
-               && frames >= _policy.MinimumPresentMonFrames;
+        return acceptedCount.Value >= _policy.MinimumPresentMonFrames;
+    }
+
+    private static bool TryGetDirectPresentMonMetric(
+        TelemetryFrame frame,
+        TelemetryMetricDescriptor descriptor,
+        out TelemetryMetricObservation observation)
+    {
+        if (frame.TryGetMetric(descriptor.Id, out var found)
+            && found is not null
+            && found.Quality == TelemetryMetricQuality.Measured
+            && found.Origin == TelemetryMetricOrigin.Direct
+            && string.Equals(found.SourceId, "presentmon", StringComparison.Ordinal)
+            && double.IsFinite(found.Value))
+        {
+            observation = found;
+            return true;
+        }
+
+        observation = null!;
+        return false;
     }
 
     private static PerformanceEvidenceSnapshot CreateEvidence(
         string name,
-        IReadOnlyList<TelemetrySample> samples,
+        IReadOnlyList<TelemetryFrame> samples,
         PerformanceConfigurationSnapshot configuration)
     {
-        var points = samples.Select(sample => new PerformanceTimelinePoint
+        var points = samples.Select(frame =>
         {
-            Timestamp = sample.Timestamp,
-            Fps = sample.Fps,
-            FrameTimeMs = sample.FrameTimeMs,
-            LatencyMs = sample.LatencyMs,
-            DataQuality = "Measured"
+            if (!TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameFpsAverage, out var fps)
+                || !TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameTimeAverageMs, out var frameTime))
+                throw new InvalidOperationException("Accepted typed PresentMon evidence lost required FPS/frame-time measurements before A/B normalization.");
+
+            double? latency = null;
+            if (TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameLatencyAverageMs, out var latencyMetric))
+                latency = latencyMetric.Value;
+
+            return new PerformanceTimelinePoint
+            {
+                Timestamp = frame.Timestamp,
+                Fps = fps.Value,
+                FrameTimeMs = frameTime.Value,
+                LatencyMs = latency,
+                DataQuality = "Measured"
+            };
         }).ToArray();
         var start = points.Min(point => point.Timestamp);
         var end = points.Max(point => point.Timestamp);
@@ -308,9 +342,9 @@ public sealed class ProfileChallengeRoundService
             Start = start,
             End = end,
             TelemetrySamples = points.Length,
-            FpsEvidenceSamples = points.Count(point => point.Fps is double value && double.IsFinite(value)),
-            AverageFps = points.Where(point => point.Fps is double value && double.IsFinite(value)).Average(point => point.Fps!.Value),
-            AverageFrameTimeMs = points.Where(point => point.FrameTimeMs is double value && double.IsFinite(value)).Average(point => point.FrameTimeMs!.Value),
+            FpsEvidenceSamples = points.Length,
+            AverageFps = points.Average(point => point.Fps!.Value),
+            AverageFrameTimeMs = points.Average(point => point.FrameTimeMs!.Value),
             Points = points
         };
         return PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow, configuration);
@@ -344,17 +378,21 @@ public sealed class ProfileChallengeRoundService
             Resolution = profile.Resolution
         };
 
-    private static double FpsCoefficientOfVariation(IReadOnlyList<TelemetrySample> samples)
+    private static double FpsCoefficientOfVariation(IReadOnlyList<TelemetryFrame> samples)
     {
-        var values = samples
-            .Select(sample => sample.Fps)
-            .Where(value => value is double finite && double.IsFinite(finite) && finite > 0)
-            .Select(value => value!.Value)
-            .ToArray();
-        if (values.Length < 2) return double.PositiveInfinity;
+        var values = new List<double>(samples.Count);
+        foreach (var frame in samples)
+        {
+            if (!TryGetDirectPresentMonMetric(frame, TelemetryStandardMetrics.FrameFpsAverage, out var fps)
+                || fps.Value <= 0)
+                return double.PositiveInfinity;
+            values.Add(fps.Value);
+        }
+
+        if (values.Count < 2) return double.PositiveInfinity;
         var mean = values.Average();
         if (mean <= 0) return double.PositiveInfinity;
-        var variance = values.Sum(value => Math.Pow(value - mean, 2)) / values.Length;
+        var variance = values.Sum(value => Math.Pow(value - mean, 2)) / values.Count;
         return Math.Sqrt(variance) / mean;
     }
 

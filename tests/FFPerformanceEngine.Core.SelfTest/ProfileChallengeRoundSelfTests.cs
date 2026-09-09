@@ -1,6 +1,7 @@
 using System.Reflection;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class ProfileChallengeRoundSelfTests
 {
@@ -86,8 +87,8 @@ internal static class ProfileChallengeRoundSelfTests
             await profiles.SaveAsync([incumbent, challenger]);
 
             var fakeRuntime = new FakeRuntime(
-                Samples(100, 10.0, 12.0),
-                Samples(112, 8.9, 9.8));
+                Frames(100, 10.0, 12.0),
+                Frames(112, 8.9, 9.8));
             var factory = new FakeFactory(fakeRuntime);
 
             var serviceType = typeof(ProfileService).Assembly.GetType("FFPerformanceEngine.Core.Services.ProfileChallengeRoundService");
@@ -121,6 +122,8 @@ internal static class ProfileChallengeRoundSelfTests
                 "Automated round must benchmark the exact profile tuning candidate for A and B.");
             Require(fakeRuntime.PreparedGames.SequenceEqual([GameKind.FreeFireMax, GameKind.FreeFireMax]),
                 "Both sides must launch/prepare the same selected Free Fire game.");
+            Require(fakeRuntime.TypedCaptureCalls == 4 && fakeRuntime.LegacyCaptureCalls == 0,
+                "Physical challenge round must use exactly four typed PresentMon windows and never legacy DataQuality authority.");
             Require(fakeRuntime.CompleteCalls == 2 && fakeRuntime.RestoreCalls >= 1,
                 "Every applied side must clean up, and the whole round must finish with an explicit baseline restore.");
 
@@ -151,19 +154,21 @@ internal static class ProfileChallengeRoundSelfTests
             var failureHistory = new HistoryService(Path.Combine(failingRoot, "history.json"));
             await failureProfiles.SaveAsync([incumbent, challenger]);
             var failureRuntime = new FakeRuntime(
-                Samples(100, 10.0, 12.0),
-                [new TelemetrySample { Fps = 112, FrameTimeMs = 8.9, LatencyMs = 9.8, DataQuality = "Partial" }]);
+                Frames(100, 10.0, 12.0),
+                [PartialFrame(112, 8.9, 9.8, 260)]);
             var failureService = constructor.Invoke([failureProfiles, failureHistory, new FakeFactory(failureRuntime)]);
             var failure = await InvokeTaskResultAsync(
                 runAsync!, failureService, challenger.Id, ProfileKind.Recommended, environment, instance, CancellationToken.None);
             Require(failure is not null && !Read<bool>(failure!, "Success"),
-                "A side without two acceptable measured windows must fail closed.");
+                "A side without two acceptable measured typed windows must fail closed.");
+            Require(failureRuntime.LegacyCaptureCalls == 0,
+                "Failed typed measurement must never fall back to legacy DataQuality parsing.");
             Require(failureRuntime.CompleteCalls >= 2 && failureRuntime.RestoreCalls >= 1,
                 "Failed B measurement must still clean the applied side and restore the original BlueStacks baseline.");
             Require((await failureHistory.LoadPerformanceComparisonsAsync()).Count == 0,
                 "A failed automated round must never persist partial A/B evidence.");
 
-            Console.WriteLine("PASS automated physical A/B challenge round, exact configs, measured evidence, no promotion, and rollback-on-failure");
+            Console.WriteLine("PASS automated physical typed A/B challenge round, exact configs, measured evidence, no promotion, and rollback-on-failure");
         }
         finally
         {
@@ -171,12 +176,44 @@ internal static class ProfileChallengeRoundSelfTests
         }
     }
 
-    private static IReadOnlyList<TelemetrySample> Samples(double fps, double frameTime, double latency)
+    private static IReadOnlyList<TelemetryFrame> Frames(double fps, double frameTime, double latency)
         =>
         [
-            new TelemetrySample { Fps = fps - 1, FrameTimeMs = frameTime + 0.1, LatencyMs = latency + 0.1, DataQuality = "PresentMon · 240 frames" },
-            new TelemetrySample { Fps = fps + 1, FrameTimeMs = frameTime - 0.1, LatencyMs = latency - 0.1, DataQuality = "PresentMon · 260 frames" }
+            Frame(fps - 1, frameTime + 0.1, latency + 0.1, 240),
+            Frame(fps + 1, frameTime - 0.1, latency - 0.1, 260)
         ];
+
+    private static TelemetryFrame Frame(double fps, double frameTime, double latency, double acceptedFrames)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps, TelemetryMetricQuality.Measured),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, frameTime, TelemetryMetricQuality.Measured),
+                Direct(TelemetryStandardMetrics.FrameLatencyAverageMs, latency, TelemetryMetricQuality.Measured),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, acceptedFrames, TelemetryMetricQuality.Measured)
+            ]);
+
+    private static TelemetryFrame PartialFrame(double fps, double frameTime, double latency, double acceptedFrames)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps, TelemetryMetricQuality.Partial),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, frameTime, TelemetryMetricQuality.Measured),
+                Direct(TelemetryStandardMetrics.FrameLatencyAverageMs, latency, TelemetryMetricQuality.Measured),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, acceptedFrames, TelemetryMetricQuality.Measured)
+            ]);
+
+    private static TelemetryMetricObservation Direct(
+        TelemetryMetricDescriptor descriptor,
+        double value,
+        TelemetryMetricQuality quality)
+        => new(
+            descriptor,
+            value,
+            quality,
+            1d,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
 
     private static bool CandidateMatches(TuningCandidate candidate, PerformanceProfile profile)
         => candidate.CpuCores == profile.CpuCores
@@ -202,14 +239,16 @@ internal static class ProfileChallengeRoundSelfTests
 
     private sealed class FakeRuntime : IAutoTunerRuntime
     {
-        private readonly Queue<IReadOnlyList<TelemetrySample>> _sideSamples;
-        private Queue<TelemetrySample> _current = new();
+        private readonly Queue<IReadOnlyList<TelemetryFrame>> _sideSamples;
+        private Queue<TelemetryFrame> _current = new();
 
-        public FakeRuntime(params IReadOnlyList<TelemetrySample>[] sides)
-            => _sideSamples = new Queue<IReadOnlyList<TelemetrySample>>(sides);
+        public FakeRuntime(params IReadOnlyList<TelemetryFrame>[] sides)
+            => _sideSamples = new Queue<IReadOnlyList<TelemetryFrame>>(sides);
 
         public List<TuningCandidate> Applied { get; } = new();
         public List<GameKind> PreparedGames { get; } = new();
+        public int TypedCaptureCalls { get; private set; }
+        public int LegacyCaptureCalls { get; private set; }
         public int CompleteCalls { get; private set; }
         public int RestoreCalls { get; private set; }
 
@@ -217,8 +256,8 @@ internal static class ProfileChallengeRoundSelfTests
         {
             Applied.Add(candidate);
             _current = _sideSamples.Count > 0
-                ? new Queue<TelemetrySample>(_sideSamples.Dequeue())
-                : new Queue<TelemetrySample>();
+                ? new Queue<TelemetryFrame>(_sideSamples.Dequeue())
+                : new Queue<TelemetryFrame>();
             return Task.FromResult(AutoTunerRuntimeResult.Ok("fake applied"));
         }
 
@@ -229,7 +268,21 @@ internal static class ProfileChallengeRoundSelfTests
         }
 
         public Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<TelemetrySample?>(_current.Count > 0 ? _current.Dequeue() : null);
+        {
+            LegacyCaptureCalls++;
+            return Task.FromResult<TelemetrySample?>(new TelemetrySample
+            {
+                Fps = 777,
+                FrameTimeMs = 1.2,
+                DataQuality = "PresentMon · 9999 frames"
+            });
+        }
+
+        public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+        {
+            TypedCaptureCalls++;
+            return Task.FromResult<TelemetryFrame?>(_current.Count > 0 ? _current.Dequeue() : null);
+        }
 
         public Task CompleteCandidateAsync(CancellationToken cancellationToken = default)
         {
