@@ -1,120 +1,105 @@
-# Current Handoff — 2026-09-08
+# Current Handoff — 2026-09-09
 
 ## Repository
 
 - Repo: `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`
 - Branch: `build/initial-product`
-- PR: `#1` — open, draft, not merged
-- PR base: `main`
+- PR: `#1` — open/draft to `main`
+- Product direction: DG Performance Engine, evolved from the existing FF Performance Engine without rewrite or mass rename.
 
-## Last verified application-code checkpoint
+## Current exact verified checkpoint
 
-- Application HEAD: `f5265286480662ffcfd3f89fbb03a1cd31a09e59`
-- Commit: `feat: add quality aware telemetry v2 aggregation`
-- Windows CI: **#928 — SUCCESS**
-- CI run id: `34279297336`
+- Application HEAD: `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6`
+- Commit: `feat: migrate Profile Challenge benchmark authority to typed telemetry`
+- Windows CI: **#986 — SUCCESS**
+- CI run id: `34320863316`
 
-The exact #928 job passed native configure, C++ build, native tests, managed/WPF build, Core self-tests, `win-x64` publish, artifact upload and final job completion.
+The exact #986 job passed native configure/build/tests, managed build, all Core self-tests, `win-x64` publish, artifact upload and post-job cleanup.
 
-Repository-native continuity remains in root `AGENTS.md` and `docs/project-memory/`. Current code/tests + fresh exact-commit CI outrank stale documentation.
+Repository-native continuity remains authoritative: current branch code/tests + fresh exact-commit Windows CI outrank stale handoffs or chat reconstruction.
 
 ## Track state
 
-**Track 3 — Game Discovery + Adapter Framework — GREEN.**
+- Track 0 — Foundation Hardening: GREEN
+- Track 1 — Universal Diagnostic Foundation: GREEN
+- Track 2 — System Optimizer / evidence authority: GREEN through current branch
+- Track 3 — Game Discovery + Adapter Framework: GREEN
+- Track 4 — Universal Telemetry / Evidence: ACTIVE, advanced far beyond its first milestone
+- Track 5+ — not started as a formal track; do not skip the remaining Track 4 universal-context boundary.
 
-**Track 4 — Universal Telemetry / Evidence — ACTIVE.**
+## Track 4 verified state
 
-Track 3 exit criteria remain satisfied: stable launcher-native GameIdentity/catalog, generic + specialized adapters, BlueStacks/Steam/Epic/Riot/Battle.net/EA/Ubisoft/Microsoft Store-Xbox discovery, separate identity/evidence planes, deterministic binder, running-process evidence and Windows App Paths KnownExecutable evidence. Additional discovery is optional enrichment and is not a Track 4 blocker.
+The old handoff stopped at `f526528...` / CI #928 and is now superseded. Current code already includes:
 
-`AppServices.InitializeAsync()` still performs no game/package/process/App-Paths discovery. Explicit game/evidence discovery authority remains `AppServices.DiscoverGamesAsync()`.
+- typed metric schema v2 with explicit unit/domain/aggregation/quality/coverage/source/origin;
+- conservative legacy bridge; absence represents unavailable values;
+- unambiguous workload target resolver from Track 3 bound RunningProcess evidence;
+- direct native CPU + physical-memory v2 telemetry;
+- direct PresentMon v2 telemetry;
+- bounded `TelemetryFrame` ring buffer;
+- deterministic quality/coverage-aware aggregation;
+- hierarchical realtime pipeline with exact 1-second and 10-second buckets plus bounded explicit session state;
+- processor-power CPU clock/current/max/limit telemetry;
+- WDDM physical-GPU utilization telemetry with fail-closed parser;
+- typed fail-closed `UniversalBottleneckAnalyzer` v2;
+- typed `UniversalDiagnosticService`;
+- Performance capture/A-B typed metric evidence with History compatibility;
+- Guardian-bound Windows controlled benchmark typed evidence;
+- typed PresentMon accepted-frame count metric `frame.samples.accepted.count`;
+- Auto Tuner benchmark authority migrated to typed telemetry;
+- physical Profile Challenge A/B benchmark authority migrated to typed telemetry.
 
-## Track 4 foundation — GREEN
+## Most recent verified checkpoints
 
-Canonical design and plans:
+- `32e46b71d48ffcdb0550351896c6c46e1a54e42e` — integrated typed diagnostics/benchmark pipeline — Windows CI #983 SUCCESS.
+- `eb6855a38a0a838af9c5f529831f520803750a2f` — `frame.samples.accepted.count` — Windows CI #984 SUCCESS.
+- `1d4cb81c514dd8848754526a6b8c5a51b081a637` — Auto Tuner benchmark authority typed — Windows CI #985 SUCCESS.
+- `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6` — Profile Challenge benchmark authority typed — Windows CI #986 SUCCESS.
 
-- `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
-- `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
-- `docs/superpowers/plans/2026-09-08-telemetry-v2-current-collectors.md`
-- `docs/superpowers/plans/2026-09-08-telemetry-v2-realtime-buffer-aggregation.md`
+## Benchmark-authority audit
 
-### Schema v2
+A temporary verifier branch `ci/track4-remaining-verify` ran the full Core suite plus a repository audit in run `34320920186` and passed.
 
-- RED `86953dca06fd278383d35f5a9202371dfe1a0410` → CI #878 / run `34273684420`.
-- GREEN `4ced969a17b41e4cad56c9e413c626d9cd2326d6` → CI #880 / run `34275125229` SUCCESS.
+Audit result on the migrated tree:
 
-Typed telemetry has stable metric descriptors/ids, domain/unit/aggregation, per-metric quality, coverage, source provenance and origin. Stored numeric observations must be finite; `Unavailable` is represented by absence rather than a fake number. `TelemetryFrame` copies/sorts observations, rejects duplicate metric ids and computes frame summary quality without upgrading individual metrics.
+- zero production references to `PresentMonFrameCount`;
+- active Auto Tuner and Profile Challenge code no longer calls legacy `CaptureBenchmarkAsync`;
+- remaining production `CaptureBenchmarkAsync` methods are compatibility surfaces only;
+- remaining `PresentMon · N frames` strings are legacy output/compatibility disclosure, not typed benchmark authority;
+- legacy History rehydration remains intentionally supported;
+- Observed/PendingValidation/Validated gates remain unchanged.
 
-### Legacy compatibility bridge
-
-- RED `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` → CI #882 / run `34275316122`.
-- GREEN `476df79441e0c8770f23f260a2824908595d461a` → CI #884 / run `34275483157` SUCCESS.
-
-`TelemetryLegacyBridge` maps all 17 current `TelemetrySample` numeric fields explicitly and conservatively. `TelemetrySample` itself remains unchanged. PresentMon text proves only frame-domain values; `System`/`Frame+System` prove only the current native CPU + physical-memory channels; unknown labels and unrelated populated fields stay Partial; null/NaN/infinity are omitted.
-
-### Universal workload target resolver
-
-- RED `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` → CI #886 / run `34275838695`.
-- GREEN `8392892e7ad658928e7b7aca1719df2b64399125` → CI #888 / run `34276000513` SUCCESS.
-
-Only exactly one stable catalog GameId plus exactly one unambiguous bound `RunningProcess` PID/path becomes process-capture eligible. Zero running evidence is unavailable; multiple PIDs or conflicting paths are ambiguous; `KnownExecutable`/App Paths can never supply a live PID. The resolver performs no process enumeration or filesystem probing.
-
-## Current collector migration — GREEN
-
-### Native system telemetry v2
-
-- RED `e3c766e58b6c3c0ef5086c927bacf74745658e68` → CI #894 / run `34276841999`; native remained GREEN and managed failed with 0 warnings only on the missing v2 system contracts.
-- GREEN `b9b1338828aa890380a8d689f8bb53ff737b517d` → CI #896 / run `34277078378` SUCCESS.
-
-`TelemetryService` shares one native snapshot for legacy and v2 projections. `CaptureSystemSample()` remains source-compatible. `CaptureSystemFrame()` publishes only finite CPU utilization + physical-memory used/total values as `Measured / native-system / Direct / coverage 1`. No GPU, thermal, clock, I/O or network data is invented.
-
-### PresentMon direct v2
-
-- RED `053ec156bfa2a260e6a53ec14169b818a646f786` → CI #898 / run `34277312296`; native remained GREEN and managed failed with 0 warnings and only six missing API errors for `ParseCsvFrame` / `CaptureProcessFrameAsync`.
-- GREEN `edfbba0845d60447e6fdd158b75eee6def39a60f` → CI #900 / run `34277780294` SUCCESS.
-
-`ParseCsv()` and `ParseCsvFrame()` use the same internal PresentMon statistics object, preventing formula drift. Legacy FPS, 1% low, 0.1% low, frame-time average/P95/P99, stutter, latency and `DataQuality = "PresentMon · <n> frames"` behavior remain compatible. V2 emits only the eight proven frame/latency metrics, source `presentmon`, origin `Direct`, quality `Measured`, with frame coverage derived from accepted frame rows and latency coverage from accepted latency rows. Missing latency stays absent. One process capture request still invokes PresentMon only once because legacy/v2 share the same CSV-capture routine.
-
-## Realtime storage / 1-second aggregation — GREEN
-
-### Bounded `TelemetryFrame` ring buffer
-
-- RED `24d09a17c60378b65c62314c697a1624d0f4e8f4` → CI #922 / run `34278694616`; native remained GREEN, managed failed with 0 warnings and exactly six errors, all because `TelemetryFrameRingBuffer` did not yet exist.
-- GREEN `dddb6d2a28559115412629637c40187a64dc1e4f` → CI #924 / run `34278856955` SUCCESS.
-
-`TelemetryFrameRingBuffer` is a pure in-memory bounded Core buffer. Capacity is validated, appends are lock-protected, retention eviction is FIFO by insertion sequence, `Count` never exceeds capacity, snapshots are detached arrays sorted by `(Timestamp, insertion sequence)`, equal timestamps are deterministic, time windows use `[startInclusive, endExclusive)`, and concurrent append/read behavior is bounded. `PerformanceTimelineBuffer` is unchanged and remains a separate legacy/event timeline. No disk persistence or timer was added.
-
-### Typed 1-second aggregation
-
-- RED `5ef8ad730d02399b60733a066d87e6ce059c47bc` → CI #926 / run `34279119026`; native remained GREEN, managed failed with 0 warnings and exactly fourteen errors, all because `TelemetryFrameAggregator` did not yet exist.
-- GREEN `f5265286480662ffcfd3f89fbb03a1cd31a09e59` → CI #928 / run `34279297336` SUCCESS.
-
-`TelemetryFrameAggregator` is pure Core logic. It filters windows as `[start,end)`, emits a result timestamped exactly at `end`, returns an empty/Unavailable frame for an empty window, groups by stable metric id and rejects incompatible `Unit`, `Domain` or `Aggregation` semantics before blending. `Gauge`/`Average` use arithmetic mean, `Minimum`/`Maximum`/`Sum` use their declared operations. Missing channels are ignored rather than zero-filled. Aggregate quality is the weakest contributing quality, coverage is the minimum contributing coverage, output origin is always `Derived`, homogeneous source ids are preserved, and mixed source provenance becomes `aggregate-mixed`. Contributor ordering is canonicalized before floating-point arithmetic so input enumeration order cannot change results.
+Temporary verifier workflows/branches are never integration authority and must not be merged into `build/initial-product`.
 
 ## Authority invariants
 
-- legacy `TelemetrySample` remains source-compatible;
-- per-metric typed quality/provenance is authoritative in v2;
-- unavailable values are absent, never zero-filled;
-- finite numbers do not become Measured without accepted provenance;
-- aggregation cannot upgrade quality or completeness;
-- mixed provenance cannot masquerade as one direct source;
-- incompatible descriptor semantics never blend;
-- `GameId` remains durable identity; PID/path remain runtime evidence;
-- only unambiguous bound RunningProcess evidence yields a live PID;
-- App Paths/KnownExecutable never yields a live PID;
-- `Observed != Validated` remains unchanged;
-- Track 2 freshness/fingerprint/ValidatedEvidence/recommendation authority remains unchanged;
-- Global Controlled Benchmark Lease remains unchanged;
-- no startup discovery was added;
-- no raw v2 telemetry persistence to disk has been introduced.
+- `Observed != Validated` remains unchanged.
+- Current exact machine/environment fingerprint and freshness gates remain required.
+- Global Controlled Benchmark Lease semantics remain unchanged.
+- Missing telemetry is Unknown/absent, never implicit headroom or zero.
+- Coverage is completeness, never probability/confidence.
+- `TelemetrySample` remains a compatibility model, not new typed authority.
+- Direct typed benchmark evidence must preserve provenance and fail closed.
+- No startup game/process discovery is added.
+- No raw v2 frame disk persistence is introduced by Track 4 migration.
+- No anti-cheat/integrity bypass.
+
+## Current remaining Track 4 boundary
+
+The canonical Track 4 spec defines an additive universal A/B workload/configuration envelope containing machine fingerprint, Windows state, stable GameId/workload, adapter identity/version, relevant system capability values, game/emulator configuration when known, and material display/driver context.
+
+Current `PerformanceConfigurationSnapshot` is still Free Fire/BlueStacks-specific: it requires `GameKind.FreeFire/FreeFireMax`, BlueStacks instance name/Android version, emulator CPU/RAM, renderer, FPS target, resolution and DPI. It must not be replaced or weakened because existing History/profile freshness authority depends on it.
 
 ## Exact next action
 
-Continue **Track 4** with the next isolated design/TDD boundary:
+Continue Track 4 with an isolated TDD slice for **additive universal A/B configuration/workload context**:
 
-1. add the deterministic **10-second aggregation layer** on top of the already-GREEN generic aggregator, without reimplementing metric math;
-2. define a bounded session aggregate/store contract and retention semantics before any disk persistence;
-3. decide and test the application-level realtime pipeline composition (`collectors → v2 ring buffer → 1s → 10s/session`) without changing legacy UI/A-B consumers yet;
-4. preserve `PerformanceTimelineBuffer` as a separate compatibility/event surface during migration;
-5. only after realtime/session storage is GREEN, add new hardware channels one real provider at a time;
-6. migrate Performance/A-B away from free-form `DataQuality` parsing only in a later isolated RED/GREEN slice, preserving every Track 2 validation/freshness gate.
+1. RED: define a universal context contract that can represent stable non-BlueStacks workloads without fabricating adapter/display/capability data.
+2. Preserve existing `PerformanceConfigurationSnapshot` byte/semantic compatibility and exact Free Fire/BlueStacks equivalence/freshness gates.
+3. Attach the universal context additively to new performance evidence; old History without it must rehydrate safely without being upgraded.
+4. Stable workload identity must come from Track 3 GameId; PID/path remain runtime evidence only.
+5. Unknown adapter/version/display/driver/capability fields remain absent/Unknown, never guessed.
+6. Prove History round-trip and Observed/Pending/Validated authority are unchanged.
+7. Run isolated Core verifier, integrate selectively, then require fresh full Windows CI on the exact official SHA.
+
+After this boundary is GREEN, reassess Track 4 closure versus additional proven hardware channels (VRAM/thermals/I/O/network) one real provider at a time; do not invent sensors merely to satisfy roadmap labels.

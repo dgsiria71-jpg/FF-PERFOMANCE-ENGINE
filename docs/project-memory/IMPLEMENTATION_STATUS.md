@@ -1,209 +1,153 @@
 # DG Performance Engine — Implementation Status Ledger
 
-This is a curated ledger of important verified milestones. Git history remains the complete commit ledger and current code/tests + fresh exact-commit Windows CI are authoritative.
+This ledger records verified engineering milestones. Current branch code/tests + fresh exact-commit Windows CI remain authoritative over older handoffs.
 
-## Baseline application foundation
+## Current verified application checkpoint
 
-The repository contains a functional Windows WPF + C++ product foundation: navigation/UI, BlueStacks discovery/configuration, PresentMon, profiles, Guardian, Auto Tuner, History/snapshots, Mini Mode themes and native interop.
+- Branch: `build/initial-product`
+- HEAD: `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6`
+- Commit: `feat: migrate Profile Challenge benchmark authority to typed telemetry`
+- Windows CI: **#986 — SUCCESS**
+- Run: `34320863316`
+- Full gate: native configure/build/tests, managed build, Core self-tests, win-x64 publish and artifact upload all passed.
 
-## Performance A/B and profile evidence
+## Product foundation
 
-Representative verified milestones:
+The repository contains the working Windows WPF + C++ product foundation: BlueStacks discovery/configuration, PresentMon, profiles, Guardian, Auto Tuner, History/snapshots, Mini Mode/themes and native interop. DG Performance Engine is an evolution of this product, not a rewrite.
 
-- `8062c318...` — real Performance A/B presentation/service transformation.
-- `c259c723c443a819bfae540017d0f76aecbceeef` — aggregates recomputed from frozen points; Windows CI run 268 / `34015937217` SUCCESS.
-- `6e2e6a9667dc04f5a8f654a5cb0696fed6100b4f` — exact configuration/fingerprint attached to evidence and Validated profile origin; CI #316 SUCCESS.
-- `225f2776d8709ebf51ab3e77b91550c4d89003d7` — challenge/freshness/drift block; CI #342 SUCCESS.
-- later hardening added incumbent freshness, challenge progress and physical A/B rounds before DG expansion.
+## Track 0 — Foundation Hardening — GREEN
 
-## Track 0 — Experimental Integrity — GREEN
-
-- `985688276cd7937b74a870d61445fa239ac570ad`
-- Global Controlled Benchmark Lease + Guardian suspension/reconciliation + concurrency hardening.
-- Windows CI #402 SUCCESS.
+- Checkpoint `985688276cd7937b74a870d61445fa239ac570ad`
+- Windows CI #402 SUCCESS
+- Global Controlled Benchmark Lease
+- Guardian suspend/reconcile
+- Auto Tuner/Profile Challenge benchmark exclusivity
+- cancellation/cleanup hardening
 
 ## Track 1 — Universal Diagnostic Foundation — GREEN
 
-- `f1c932b7ce7af8c61c424c3c619b66784917ee22`
-- MachineContext v2, Hardware Discovery, Capability Registry/Graph, fingerprint v2, Universal Bottleneck Analyzer.
-- Windows CI #426 / run `34075848480` SUCCESS.
+- Checkpoint `f1c932b7ce7af8c61c424c3c619b66784917ee22`
+- Windows CI #426 SUCCESS
+- MachineContext v2
+- Hardware Discovery
+- Capability Registry/Graph
+- Environment Fingerprint v2
+- Universal Bottleneck Analyzer foundation
 
 ## Track 2 — System Optimizer / evidence authority — GREEN through current branch
 
-Representative checkpoints:
+Representative verified work includes real Windows power/boost/core-parking adapters, runtime capability discovery, transaction ownership/dependency hardening, Analyze/Preview/Revalidate/Apply/History/Restore, compare-and-set drift protection, persistent backend, global lease protection, capability candidate planner, controlled Windows A/B, PresentMon evidence-quality hardening, Guardian-bound operational probes, capability Cost Map, Experiment Coordinator, repeated evidence evaluation, PendingValidation, explicit fresh validation challenge and durable ValidatedEvidence.
 
-- `b21330602f2eeba1d04336da8df32a3a73daf6fa` — hardened transaction engine, CI #456.
-- `1b6cc31c5c28ae2fe846d2a5862c3ce7c68be83a` — active power policy adapter, CI #462.
-- runtime capability discovery — CI #468.
-- shared AppServices composition — CI #470.
-- `24aae2fa4ba69a1829ec1379f2c436993f55d360` — CPU boost via PowrProf, CI #478.
-- `d91380378d4689197d43519f83ffd44fe8b6c56c` — boost adapter composition, CI #480.
-- Core Parking adapter + AppServices — CI #490/#492.
-- dependency closure availability — CI #496.
-- evidence-gated Persistent PC planner — CI #504.
-- Analyze/Preview/Revalidate/Apply/History/Restore — CI #510.
-- compare-and-set drift protection — CI #520.
-- persistent backend — CI #522.
-- Global lease protection for Apply/Restore — CI #554.
-- shared application benchmark lease — CI #556.
-- WPF Optimize surface — CI #560.
-- atomic recommendation publication — CI #568.
-- Candidate Planner — CI #586.
-- controlled Windows capability A/B — CI #592.
-- PresentMon evidence-quality hardening — CI #598.
-- Guardian-bound operational probe — CI #604.
-- capability Cost Map — CI #612.
-- stale PID/Guardian hardening — CI #616.
-- Experiment Coordinator — CI #622.
-- AppServices experiment stack — CI #624.
-- Evidence Evaluation — CI #630.
-- PendingValidation — CI #636.
-- coordinator cost/evaluation/validation — CI #640.
-- shared evaluator/gate — CI #642.
-- fresh validation challenge → ValidatedEvidence — CI #648.
-- raw ControlledEvidence bypass deliberately RED at CI #658 and then blocked in production.
-- Optimize presentation authority hardened through CI #686; branch later remained GREEN through Track 3 entry.
+Authority preserved by all later tracks:
 
-Track 2 authority remains unchanged by later tracks: `Observed != Validated`, exact machine fingerprint/freshness, durable ValidatedEvidence and existing recommendation gates remain required for automatic persistent recommendations.
+- `Observed != Validated`;
+- exact machine/environment fingerprint and freshness;
+- durable ValidatedEvidence required for automatic persistent recommendation authority;
+- exact rollback / History integrity;
+- Global Controlled Benchmark Lease.
 
 ## Track 3 — Game Discovery + Adapter Framework — GREEN
 
-### Stable identity / adapters
+Implemented and verified:
 
-- `4087f9449347aeca6c3cb2f1d8c41771b25c5910` — BlueStacks installed FF/FFMAX package discovery, CI #718.
-- `f309aeda70b9ae3756eeab08d34313cd1206a440` — neutral Game Adapter framework, CI #722.
-- `1820f99e731ac3b5945a18a67587c825c015f420` — GameDiscoveryCoordinator.
-- `b7bb91164140ef3c6f9e8b5f75b596983662ecad` — AppServices composition, CI #728.
+- stable GameIdentity/catalog;
+- generic + specialized FF/FFMAX adapter framework;
+- BlueStacks installed package discovery;
+- Steam, Epic, Riot, Battle.net, EA App, Ubisoft Connect and Microsoft Store/Xbox GDK discovery;
+- separate durable identity and transient evidence planes;
+- deterministic evidence binder;
+- Windows RunningProcess evidence;
+- Windows App Paths KnownExecutable evidence;
+- exact workload target resolver consumes only unambiguous bound RunningProcess evidence.
 
-### Launcher/package sources
+Stable identity comes only from launcher/source-native keys. PID/path/executable observations remain evidence and never manufacture GameId.
 
-- Steam — RED #730; production + fixture hardening GREEN #738; AppServices #740.
-- Epic — RED `cfcaccb1...` #742; production `12e9dda5...` #744; composition #746.
-- Riot — RED `ca8b90c4...` #748; production `ea15de4b...` #750; composition `23cafd31...` #752.
-- Battle.net — RED `a1529cf4...` #754; `product.db` source `7bd3e2a2...` #756; composition `1a362277...` #758.
-- EA App — RED `3fc67a81...` #793; `installerdata.xml` source `6d4278e9...` #796; composition `4f35c66e...` #798.
-- Ubisoft Connect — RED `25efac79...` #801; registry source `956667cd...` #803; composition `8603a2ba...` #805.
-- Microsoft Store / Xbox GDK — RED `3aee884c...` #810; Core PFN/GDK source + safety fixes #812/#814; Windows provider #818; composition `de38db04...` #820.
+## Track 4 — Universal Telemetry / Evidence — ACTIVE, advanced
 
-Stable identity comes only from source-native keys. Display names, executable names, install folders and runtime paths are never cross-launcher identity authorities.
-
-### Identity/evidence two-plane architecture
-
-- Evidence contracts/catalog RED `4a7dd620...` #832 → GREEN `3b836e13...` #836.
-- Deterministic evidence binder RED `7bef375c...` #838 → GREEN `b564d3a3...` #840.
-- Two-plane coordinator RED `3570b94d...` #842 → GREEN `11ae5104...` #844.
-- Running-process evidence RED `a92e045c...` #846 → Core GREEN `94a47907...` #848 → Windows provider GREEN `bf1a35a8...` #852 → composition `1f99581d...` #854.
-- Windows App Paths KnownExecutable evidence RED `5e51412d...` #858 → Core GREEN `d420ef16...` #860 → provider `4039f044...` #862 → composition `6832557b...` #864.
-
-Evidence cannot create durable identity. Runtime PID/path and App Paths registration remain evidence. `AppServices.InitializeAsync()` still performs no game/process/App-Paths discovery; explicit authority remains `DiscoverGamesAsync()`.
-
-Track 3 original exit criteria are satisfied. Additional discovery sources are optional enrichment, not a blocker for Track 4.
-
-## Track 4 — Universal Telemetry / Evidence — ACTIVE
-
-Canonical docs:
+Canonical design:
 
 - `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`
-- `docs/superpowers/plans/2026-09-08-universal-telemetry-foundation.md`
-- `docs/superpowers/plans/2026-09-08-telemetry-v2-current-collectors.md`
-- `docs/superpowers/plans/2026-09-08-telemetry-v2-realtime-buffer-aggregation.md`
 
-### Metric schema v2 + immutable frame
+### Schema / compatibility / workload — GREEN
 
-- RED `86953dca06fd278383d35f5a9202371dfe1a0410` — CI #878 / run `34273684420`; native GREEN, managed failed only on missing telemetry-v2 contracts.
-- GREEN `4ced969a17b41e4cad56c9e413c626d9cd2326d6` — CI #880 / run `34275125229` SUCCESS.
+- typed metric schema v2 with stable descriptors;
+- explicit domain/unit/aggregation;
+- per-metric quality/coverage/source/origin;
+- immutable deterministic `TelemetryFrame`;
+- conservative `TelemetrySample -> TelemetryFrame` bridge;
+- unavailable values represented by absence, never fake zero;
+- universal workload-target resolver from Track 3 bound evidence;
+- KnownExecutable/App Paths cannot claim a live PID.
 
-Implemented:
-- 17 stable standard metric descriptors;
-- typed domain/unit/aggregation;
-- per-metric `Partial` / `Measured` quality;
-- `[0,1]` coverage;
-- normalized source provenance;
-- `Direct` / `Derived` / `Legacy` origin;
-- finite numeric enforcement;
-- absence instead of fake `Unavailable` numeric values;
-- immutable/deterministic `TelemetryFrame` with duplicate rejection and typed lookup.
+### Direct collectors — GREEN
 
-### Conservative legacy bridge
+- native CPU utilization + physical memory direct v2;
+- PresentMon direct v2 with explicit accepted-row coverage;
+- typed exact accepted-frame count metric `frame.samples.accepted.count`;
+- processor-power current/max/limit MHz telemetry using documented Windows power information;
+- WDDM physical-GPU utilization with fail-closed PDH instance parsing.
 
-- RED `9a48b5c7719d4f131819fb0e7b0aecb0add37be9` — CI #882 / run `34275316122`.
-- GREEN `476df79441e0c8770f23f260a2824908595d461a` — CI #884 / run `34275483157` SUCCESS.
+No unsupported GPU/thermal/VRAM/I/O/network value is fabricated.
 
-All 17 legacy nullable numeric fields are mapped explicitly. PresentMon labels prove only Frame-domain metrics; `System` / `Frame+System` prove only CPU + physical memory; unrelated or unknown-label values remain Partial. Null/NaN/infinity emit no observation. `TelemetrySample` remains unchanged.
+### Realtime storage / aggregation — GREEN
 
-### Universal workload target resolver
+- bounded thread-safe `TelemetryFrameRingBuffer`;
+- deterministic half-open windows;
+- quality/coverage-aware generic aggregation;
+- exact 1-second aggregation;
+- hierarchical 10-second aggregation;
+- bounded explicit session aggregate state;
+- realtime pipeline composition;
+- no raw v2 frame disk persistence.
 
-- RED `27271db72d5d7a99ad5b9b35ac203fd89ef4a6cd` — CI #886 / run `34275838695`.
-- GREEN `8392892e7ad658928e7b7aca1719df2b64399125` — CI #888 / run `34276000513` SUCCESS.
+### Typed consumers / evidence authority — GREEN
 
-Only exactly one stable catalog identity and one unambiguous bound RunningProcess PID/path becomes process-capture eligible. Zero running evidence stays unavailable; multiple PIDs/conflicting paths remain ambiguous; KnownExecutable/App Paths never yields a live PID. Resolver is pure Core logic with no process/file probing.
+- typed fail-closed UniversalBottleneckAnalyzer v2;
+- typed UniversalDiagnosticService;
+- Performance capture/A-B typed metric evidence with legacy History fallback;
+- typed A/B evidence persistence preserves `Observed/PendingValidation/Validated`;
+- Guardian-bound Windows controlled benchmark typed evidence;
+- Auto Tuner typed PresentMon benchmark authority;
+- physical Profile Challenge typed PresentMon benchmark authority.
 
-### Native system collector v2
+Recent exact checkpoints:
 
-- RED `e3c766e58b6c3c0ef5086c927bacf74745658e68` — CI #894 / run `34276841999`; 0 warnings, failures only on missing system-v2 contracts.
-- GREEN `b9b1338828aa890380a8d689f8bb53ff737b517d` — CI #896 / run `34277078378` SUCCESS.
+- `32e46b71d48ffcdb0550351896c6c46e1a54e42e` — integrated typed diagnostics/benchmark pipeline — Windows CI #983 SUCCESS
+- `eb6855a38a0a838af9c5f529831f520803750a2f` — exact accepted-frame count — Windows CI #984 SUCCESS
+- `1d4cb81c514dd8848754526a6b8c5a51b081a637` — Auto Tuner typed authority — Windows CI #985 SUCCESS
+- `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6` — Profile Challenge typed authority — Windows CI #986 SUCCESS
 
-`TelemetryService` shares one internal native snapshot between legacy and v2 outputs. `CaptureSystemFrame()` emits only finite CPU utilization and physical memory used/total as `Measured / native-system / Direct / coverage 1`. Legacy `CaptureSystemSample()` remains callable and compatible. No GPU/thermal/clock/I/O/network value is invented.
+### Legacy benchmark-authority audit — GREEN
 
-### PresentMon direct v2
+Temporary verifier run `34320920186` passed the complete Core self-test suite plus repository audit.
 
-- RED `053ec156bfa2a260e6a53ec14169b818a646f786` — CI #898 / run `34277312296`; native GREEN, 0 warnings and exactly six missing-method errors for the new v2 APIs.
-- GREEN `edfbba0845d60447e6fdd158b75eee6def39a60f` — CI #900 / run `34277780294` SUCCESS.
+Findings:
 
-`PresentMonService.ParseCsv()` and `ParseCsvFrame()` share one internal statistics object, so legacy and v2 FPS/lows/frame-time percentiles/stutter/latency formulas cannot drift. Legacy `DataQuality = "PresentMon · <accepted frames> frames"` remains unchanged. V2 emits only proven frame/latency metrics as `Measured / presentmon / Direct`; frame coverage uses accepted frame rows / data rows and latency coverage uses accepted latency rows / data rows. Missing latency remains absent. `CaptureProcessAsync()` and `CaptureProcessFrameAsync()` share the same one-shot CSV capture path.
+- zero production `PresentMonFrameCount` references;
+- Auto Tuner and Profile Challenge active code no longer call legacy `CaptureBenchmarkAsync`;
+- remaining production `CaptureBenchmarkAsync` members are compatibility surfaces only;
+- `PresentMon · N frames` remains only legacy output/compatibility disclosure and tests, not typed benchmark authority;
+- old History rehydration remains supported;
+- no validation/freshness gate was weakened.
 
-### Bounded realtime `TelemetryFrame` ring buffer
+## Current Track 4 gap
 
-- RED `24d09a17c60378b65c62314c697a1624d0f4e8f4` — CI #922 / run `34278694616`; native GREEN, managed failed with 0 warnings and exactly six missing-type errors for `TelemetryFrameRingBuffer`.
-- GREEN `dddb6d2a28559115412629637c40187a64dc1e4f` — CI #924 / run `34278856955` SUCCESS.
+`PerformanceConfigurationSnapshot` and `PerformanceEnvironmentFingerprint` remain intentionally Free Fire/BlueStacks-specific. They encode BlueStacks instance/Android identity, emulator CPU/RAM, renderer, FPS target, resolution and DPI and are deeply bound to historical profile/freshness validation.
 
-Implemented:
-- validated positive capacity;
-- lock-protected concurrent append/read;
-- insertion-order FIFO eviction when saturated;
-- monotonic insertion sequence as equal-timestamp tie-breaker;
-- detached array snapshots ordered by `(Timestamp, Sequence)`;
-- half-open `[startInclusive, endExclusive)` window snapshots;
-- clear/null/range validation;
-- no disk persistence or timer dependency;
-- legacy `PerformanceTimelineBuffer` unchanged and separate.
+The canonical Track 4 end state additionally requires an **additive universal A/B configuration/workload context** that can represent stable non-BlueStacks workloads without guessing unavailable facts.
 
-### Quality/coverage-aware 1-second aggregation
+Required invariants for the next slice:
 
-- RED `5ef8ad730d02399b60733a066d87e6ce059c47bc` — CI #926 / run `34279119026`; native GREEN, managed failed with 0 warnings and exactly fourteen errors, all from missing `TelemetryFrameAggregator`.
-- GREEN `f5265286480662ffcfd3f89fbb03a1cd31a09e59` — CI #928 / run `34279297336` SUCCESS.
+1. existing BlueStacks snapshot semantics remain intact;
+2. stable workload identity comes from Track 3 GameId;
+3. PID/path remain runtime evidence only;
+4. adapter/version/display/driver/capability fields are optional unless directly proven;
+5. old History without universal context rehydrates safely and is not upgraded;
+6. new evidence may carry universal context additively;
+7. `Observed/PendingValidation/Validated` authority remains unchanged.
 
-Implemented:
-- pure Core aggregation over `[startInclusive, endExclusive)`;
-- result timestamp exactly equals the exclusive end;
-- empty windows produce an empty `TelemetryFrame` with `FrameQuality=Unavailable`;
-- grouping by stable metric id;
-- incompatible `Unit`, `Domain` or `Aggregation` for the same id throws rather than blending;
-- `Gauge` / `Average` → arithmetic mean;
-- `Minimum` → minimum;
-- `Maximum` → maximum;
-- `Sum` → sum;
-- absent metric observations are ignored rather than interpreted as zero;
-- aggregate quality is the weakest contributor;
-- aggregate coverage is the minimum contributor coverage;
-- aggregate origin is always `Derived`;
-- one homogeneous source id is preserved; multiple source ids become `aggregate-mixed`;
-- contributor ordering is canonicalized before floating-point arithmetic so input enumeration order cannot alter the result;
-- `AggregateOneSecond` is exactly `[start, start + 1s)`.
+## Exact next action
 
-### Current verified application head
+TDD slice: **Universal A/B Configuration / Workload Context**.
 
-```text
-f5265286480662ffcfd3f89fbb03a1cd31a09e59
-Windows CI #928 / run 34279297336 — SUCCESS
-```
-
-### Next Track 4 boundary
-
-Continue with a separate TDD slice for:
-
-1. 10-second aggregation windows reusing the already-GREEN generic aggregator rather than duplicating metric math;
-2. bounded session aggregate/store semantics and retention policy, still without raw-frame disk persistence;
-3. explicit application-level realtime pipeline composition (`collectors → v2 ring buffer → 1s → 10s/session`) while legacy UI/A-B consumers stay untouched;
-4. only then add real hardware channels one provider at a time;
-5. Performance/A-B typed-quality migration remains later and must preserve every Track 2 freshness/fingerprint/ValidatedEvidence gate.
+RED first, verify the intended failure, implement the minimum additive contract, run a clean Core verifier, integrate selectively into `build/initial-product`, and require a fresh full Windows CI on the exact official SHA before calling GREEN.
