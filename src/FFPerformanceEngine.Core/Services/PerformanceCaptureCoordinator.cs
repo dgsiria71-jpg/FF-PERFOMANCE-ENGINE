@@ -19,6 +19,14 @@ public sealed record PerformanceTypedCaptureResult
     public bool Captured => Frame is not null;
 }
 
+public sealed record PerformanceWorkloadTypedCaptureResult
+{
+    public required TelemetryWorkloadTarget Target { get; init; }
+    public TelemetryFrame? Frame { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public bool Captured => Frame is not null;
+}
+
 public sealed class PerformanceCaptureCoordinator
 {
     private readonly Func<int, TimeSpan, CancellationToken, Task<TelemetrySample?>> _capture;
@@ -96,6 +104,46 @@ public sealed class PerformanceCaptureCoordinator
             Message = frame is null
                 ? $"Typed frame telemetry is unavailable for BlueStacks PID {processId}."
                 : $"Measured typed telemetry for BlueStacks PID {processId}, instance {target.InstanceName}."
+        };
+    }
+
+    public async Task<PerformanceWorkloadTypedCaptureResult> CaptureWorkloadTypedAsync(
+        TelemetryWorkloadTarget target,
+        TimeSpan duration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
+
+        if (!target.CanCaptureProcess || target.ProcessId is not int processId)
+        {
+            return new PerformanceWorkloadTypedCaptureResult
+            {
+                Target = target,
+                Message = string.IsNullOrWhiteSpace(target.GameId)
+                    ? "Typed workload performance telemetry requires an explicitly selected stable workload with one exact running process."
+                    : $"Typed workload performance telemetry is unavailable for {target.GameId}; one exact bound running process is required."
+            };
+        }
+
+        if (_typedCapture is null)
+        {
+            return new PerformanceWorkloadTypedCaptureResult
+            {
+                Target = target,
+                Message = "Typed performance telemetry provider is unavailable; legacy data is not promoted."
+            };
+        }
+
+        var frame = await _typedCapture(processId, duration, cancellationToken).ConfigureAwait(false);
+        if (frame is not null) _timeline?.AppendTelemetry(frame);
+        return new PerformanceWorkloadTypedCaptureResult
+        {
+            Target = target,
+            Frame = frame,
+            Message = frame is null
+                ? $"Typed frame telemetry is unavailable for workload {target.GameId}, PID {processId}."
+                : $"Measured typed telemetry for workload {target.GameId}, PID {processId}."
         };
     }
 }

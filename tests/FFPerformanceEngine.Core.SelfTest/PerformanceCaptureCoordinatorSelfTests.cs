@@ -112,6 +112,8 @@ internal static class PerformanceCaptureCoordinatorSelfTests
                 && noTypedProvider.Message.Contains("typed", StringComparison.OrdinalIgnoreCase),
             "A coordinator without a typed provider must fail closed instead of adapting legacy telemetry back into a TelemetryFrame.");
 
+        await PerformanceUniversalCaptureCoordinatorSelfTests.RunAsync();
+
         Console.WriteLine("PASS Performance exact-PID legacy+typed capture coordinator and no-bridge timeline integration");
     }
 

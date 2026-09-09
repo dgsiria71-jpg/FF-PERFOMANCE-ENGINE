@@ -52,11 +52,35 @@ public static class PerformancePresentation
         var frame = result.Frame;
         var target = result.Target;
 
-        return new PerformanceCapturePresentation
+        return TypedFramePresentation(
+            frame,
+            string.IsNullOrWhiteSpace(target.InstanceName) ? "—" : target.InstanceName,
+            ProcessId(target),
+            result.Message);
+    }
+
+    public static PerformanceCapturePresentation FromCapture(PerformanceWorkloadTypedCaptureResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var target = result.Target;
+
+        return TypedFramePresentation(
+            result.Frame,
+            "—",
+            ProcessId(target),
+            result.Message);
+    }
+
+    private static PerformanceCapturePresentation TypedFramePresentation(
+        TelemetryFrame? frame,
+        string instance,
+        string processId,
+        string detail)
+        => new()
         {
             HasMeasurement = frame is not null,
-            Instance = string.IsNullOrWhiteSpace(target.InstanceName) ? "—" : target.InstanceName,
-            ProcessId = ProcessId(target),
+            Instance = instance,
+            ProcessId = processId,
             Fps = Metric(frame, TelemetryStandardMetrics.FrameFpsAverage, "0.0", " FPS"),
             OnePercentLow = Metric(frame, TelemetryStandardMetrics.FrameFpsLow1, "0.0", " FPS"),
             PointOnePercentLow = Metric(frame, TelemetryStandardMetrics.FrameFpsLow01, "0.0", " FPS"),
@@ -66,11 +90,15 @@ public static class PerformancePresentation
             Stutter = Metric(frame, TelemetryStandardMetrics.FrameStutterPercent, "0.00", "%"),
             Latency = Metric(frame, TelemetryStandardMetrics.FrameLatencyAverageMs, "0.0", " ms"),
             DataQuality = frame is null ? "—" : frame.FrameQuality.ToString(),
-            Detail = result.Message
+            Detail = detail
         };
-    }
 
     private static string ProcessId(PerformanceCaptureTarget target)
+        => target.ProcessId is int processId && processId > 0
+            ? processId.ToString(CultureInfo.InvariantCulture)
+            : "—";
+
+    private static string ProcessId(TelemetryWorkloadTarget target)
         => target.ProcessId is int processId && processId > 0
             ? processId.ToString(CultureInfo.InvariantCulture)
             : "—";
