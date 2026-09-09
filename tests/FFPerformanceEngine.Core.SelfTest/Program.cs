@@ -99,6 +99,7 @@ try
     }
 
     await AutoTunerSessionPersistenceSelfTests.RunAsync();
+    await AutoTunerTypedValidationSelfTests.RunAsync();
     await OptimizeWorkflowSelfTests.RunAsync();
     await GuardianSupervisorSelfTests.RunAsync();
     await GuardianLiveSessionSelfTests.RunAsync();

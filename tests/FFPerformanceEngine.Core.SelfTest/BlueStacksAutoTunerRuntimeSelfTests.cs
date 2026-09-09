@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class BlueStacksAutoTunerRuntimeSelfTests
 {
@@ -22,13 +23,14 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
     {
         var instance = BaselineInstance();
         var platform = new FakePlatform();
-        var runtime = new BlueStacksAutoTunerRuntime(instance, platform, new AutoTunerRuntimeOptions
+        var concreteRuntime = new BlueStacksAutoTunerRuntime(instance, platform, new AutoTunerRuntimeOptions
         {
             StartupSettleDelay = TimeSpan.Zero,
             ForegroundTimeout = TimeSpan.FromSeconds(1),
             BenchmarkDuration = TimeSpan.FromSeconds(2),
             ProcessStopTimeout = TimeSpan.FromSeconds(1)
         });
+        IAutoTunerRuntime runtime = concreteRuntime;
         var candidate = new TuningCandidate
         {
             CpuCores = 6,
@@ -52,9 +54,14 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
         Require(platform.Events.Contains("start:Pie64"), "Runtime must start the selected instance itself when no player is running.");
         Require(platform.Events.Contains("prepare:Pie64:FreeFireMax"), "Runtime must prepare the requested game on the selected instance.");
 
-        var sample = await runtime.CaptureBenchmarkAsync();
-        Require(sample?.Fps == 120, "Runtime must return the real benchmark sample supplied by the telemetry platform.");
-        Require(platform.Events.Contains("capture:4242:2"), "Benchmark telemetry must target the exact BlueStacks PID owned by the tuning session, never an arbitrary HD-Player process.");
+        var frame = await runtime.CaptureBenchmarkFrameAsync();
+        Require(frame is not null
+                && frame.TryGetMetric(TelemetryStandardMetrics.FrameFpsAverage.Id, out var fps)
+                && fps is not null
+                && fps.Value == 120,
+            "Runtime must return the direct typed PresentMon frame supplied by the telemetry platform.");
+        Require(platform.Events.Contains("capture-frame:4242:2"), "Typed benchmark telemetry must target the exact BlueStacks PID owned by the tuning session, never an arbitrary HD-Player process.");
+        Require(!platform.Events.Any(x => x.StartsWith("capture-legacy:", StringComparison.Ordinal)), "Typed Auto Tuner benchmark capture must not route through legacy TelemetrySample authority.");
 
         await runtime.CompleteCandidateAsync();
         Require(platform.Events.Contains("stop:4242"), "Only the player PID started by the runtime may be stopped automatically.");
@@ -113,6 +120,27 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
         AdbEnabled = true
     };
 
+    private static TelemetryFrame Frame(double fps)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps),
+                Direct(TelemetryStandardMetrics.FrameFpsLow1, fps * 0.90),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, 1000d / fps),
+                Direct(TelemetryStandardMetrics.FrameTimeP95Ms, 9.1),
+                Direct(TelemetryStandardMetrics.FrameStutterPercent, 0.6),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, 1200d)
+            ]);
+
+    private static TelemetryMetricObservation Direct(TelemetryMetricDescriptor descriptor, double value)
+        => new(
+            descriptor,
+            value,
+            TelemetryMetricQuality.Measured,
+            1d,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
+
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
@@ -167,16 +195,18 @@ internal static class BlueStacksAutoTunerRuntimeSelfTests
 
         public Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
         {
-            Events.Add($"capture:{processId}:{duration.TotalSeconds:0}");
+            Events.Add($"capture-legacy:{processId}:{duration.TotalSeconds:0}");
             return Task.FromResult<TelemetrySample?>(new TelemetrySample
             {
-                Fps = 120,
-                OnePercentLow = 108,
-                FrameTimeMs = 8.33,
-                FrameTimeP95Ms = 9.1,
-                StutterPercent = 0.6,
-                DataQuality = "PresentMon test"
+                Fps = 777,
+                DataQuality = "PresentMon · 9999 frames"
             });
+        }
+
+        public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
+        {
+            Events.Add($"capture-frame:{processId}:{duration.TotalSeconds:0}");
+            return Task.FromResult<TelemetryFrame?>(Frame(120));
         }
 
         public Task<OwnedProcessStopResult> StopOwnedPlayerAsync(int processId, string expectedExecutablePath, TimeSpan timeout, CancellationToken cancellationToken = default)

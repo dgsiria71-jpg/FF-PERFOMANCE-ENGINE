@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -139,6 +140,7 @@ public interface IBlueStacksAutoTunerPlatform
         TimeSpan foregroundTimeout,
         CancellationToken cancellationToken = default);
     Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default);
+    Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default);
     Task<OwnedProcessStopResult> StopOwnedPlayerAsync(
         int processId,
         string expectedExecutablePath,
@@ -201,6 +203,9 @@ public sealed class BlueStacksAutoTunerPlatform : IBlueStacksAutoTunerPlatform
 
     public Task<TelemetrySample?> CaptureBenchmarkAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
         => _presentMon.CaptureProcessAsync(processId, duration, cancellationToken);
+
+    public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(int processId, TimeSpan duration, CancellationToken cancellationToken = default)
+        => _presentMon.CaptureProcessFrameAsync(processId, duration, cancellationToken);
 
     public Task<OwnedProcessStopResult> StopOwnedPlayerAsync(
         int processId,
@@ -311,6 +316,12 @@ public sealed class BlueStacksAutoTunerRuntime : IAutoTunerRuntime
     {
         if (!_candidateActive || _ownedProcessId is null) return Task.FromResult<TelemetrySample?>(null);
         return _platform.CaptureBenchmarkAsync(_ownedProcessId.Value, _options.BenchmarkDuration, cancellationToken);
+    }
+
+    public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_candidateActive || _ownedProcessId is null) return Task.FromResult<TelemetryFrame?>(null);
+        return _platform.CaptureBenchmarkFrameAsync(_ownedProcessId.Value, _options.BenchmarkDuration, cancellationToken);
     }
 
     public async Task CompleteCandidateAsync(CancellationToken cancellationToken = default)
