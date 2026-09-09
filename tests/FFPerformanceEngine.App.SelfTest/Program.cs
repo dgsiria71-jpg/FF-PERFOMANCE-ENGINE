@@ -11,6 +11,12 @@ var initialTarget = services.ResolveSelectedPerformanceCaptureTarget();
 Require(initialTarget.BindingQuality == TelemetryWorkloadBindingQuality.UnknownGame
         && !initialTarget.CanCaptureProcess,
     "AppServices must expose an unavailable universal capture target until a stable workload is explicitly selected.");
+var initialRoute = services.ResolvePerformanceCaptureRoute();
+Require(!initialRoute.UsesSelectedWorkload
+        && initialRoute.SelectedGameId is null
+        && initialRoute.WorkloadTarget is null
+        && !initialRoute.CanCapture,
+    "Without explicit universal selection, Performance routing must remain on the legacy Guardian path and fail closed when Guardian has no exact binding.");
 var initialCapture = await services.CaptureSelectedPerformanceTelemetryAsync(TimeSpan.FromMilliseconds(1));
 Require(!initialCapture.Captured
         && initialCapture.Frame is null
@@ -37,24 +43,7 @@ var catalog = new ResolvedGameCatalogResult
     ],
     BoundEvidence =
     [
-        new BoundGameEvidence
-        {
-            GameId = "steam:730",
-            BindingReason = GameEvidenceBindingReason.ExactGameIdHint,
-            SourceId = "running-process",
-            Priority = 40,
-            Observation = new GameEvidenceObservation
-            {
-                ObservationId = "running-process:steam:730:7730",
-                Kind = GameEvidenceKind.RunningProcess,
-                Confidence = 1,
-                ObservedAtUtc = new DateTimeOffset(2026, 9, 9, 17, 30, 0, TimeSpan.Zero),
-                GameIdHint = "steam:730",
-                ProcessId = 7730,
-                ExecutablePath = executablePath,
-                EvidenceText = "app universal capture fixture"
-            }
-        }
+        Bound("steam:730", GameEvidenceKind.RunningProcess, 7730, executablePath)
     ]
 };
 
@@ -69,6 +58,15 @@ Require(exactTarget.BindingQuality == TelemetryWorkloadBindingQuality.ExactRunni
         && string.Equals(exactTarget.ExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase)
         && exactTarget.CanCaptureProcess,
     "AppServices must resolve the selected workload to exactly the bound RunningProcess evidence without consulting Guardian state.");
+var exactRoute = services.ResolvePerformanceCaptureRoute();
+Require(exactRoute.UsesSelectedWorkload
+        && exactRoute.SelectedGameId == "steam:730"
+        && ReferenceEquals(exactRoute.WorkloadTarget, exactTarget) == false
+        && exactRoute.WorkloadTarget?.BindingQuality == TelemetryWorkloadBindingQuality.ExactRunningProcess
+        && exactRoute.WorkloadTarget.ProcessId == 7730
+        && exactRoute.GuardianTarget is null
+        && exactRoute.CanCapture,
+    "An explicit stable workload with one exact RunningProcess must take routing authority over Guardian and expose only its exact universal target.");
 
 var timestamp = new DateTimeOffset(2026, 9, 9, 17, 0, 0, TimeSpan.Zero);
 var baseline = services.PerformanceComparison.SetBaseline(
@@ -80,6 +78,30 @@ Require(baseline.UniversalContext is not null
         && !string.IsNullOrWhiteSpace(baseline.UniversalContext.Machine.Id),
     "Normal AppServices PerformanceComparison captures must consume the explicit universal workload provider.");
 
+var knownOnlyCatalog = new ResolvedGameCatalogResult
+{
+    Games = catalog.Games,
+    BoundEvidence =
+    [
+        Bound("steam:730", GameEvidenceKind.KnownExecutable, null, executablePath)
+    ]
+};
+Require(services.SelectPerformanceWorkloadContext(knownOnlyCatalog, "steam:730"),
+    "A stable workload remains selectable even when its runtime process evidence is unavailable.");
+var blockedRoute = services.ResolvePerformanceCaptureRoute();
+Require(blockedRoute.UsesSelectedWorkload
+        && blockedRoute.SelectedGameId == "steam:730"
+        && blockedRoute.WorkloadTarget?.BindingQuality == TelemetryWorkloadBindingQuality.UnavailableRunningProcess
+        && blockedRoute.GuardianTarget is null
+        && !blockedRoute.CanCapture,
+    "An explicitly selected workload with only KnownExecutable evidence must remain authoritative but blocked; routing must not silently fall back to Guardian.");
+var blockedPresentation = await services.CaptureCurrentPerformanceTelemetryAsync(TimeSpan.FromMilliseconds(1));
+Require(!blockedPresentation.HasMeasurement
+        && blockedPresentation.Instance == "—"
+        && blockedPresentation.ProcessId == "—"
+        && blockedPresentation.Detail.Contains("steam:730", StringComparison.Ordinal),
+    "Blocked selected-workload capture must fail closed before PresentMon and disclose the selected stable GameId without inventing a PID or BlueStacks instance.");
+
 services.ClearPerformanceWorkloadContext();
 Require(services.PerformanceWorkloadContext.SelectedGameId is null,
     "Explicit application clear must remove the selected workload state.");
@@ -88,6 +110,11 @@ Require(clearedTarget.BindingQuality == TelemetryWorkloadBindingQuality.UnknownG
         && clearedTarget.ProcessId is null
         && !clearedTarget.CanCaptureProcess,
     "Clearing the selected workload must remove stale runtime PID/path evidence from the application capture authority.");
+var clearedRoute = services.ResolvePerformanceCaptureRoute();
+Require(!clearedRoute.UsesSelectedWorkload
+        && clearedRoute.SelectedGameId is null
+        && clearedRoute.WorkloadTarget is null,
+    "Clearing universal selection must restore the legacy Guardian route instead of preserving universal routing state.");
 var afterClear = services.PerformanceComparison.SetCandidate(
     "B · app no universal",
     Interval(timestamp.AddSeconds(1)));
@@ -103,8 +130,32 @@ Require(!rejectedCapture.Captured
         && rejectedCapture.Target.BindingQuality == TelemetryWorkloadBindingQuality.UnknownGame,
     "A rejected workload selection must never fall through to an unrelated Guardian/BlueStacks capture target.");
 
-Console.WriteLine("PASS Track 4 AppServices explicit workload context and universal capture composition are on-demand, stable-identity bound and fail-closed");
+Console.WriteLine("PASS Track 4 AppServices explicit workload context, capture routing and universal targeting are on-demand, stable-identity bound and fail-closed");
 return 0;
+
+static BoundGameEvidence Bound(
+    string gameId,
+    GameEvidenceKind kind,
+    int? processId,
+    string? executablePath)
+    => new()
+    {
+        GameId = gameId,
+        BindingReason = GameEvidenceBindingReason.ExactGameIdHint,
+        SourceId = kind == GameEvidenceKind.RunningProcess ? "running-process" : "app-paths",
+        Priority = kind == GameEvidenceKind.RunningProcess ? 40 : 30,
+        Observation = new GameEvidenceObservation
+        {
+            ObservationId = $"{kind}:{gameId}:{processId}",
+            Kind = kind,
+            Confidence = 1,
+            ObservedAtUtc = new DateTimeOffset(2026, 9, 9, 17, 30, 0, TimeSpan.Zero),
+            GameIdHint = gameId,
+            ProcessId = processId,
+            ExecutablePath = executablePath,
+            EvidenceText = "app universal capture fixture"
+        }
+    };
 
 static PerformanceIntervalSummary Interval(DateTimeOffset timestamp)
 {
