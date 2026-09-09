@@ -30,6 +30,7 @@ public sealed class AppServices : IAsyncDisposable
     public GuardianKnowledgeService GuardianKnowledge { get; } = new();
     public PerformanceTimelineBuffer PerformanceTimeline { get; } = new(capacity: 3600);
     public PerformanceComparisonSession PerformanceComparison { get; }
+    public PerformanceWorkloadContextSelection PerformanceWorkloadContext { get; } = new();
     public EnvironmentProbe Environment { get; }
     public HardwareDiscoveryService HardwareDiscovery { get; }
     public WindowsPerformanceCapabilityRegistry WindowsCapabilities { get; }
@@ -241,7 +242,12 @@ public sealed class AppServices : IAsyncDisposable
             SystemOptimizer,
             ControlledBenchmarks);
 
-        PerformanceComparison = new PerformanceComparisonSession(CapturePerformanceConfiguration);
+        // Universal workload context remains completely on-demand. The selector
+        // starts empty and is populated only by an explicit caller that already
+        // owns a resolved Track 3 catalog + stable GameId.
+        PerformanceComparison = new PerformanceComparisonSession(
+            CapturePerformanceConfiguration,
+            CapturePerformanceUniversalContext);
         PerformanceTimelineEvents = new PerformanceTimelineEventRecorder(PerformanceTimeline);
         GuardianHost.StatusChanged += GuardianHost_StatusChanged;
         PerformanceCapture = new PerformanceCaptureCoordinator(
@@ -383,6 +389,18 @@ public sealed class AppServices : IAsyncDisposable
         CancellationToken cancellationToken = default)
         => GameDiscovery.DiscoverAsync(cancellationToken);
 
+    public bool SelectPerformanceWorkloadContext(
+        ResolvedGameCatalogResult catalog,
+        string gameId,
+        IEnumerable<string>? relevantCapabilityIds = null)
+        => PerformanceWorkloadContext.TrySelect(
+            catalog,
+            gameId,
+            relevantCapabilityIds);
+
+    public void ClearPerformanceWorkloadContext()
+        => PerformanceWorkloadContext.Clear();
+
     public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
         string capabilityId,
         CancellationToken cancellationToken = default)
@@ -458,6 +476,9 @@ public sealed class AppServices : IAsyncDisposable
             ? null
             : PerformanceConfigurationSnapshot.Capture(environment, instance, environment.ActiveGame);
     }
+
+    private PerformanceUniversalConfigurationContext? CapturePerformanceUniversalContext()
+        => PerformanceWorkloadContext.Capture(CaptureMachineContext());
 
     private string CaptureWindowsBenchmarkWorkloadKey()
     {
