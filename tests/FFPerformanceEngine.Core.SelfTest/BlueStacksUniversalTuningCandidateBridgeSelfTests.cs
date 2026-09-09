@@ -7,35 +7,22 @@ internal static class BlueStacksUniversalTuningCandidateBridgeSelfTests
     internal static void Run()
     {
         ProjectsGeneratedApplicableCandidatesOneToOne();
+        RejectsCapturedRendererDriftThatCannotBeApplied();
+        FiltersCandidatesByInstalledMutableSurface();
+        UsesExactFreeFireMaxIdentityAndNamespace();
+        FailsClosedWithoutResolvedSpecializationOrMatchingSnapshot();
+        RejectsInvalidInvocation();
 
         Console.WriteLine("PASS Track 5 dynamic BlueStacks universal candidate binding contract");
     }
 
     private static void ProjectsGeneratedApplicableCandidatesOneToOne()
     {
-        var environment = new EnvironmentSnapshot
-        {
-            LogicalProcessors = 8,
-            MemoryTotalGb = 16
-        };
-        var instance = new BlueStacksInstance
-        {
-            Name = "Pie64",
-            CpuCores = 4,
-            RamMb = 4096,
-            Renderer = "Vulkan",
-            Fps = 90,
-            Resolution = "1920x1080"
-        };
+        var environment = CreateEnvironment();
+        var instance = CreateInstance();
         var captured = FullCapturedSettings(instance.Name);
         var engine = new AutoTunerEngine();
-        var resolver = new GameAdapterResolver(
-        [
-            new GenericGameAdapter(),
-            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
-            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
-        ]);
-        var bridge = new BlueStacksUniversalTuningCandidateBridge(engine, resolver);
+        var bridge = new BlueStacksUniversalTuningCandidateBridge(engine, CreateResolver());
 
         var source = engine.GenerateCandidates(environment, instance, AutoTunerMode.Deep);
         var expected = source
@@ -109,7 +96,148 @@ internal static class BlueStacksUniversalTuningCandidateBridgeSelfTests
             .ToArray();
         Require(universalKeys.Distinct(StringComparer.Ordinal).Count() == universalKeys.Length,
             "One-to-one projection must never collapse distinct specialized candidates onto the same universal candidate.");
+
+        foreach (var dimension in projected.Dimensions)
+        {
+            var valuesInBindings = projected.Bindings
+                .Select(binding => binding.UniversalCandidate.Values[dimension.Id])
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            Require(dimension.CandidateValues.SequenceEqual(valuesInBindings, StringComparer.Ordinal),
+                "Descriptive dimension values must be exactly the first-seen values from surviving source bindings, not a separate option catalog.");
+        }
     }
+
+    private static void RejectsCapturedRendererDriftThatCannotBeApplied()
+    {
+        var environment = CreateEnvironment();
+        var instance = CreateInstance();
+        var captured = FullCapturedSettings(instance.Name);
+        captured[$"bst.instance.{instance.Name}.graphics_renderer"] = "\"OpenGL\"";
+
+        var projected = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver())
+            .Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, captured);
+
+        Require(projected.Bindings.Count == 0 && projected.Dimensions.Count == 0,
+            "If the captured installed renderer differs from the generated non-Auto renderer, the bridge must fail closed because the current runtime cannot mutate renderer safely.");
+    }
+
+    private static void FiltersCandidatesByInstalledMutableSurface()
+    {
+        var environment = CreateEnvironment();
+        var instance = CreateInstance();
+        var bridge = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver());
+
+        var withoutCpu = FullCapturedSettings(instance.Name);
+        withoutCpu.Remove($"bst.instance.{instance.Name}.cpus");
+        var cpuProjected = bridge.Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, withoutCpu);
+        Require(cpuProjected.Bindings.Count > 0
+                && cpuProjected.Bindings.All(binding => binding.SpecializedCandidate.CpuCores == instance.CpuCores),
+            "Missing installed CPU mutation key must remove every generated candidate that changes CPU allocation while preserving representable baseline-CPU candidates.");
+
+        var withoutRam = FullCapturedSettings(instance.Name);
+        withoutRam.Remove($"bst.instance.{instance.Name}.ram");
+        var ramProjected = bridge.Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, withoutRam);
+        Require(ramProjected.Bindings.Count > 0
+                && ramProjected.Bindings.All(binding => binding.SpecializedCandidate.RamMb == instance.RamMb),
+            "Missing installed RAM mutation key must remove every generated candidate that changes RAM allocation.");
+
+        var withoutFps = FullCapturedSettings(instance.Name);
+        withoutFps.Remove($"bst.instance.{instance.Name}.max_fps");
+        var fpsProjected = bridge.Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, withoutFps);
+        Require(fpsProjected.Bindings.Count > 0
+                && fpsProjected.Bindings.All(binding => binding.SpecializedCandidate.FpsTarget == instance.Fps),
+            "Missing installed FPS mutation key must remove every generated candidate that changes the FPS target.");
+
+        var incompleteResolution = FullCapturedSettings(instance.Name);
+        incompleteResolution.Remove($"bst.instance.{instance.Name}.display_height");
+        var resolutionProjected = bridge.Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, incompleteResolution);
+        Require(resolutionProjected.Bindings.Count > 0
+                && resolutionProjected.Bindings.All(binding => binding.SpecializedCandidate.Resolution == instance.Resolution),
+            "Missing one half of the installed resolution mutation pair must remove every generated candidate that changes resolution.");
+    }
+
+    private static void UsesExactFreeFireMaxIdentityAndNamespace()
+    {
+        var instance = CreateInstance();
+        var projected = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver())
+            .Build(CreateEnvironment(), instance, GameKind.FreeFireMax, AutoTunerMode.Adaptive, FullCapturedSettings(instance.Name));
+
+        Require(projected.Identity.GameId == "garena.free-fire-max"
+                && projected.Identity.LegacyGameKind == GameKind.FreeFireMax
+                && projected.AdapterId == "bluestacks.free-fire-max",
+            "Free Fire MAX universal candidate projection must use the existing exact FF MAX stable identity and specialized adapter authority.");
+        Require(projected.Bindings.Count > 0
+                && projected.Dimensions.All(dimension => dimension.Id.StartsWith("workload.bluestacks.free-fire-max.", StringComparison.Ordinal)
+                                                      && dimension.AuthorityId == "bluestacks.free-fire-max")
+                && projected.Bindings.All(binding => binding.UniversalCandidate.Values.Keys.All(id => id.StartsWith("workload.bluestacks.free-fire-max.", StringComparison.Ordinal))),
+            "Free Fire MAX dimensions and exact bindings must stay inside the FF MAX adapter namespace.");
+    }
+
+    private static void FailsClosedWithoutResolvedSpecializationOrMatchingSnapshot()
+    {
+        var environment = CreateEnvironment();
+        var instance = CreateInstance();
+        var resolverWithoutFreeFire = new GameAdapterResolver(
+        [
+            new GenericGameAdapter(),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
+        ]);
+        var unresolved = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), resolverWithoutFreeFire)
+            .Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, FullCapturedSettings(instance.Name));
+        Require(unresolved.Bindings.Count == 0 && unresolved.Dimensions.Count == 0 && unresolved.AdapterId == "generic",
+            "An unregistered requested Free Fire specialization must resolve to Generic and expose no BlueStacks universal candidate authority.");
+
+        var mismatchedSnapshot = FullCapturedSettings("Android11");
+        var mismatched = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver())
+            .Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, mismatchedSnapshot);
+        Require(mismatched.Bindings.Count == 0 && mismatched.Dimensions.Count == 0,
+            "Captured settings from another BlueStacks instance must never authorize candidate bindings for the selected instance.");
+
+        var empty = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver())
+            .Build(environment, instance, GameKind.FreeFire, AutoTunerMode.Deep, new Dictionary<string, string>());
+        Require(empty.Bindings.Count == 0 && empty.Dimensions.Count == 0,
+            "Missing captured allow-listed settings must produce no universal BlueStacks candidate space.");
+    }
+
+    private static void RejectsInvalidInvocation()
+    {
+        var bridge = new BlueStacksUniversalTuningCandidateBridge(new AutoTunerEngine(), CreateResolver());
+        var instance = CreateInstance();
+
+        ExpectThrows<ArgumentOutOfRangeException>(
+            () => bridge.Build(CreateEnvironment(), instance, GameKind.None, AutoTunerMode.Deep, FullCapturedSettings(instance.Name)),
+            "Unsupported games must be rejected instead of borrowing Free Fire workload identity.");
+        ExpectThrows<ArgumentException>(
+            () => bridge.Build(CreateEnvironment(), instance with { Name = " " }, GameKind.FreeFire, AutoTunerMode.Deep, FullCapturedSettings(instance.Name)),
+            "A named BlueStacks instance is required to bind captured config evidence to candidate space.");
+    }
+
+    private static EnvironmentSnapshot CreateEnvironment()
+        => new()
+        {
+            LogicalProcessors = 8,
+            MemoryTotalGb = 16
+        };
+
+    private static BlueStacksInstance CreateInstance()
+        => new()
+        {
+            Name = "Pie64",
+            CpuCores = 4,
+            RamMb = 4096,
+            Renderer = "Vulkan",
+            Fps = 90,
+            Resolution = "1920x1080"
+        };
+
+    private static GameAdapterResolver CreateResolver()
+        => new(
+        [
+            new GenericGameAdapter(),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
+        ]);
 
     private static Dictionary<string, string> FullCapturedSettings(string instanceName)
         => new(StringComparer.OrdinalIgnoreCase)
@@ -129,6 +257,21 @@ internal static class BlueStacksUniversalTuningCandidateBridgeSelfTests
             candidate.Values
                 .OrderBy(pair => pair.Key, StringComparer.Ordinal)
                 .Select(pair => $"{pair.Key}={pair.Value}"));
+
+    private static void ExpectThrows<TException>(Action action, string message)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(message);
+    }
 
     private static void Require(bool condition, string message)
     {
