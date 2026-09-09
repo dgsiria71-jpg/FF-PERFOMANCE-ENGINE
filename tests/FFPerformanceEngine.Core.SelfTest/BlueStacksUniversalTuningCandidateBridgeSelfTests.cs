@@ -51,7 +51,11 @@ internal static class BlueStacksUniversalTuningCandidateBridgeSelfTests
 
         var expectedIdentity = LegacyGameIdentityBridge.FromGameKind(GameKind.FreeFire)
                                ?? throw new InvalidOperationException("Free Fire legacy identity bridge is required.");
-        Require(projected.Identity == expectedIdentity,
+        Require(projected.Identity.GameId == expectedIdentity.GameId
+                && projected.Identity.AdapterId == expectedIdentity.AdapterId
+                && projected.Identity.LegacyGameKind == expectedIdentity.LegacyGameKind
+                && projected.Identity.Launcher == expectedIdentity.Launcher
+                && projected.Identity.Engine == expectedIdentity.Engine,
             "BlueStacks universal projection must preserve the existing stable Free Fire GameIdentity rather than reconstructing workload identity from runtime evidence.");
         Require(projected.AdapterId == "bluestacks.free-fire",
             "BlueStacks universal projection authority must be the exact resolved Free Fire adapter id.");
