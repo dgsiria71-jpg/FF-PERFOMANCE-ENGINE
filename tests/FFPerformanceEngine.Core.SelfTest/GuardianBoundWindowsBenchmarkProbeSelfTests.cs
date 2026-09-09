@@ -1,6 +1,7 @@
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.SystemOptimization;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
 {
@@ -8,24 +9,34 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
     {
         var source = new MutableStatusSource(Status(4242, "Pie64"));
         var processProbe = new MutableProcessProbe([4242]);
-        var capturedPids = new List<int>();
+        var typedPids = new List<int>();
+        var legacyCalls = 0;
         var captureIndex = 0;
         var coordinator = new PerformanceCaptureCoordinator(
             (pid, duration, token) =>
             {
-                token.ThrowIfCancellationRequested();
-                capturedPids.Add(pid);
-                Require(duration == TimeSpan.FromSeconds(2),
-                    "Operational Windows benchmark probe must use its configured per-sample measurement duration.");
-                var timestamp = new DateTimeOffset(2026, 9, 7, 15, 0, captureIndex++, TimeSpan.Zero);
+                legacyCalls++;
                 return Task.FromResult<TelemetrySample?>(new TelemetrySample
                 {
-                    Timestamp = timestamp,
-                    Fps = 100 + captureIndex,
-                    FrameTimeMs = 10 - captureIndex * 0.1,
-                    LatencyMs = 5,
-                    DataQuality = $"PresentMon · {500 + captureIndex} frames"
+                    Timestamp = DateTimeOffset.UtcNow,
+                    Fps = 999,
+                    FrameTimeMs = 1,
+                    DataQuality = "Measured"
                 });
+            },
+            timeline: null,
+            typedCapture: (pid, duration, token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                typedPids.Add(pid);
+                Require(duration == TimeSpan.FromSeconds(2),
+                    "Operational Windows benchmark probe must use its configured per-sample measurement duration.");
+                var timestamp = new DateTimeOffset(2026, 9, 9, 2, 15, captureIndex++, TimeSpan.Zero);
+                return Task.FromResult<TelemetryFrame?>(Frame(
+                    timestamp,
+                    fps: 100 + captureIndex,
+                    frameTimeMs: 10 - captureIndex * 0.1,
+                    coverage: 0.90));
             });
         var probe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             source.Read,
@@ -48,42 +59,55 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
         Require(interval.TelemetrySamples == 2
                 && interval.FpsEvidenceSamples == 2
                 && interval.Points.Count == 2,
-            "Operational Windows benchmark probe must aggregate the configured repeated measurements into one interval.");
-        Require(capturedPids.SequenceEqual(new[] { 4242, 4242 }),
-            "Every operational controlled sample must target the exact Guardian-bound PID instead of re-discovering an arbitrary BlueStacks process.");
-        Require(interval.Points.All(point => point.DataQuality.StartsWith("PresentMon · ", StringComparison.Ordinal)),
-            "Operational Windows benchmark intervals must preserve source measurement quality/provenance on every point.");
+            "Operational Windows benchmark probe must aggregate the configured repeated typed measurements into one interval.");
+        Require(typedPids.SequenceEqual(new[] { 4242, 4242 }) && legacyCalls == 0,
+            "Every controlled sample must use direct typed PresentMon on the exact Guardian-bound PID and never fall back to the legacy provider.");
+        Require(interval.Points.All(point =>
+                point.FpsEvidence is
+                {
+                    Quality: TelemetryMetricQuality.Measured,
+                    Coverage: 0.90,
+                    SourceId: "presentmon",
+                    Origin: TelemetryMetricOrigin.Direct
+                }
+                && point.FrameTimeEvidence is
+                {
+                    Quality: TelemetryMetricQuality.Measured,
+                    Coverage: 0.90,
+                    SourceId: "presentmon",
+                    Origin: TelemetryMetricOrigin.Direct
+                }),
+            "Controlled Windows benchmark intervals must preserve typed per-metric quality, coverage and provenance on every point.");
+        var measuredSnapshot = PerformanceEvidenceSnapshot.Capture(
+            "typed Windows baseline",
+            interval,
+            DateTimeOffset.UtcNow);
+        Require(measuredSnapshot.Quality == PerformanceEvidenceQuality.Measured,
+            "Fully measured typed controlled windows must remain eligible for the existing EnsureMeasured gate.");
 
         var driftSource = new MutableStatusSource(Status(5001, "Pie64"));
         var driftProcesses = new MutableProcessProbe([5001]);
         var driftCaptures = 0;
-        var driftCoordinator = new PerformanceCaptureCoordinator(
-            (pid, duration, token) =>
+        var driftCoordinator = TypedCoordinator((pid, duration, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            driftCaptures++;
+            if (driftCaptures == 1)
             {
-                token.ThrowIfCancellationRequested();
-                driftCaptures++;
-                if (driftCaptures == 1)
-                {
-                    driftSource.Current = Status(5002, "Pie64");
-                    driftProcesses.ProcessIds = [5002];
-                }
-                return Task.FromResult<TelemetrySample?>(new TelemetrySample
-                {
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Fps = 90,
-                    FrameTimeMs = 11.1,
-                    DataQuality = "PresentMon · 400 frames"
-                });
-            });
+                driftSource.Current = Status(5002, "Pie64");
+                driftProcesses.ProcessIds = [5002];
+            }
+            return Task.FromResult<TelemetryFrame?>(Frame(
+                DateTimeOffset.UtcNow,
+                fps: 90,
+                frameTimeMs: 11.1,
+                coverage: 1));
+        });
         var driftProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             driftSource.Read,
             driftCoordinator,
             driftProcesses,
-            new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
-            {
-                RequiredSamples = 2,
-                SampleDuration = TimeSpan.FromSeconds(2)
-            });
+            Policy());
 
         var driftRejected = false;
         try
@@ -95,37 +119,27 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
             driftRejected = true;
         }
         Require(driftRejected && driftCaptures == 1,
-            "If Guardian-bound PID/instance identity changes between samples, the probe must reject the interval before measuring the new process.");
+            "Typed migration must preserve rejection when Guardian PID/instance identity changes between samples.");
 
-        // Controlled benchmark leases suspend Guardian, so CurrentStatus can remain
-        // frozen even if the real BlueStacks process exits/restarts. The operational
-        // probe must therefore verify the live process set independently.
         var frozenSource = new MutableStatusSource(Status(7001, "Pie64"));
         var frozenProcesses = new MutableProcessProbe([7001]);
         var frozenCaptures = 0;
-        var frozenCoordinator = new PerformanceCaptureCoordinator(
-            (pid, duration, token) =>
-            {
-                token.ThrowIfCancellationRequested();
-                frozenCaptures++;
-                frozenProcesses.ProcessIds = [7002];
-                return Task.FromResult<TelemetrySample?>(new TelemetrySample
-                {
-                    Timestamp = DateTimeOffset.UtcNow,
-                    Fps = 95,
-                    FrameTimeMs = 10.5,
-                    DataQuality = "PresentMon · 450 frames"
-                });
-            });
+        var frozenCoordinator = TypedCoordinator((pid, duration, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            frozenCaptures++;
+            frozenProcesses.ProcessIds = [7002];
+            return Task.FromResult<TelemetryFrame?>(Frame(
+                DateTimeOffset.UtcNow,
+                fps: 95,
+                frameTimeMs: 10.5,
+                coverage: 1));
+        });
         var frozenProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             frozenSource.Read,
             frozenCoordinator,
             frozenProcesses,
-            new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
-            {
-                RequiredSamples = 2,
-                SampleDuration = TimeSpan.FromSeconds(2)
-            });
+            Policy());
         var frozenRejected = false;
         try
         {
@@ -138,21 +152,17 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
             frozenRejected = true;
         }
         Require(frozenRejected && frozenCaptures == 1,
-            "A frozen Guardian status must not hide a real PID restart while the controlled benchmark lease has Guardian suspended.");
+            "Typed migration must preserve live-process restart detection while Guardian is suspended by the benchmark lease.");
 
         var missingSource = new MutableStatusSource(Status(6001, "Pie64"));
         var missingProcesses = new MutableProcessProbe([6001]);
-        var missingCoordinator = new PerformanceCaptureCoordinator(
-            (pid, duration, token) => Task.FromResult<TelemetrySample?>(null));
+        var missingCoordinator = TypedCoordinator(
+            (pid, duration, token) => Task.FromResult<TelemetryFrame?>(null));
         var missingProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
             missingSource.Read,
             missingCoordinator,
             missingProcesses,
-            new GuardianBoundWindowsCapabilityBenchmarkProbePolicy
-            {
-                RequiredSamples = 2,
-                SampleDuration = TimeSpan.FromSeconds(2)
-            });
+            Policy());
         var missingRejected = false;
         try
         {
@@ -163,10 +173,47 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
             missingRejected = true;
         }
         Require(missingRejected,
-            "A missing PresentMon sample must invalidate the controlled window instead of becoming partial controlled evidence.");
+            "A missing typed PresentMon frame must invalidate the controlled window instead of falling back to legacy telemetry.");
 
-        Console.WriteLine("PASS Guardian-bound repeated PresentMon Windows benchmark probe exact-target/live-process/drift/fail-closed contract");
+        var partialSource = new MutableStatusSource(Status(8100, "Pie64"));
+        var partialProcesses = new MutableProcessProbe([8100]);
+        var partialCoordinator = TypedCoordinator((pid, duration, token) =>
+            Task.FromResult<TelemetryFrame?>(Frame(
+                DateTimeOffset.UtcNow,
+                fps: 100,
+                frameTimeMs: 10,
+                coverage: 1,
+                frameTimeQuality: TelemetryMetricQuality.Partial)));
+        var partialProbe = new GuardianBoundWindowsCapabilityBenchmarkProbe(
+            partialSource.Read,
+            partialCoordinator,
+            partialProcesses,
+            Policy());
+        var partialInterval = await partialProbe.CaptureAsync(Context());
+        var partialSnapshot = PerformanceEvidenceSnapshot.Capture(
+            "typed partial controlled window",
+            partialInterval,
+            DateTimeOffset.UtcNow);
+        Require(partialSnapshot.Quality == PerformanceEvidenceQuality.Partial,
+            "A typed Partial metric must remain Partial through the operational probe so the existing controlled benchmark EnsureMeasured gate can reject it.");
+
+        Console.WriteLine("PASS Guardian-bound typed Windows benchmark keeps exact-target/live-process/drift/fail-closed and measured-quality contracts");
     }
+
+    private static PerformanceCaptureCoordinator TypedCoordinator(
+        Func<int, TimeSpan, CancellationToken, Task<TelemetryFrame?>> typedCapture)
+        => new(
+            (pid, duration, token) => throw new InvalidOperationException(
+                "Typed controlled benchmark must not invoke the legacy capture provider."),
+            timeline: null,
+            typedCapture: typedCapture);
+
+    private static GuardianBoundWindowsCapabilityBenchmarkProbePolicy Policy()
+        => new()
+        {
+            RequiredSamples = 2,
+            SampleDuration = TimeSpan.FromSeconds(2)
+        };
 
     private static WindowsCapabilityBenchmarkContext Context()
         => new()
@@ -176,6 +223,37 @@ internal static class GuardianBoundWindowsBenchmarkProbeSelfTests
             BaselineValue = "ac=1;dc=1",
             CandidateTarget = "2"
         };
+
+    private static TelemetryFrame Frame(
+        DateTimeOffset timestamp,
+        double fps,
+        double frameTimeMs,
+        double coverage,
+        TelemetryMetricQuality frameTimeQuality = TelemetryMetricQuality.Measured)
+        => new(timestamp,
+        [
+            new TelemetryMetricObservation(
+                TelemetryStandardMetrics.FrameFpsAverage,
+                fps,
+                TelemetryMetricQuality.Measured,
+                coverage,
+                "presentmon",
+                TelemetryMetricOrigin.Direct),
+            new TelemetryMetricObservation(
+                TelemetryStandardMetrics.FrameTimeAverageMs,
+                frameTimeMs,
+                frameTimeQuality,
+                coverage,
+                "presentmon",
+                TelemetryMetricOrigin.Direct),
+            new TelemetryMetricObservation(
+                TelemetryStandardMetrics.FrameLatencyAverageMs,
+                5,
+                TelemetryMetricQuality.Measured,
+                coverage,
+                "presentmon",
+                TelemetryMetricOrigin.Direct)
+        ]);
 
     private static GuardianLiveSessionStatus Status(int pid, string instanceName)
         => new()

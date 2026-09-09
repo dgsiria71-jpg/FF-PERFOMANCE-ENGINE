@@ -71,7 +71,7 @@ public partial class PerformancePage : UserControl
 
         try
         {
-            var result = await App.Services.PerformanceCapture.CaptureAsync(
+            var result = await App.Services.PerformanceCapture.CaptureTypedAsync(
                 App.Services.GuardianHost.CurrentStatus,
                 TimeSpan.FromSeconds(10));
             ApplyPresentation(PerformancePresentation.FromCapture(result));

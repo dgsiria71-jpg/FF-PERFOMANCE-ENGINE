@@ -1,4 +1,5 @@
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -58,7 +59,12 @@ public sealed record PerformanceEvidenceSnapshot
         ArgumentNullException.ThrowIfNull(interval);
 
         var copiedPoints = interval.Points
-            .Select(point => point with { })
+            .Select(point => point with
+            {
+                FpsEvidence = point.FpsEvidence is null ? null : point.FpsEvidence with { },
+                FrameTimeEvidence = point.FrameTimeEvidence is null ? null : point.FrameTimeEvidence with { },
+                LatencyEvidence = point.LatencyEvidence is null ? null : point.LatencyEvidence with { }
+            })
             .ToArray();
 
         var fps = FiniteValues(copiedPoints.Select(point => point.Fps));
@@ -79,7 +85,7 @@ public sealed record PerformanceEvidenceSnapshot
 
         var hasFrameEvidence = fps.Length > 0 || frameTimes.Length > 0;
         var isFullyMeasured = copiedPoints.Length > 0
-            && copiedPoints.All(point => IsDirectMeasuredQuality(point.DataQuality))
+            && copiedPoints.All(IsMeasuredFramePoint)
             && fps.Length == copiedPoints.Length
             && frameTimes.Length == copiedPoints.Length;
 
@@ -112,6 +118,26 @@ public sealed record PerformanceEvidenceSnapshot
             ? Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt)
             : Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt, configuration);
     }
+
+    private static bool IsMeasuredFramePoint(PerformanceTimelinePoint point)
+    {
+        var hasTypedEvidence = point.FpsEvidence is not null
+                               || point.FrameTimeEvidence is not null
+                               || point.LatencyEvidence is not null;
+        if (!hasTypedEvidence)
+            return IsDirectMeasuredQuality(point.DataQuality);
+
+        return IsMeasuredMetricEvidence(point.FpsEvidence)
+               && IsMeasuredMetricEvidence(point.FrameTimeEvidence);
+    }
+
+    private static bool IsMeasuredMetricEvidence(PerformanceMetricEvidence? evidence)
+        => evidence is not null
+           && evidence.Quality == TelemetryMetricQuality.Measured
+           && double.IsFinite(evidence.Coverage)
+           && evidence.Coverage >= 0
+           && evidence.Coverage <= 1
+           && !string.IsNullOrWhiteSpace(evidence.SourceId);
 
     private static bool IsDirectMeasuredQuality(string? dataQuality)
     {

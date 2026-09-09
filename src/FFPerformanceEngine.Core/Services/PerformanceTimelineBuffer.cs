@@ -1,4 +1,5 @@
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -19,6 +20,7 @@ public sealed record PerformanceTimelineEntry
     public string Title { get; init; } = string.Empty;
     public string Detail { get; init; } = string.Empty;
     public TelemetrySample? Telemetry { get; init; }
+    public TelemetryFrame? TypedTelemetry { get; init; }
 }
 
 public sealed class PerformanceTimelineBuffer
@@ -43,6 +45,19 @@ public sealed class PerformanceTimelineBuffer
             Title = "Telemetry",
             Detail = sample.DataQuality,
             Telemetry = sample
+        });
+    }
+
+    public void AppendTelemetry(TelemetryFrame frame)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        Append(new PerformanceTimelineEntry
+        {
+            Timestamp = frame.Timestamp,
+            Kind = PerformanceTimelineKind.Telemetry,
+            Title = "Telemetry",
+            Detail = frame.FrameQuality.ToString(),
+            TypedTelemetry = frame
         });
     }
 

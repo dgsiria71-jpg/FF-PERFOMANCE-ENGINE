@@ -152,6 +152,8 @@ try
     await SteamGameDiscoverySelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
+    UniversalBottleneckAnalyzerV2SelfTests.Run();
+    UniversalDiagnosticServiceV2SelfTests.Run();
 }
 finally
 {

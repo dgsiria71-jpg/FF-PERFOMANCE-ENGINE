@@ -58,14 +58,14 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
             EnsureSameTarget(expected, beforeTarget, "before");
             EnsureLiveProcessIdentity(expected, "before");
 
-            var capture = await _capture.CaptureAsync(
+            var capture = await _capture.CaptureTypedAsync(
                 beforeStatus,
                 _policy.SampleDuration,
                 cancellationToken).ConfigureAwait(false);
-            if (!capture.Captured || capture.Sample is null)
+            if (!capture.Captured || capture.Frame is null)
             {
                 throw new InvalidOperationException(
-                    $"Controlled Windows benchmark telemetry is unavailable for PID {expected.ProcessId}: {capture.Message}");
+                    $"Controlled Windows benchmark typed telemetry is unavailable for PID {expected.ProcessId}: {capture.Message}");
             }
             EnsureSameTarget(expected, capture.Target, "during");
 
@@ -76,14 +76,14 @@ public sealed class GuardianBoundWindowsCapabilityBenchmarkProbe : IWindowsCapab
             EnsureSameTarget(expected, afterTarget, "after");
             EnsureLiveProcessIdentity(expected, "after");
 
-            var sample = capture.Sample with { };
+            var frame = capture.Frame;
             entries.Add(new PerformanceTimelineEntry
             {
-                Timestamp = sample.Timestamp,
+                Timestamp = frame.Timestamp,
                 Kind = PerformanceTimelineKind.Telemetry,
                 Title = $"DG Windows A/B · {context.Phase}",
-                Detail = sample.DataQuality,
-                Telemetry = sample
+                Detail = frame.FrameQuality.ToString(),
+                TypedTelemetry = frame
             });
         }
 

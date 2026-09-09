@@ -1,4 +1,5 @@
 using System.Globalization;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -30,11 +31,21 @@ public static class PerformanceTimelinePresentation
     private static PerformanceTimelineDisplayRow ToRow(PerformanceTimelineEntry entry)
     {
         var metrics = new List<string>();
-        var sample = entry.Telemetry;
-        AddMetric(metrics, sample?.Fps, "0.0", " FPS");
-        AddMetric(metrics, sample?.OnePercentLow, "0.0", " FPS 1% Low");
-        AddMetric(metrics, sample?.FrameTimeMs, "0.00", " ms");
-        AddMetric(metrics, sample?.LatencyMs, "0.0", " ms latência");
+        if (entry.TypedTelemetry is { } frame)
+        {
+            AddTypedMetric(metrics, frame, TelemetryStandardMetrics.FrameFpsAverage, "0.0", " FPS");
+            AddTypedMetric(metrics, frame, TelemetryStandardMetrics.FrameFpsLow1, "0.0", " FPS 1% Low");
+            AddTypedMetric(metrics, frame, TelemetryStandardMetrics.FrameTimeAverageMs, "0.00", " ms");
+            AddTypedMetric(metrics, frame, TelemetryStandardMetrics.FrameLatencyAverageMs, "0.0", " ms latência");
+        }
+        else
+        {
+            var sample = entry.Telemetry;
+            AddMetric(metrics, sample?.Fps, "0.0", " FPS");
+            AddMetric(metrics, sample?.OnePercentLow, "0.0", " FPS 1% Low");
+            AddMetric(metrics, sample?.FrameTimeMs, "0.00", " ms");
+            AddMetric(metrics, sample?.LatencyMs, "0.0", " ms latência");
+        }
 
         return new PerformanceTimelineDisplayRow
         {
@@ -44,6 +55,17 @@ public static class PerformanceTimelinePresentation
             Detail = entry.Detail,
             Metrics = metrics.Count == 0 ? "—" : string.Join(" · ", metrics)
         };
+    }
+
+    private static void AddTypedMetric(
+        List<string> target,
+        TelemetryFrame frame,
+        TelemetryMetricDescriptor descriptor,
+        string format,
+        string suffix)
+    {
+        if (!frame.TryGetMetric(descriptor.Id, out var observation) || observation is null) return;
+        AddMetric(target, observation.Value, format, suffix);
     }
 
     private static void AddMetric(List<string> target, double? value, string format, string suffix)

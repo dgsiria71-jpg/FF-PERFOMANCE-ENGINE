@@ -1,4 +1,5 @@
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Diagnostics;
 
@@ -26,6 +27,25 @@ public sealed class UniversalDiagnosticService
 
         var machine = _machineContext.Capture(environment);
         var bottleneck = _bottleneckAnalyzer.Analyze(sample, context);
+        return new UniversalDiagnosticSnapshot
+        {
+            CapturedAt = DateTimeOffset.UtcNow,
+            Machine = machine,
+            Bottleneck = bottleneck
+        };
+    }
+
+    public UniversalDiagnosticSnapshot Analyze(
+        EnvironmentSnapshot environment,
+        TelemetryFrame frame,
+        BottleneckAnalysisContext context)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(frame);
+        ArgumentNullException.ThrowIfNull(context);
+
+        var machine = _machineContext.Capture(environment);
+        var bottleneck = _bottleneckAnalyzer.Analyze(frame, context);
         return new UniversalDiagnosticSnapshot
         {
             CapturedAt = DateTimeOffset.UtcNow,
