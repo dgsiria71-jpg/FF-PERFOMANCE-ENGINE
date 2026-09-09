@@ -59,6 +59,23 @@ public sealed record PerformanceEvidenceSnapshot
         return CaptureCore(name, interval, capturedAt, null, universalContext.Rehydrate());
     }
 
+    public static PerformanceEvidenceSnapshot Capture(
+        string name,
+        PerformanceIntervalSummary interval,
+        DateTimeOffset capturedAt,
+        PerformanceConfigurationSnapshot configuration,
+        PerformanceUniversalConfigurationContext universalContext)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(universalContext);
+        return CaptureCore(
+            name,
+            interval,
+            capturedAt,
+            configuration.Rehydrate(),
+            universalContext.Rehydrate());
+    }
+
     private static PerformanceEvidenceSnapshot CaptureCore(
         string name,
         PerformanceIntervalSummary interval,
@@ -255,11 +272,17 @@ public sealed class PerformanceComparisonSession
 {
     private readonly object _gate = new();
     private readonly Func<PerformanceConfigurationSnapshot?>? _configurationProvider;
+    private readonly Func<PerformanceUniversalConfigurationContext?>? _universalContextProvider;
     private PerformanceEvidenceSnapshot? _baseline;
     private PerformanceEvidenceSnapshot? _candidate;
 
-    public PerformanceComparisonSession(Func<PerformanceConfigurationSnapshot?>? configurationProvider = null)
-        => _configurationProvider = configurationProvider;
+    public PerformanceComparisonSession(
+        Func<PerformanceConfigurationSnapshot?>? configurationProvider = null,
+        Func<PerformanceUniversalConfigurationContext?>? universalContextProvider = null)
+    {
+        _configurationProvider = configurationProvider;
+        _universalContextProvider = universalContextProvider;
+    }
 
     public PerformanceEvidenceSnapshot? Baseline
     {
@@ -356,9 +379,32 @@ public sealed class PerformanceComparisonSession
         PerformanceIntervalSummary interval)
     {
         var configuration = _configurationProvider?.Invoke();
-        return configuration is null
-            ? PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow)
-            : PerformanceEvidenceSnapshot.Capture(name, interval, DateTimeOffset.UtcNow, configuration);
+        var universalContext = _universalContextProvider?.Invoke();
+        var capturedAt = DateTimeOffset.UtcNow;
+
+        return (configuration, universalContext) switch
+        {
+            (not null, not null) => PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                capturedAt,
+                configuration,
+                universalContext),
+            (not null, null) => PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                capturedAt,
+                configuration),
+            (null, not null) => PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                capturedAt,
+                universalContext),
+            _ => PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                capturedAt)
+        };
     }
 }
 

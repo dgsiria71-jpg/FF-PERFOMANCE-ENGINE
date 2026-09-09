@@ -114,6 +114,7 @@ try
     PerformanceEvidenceQualitySelfTests.Run();
     await PerformanceHistorySelfTests.RunAsync();
     await PerformanceUniversalConfigurationContextSelfTests.RunAsync();
+    PerformanceComparisonSessionUniversalContextSelfTests.Run();
     await ValidatedProfileOriginSelfTests.RunAsync();
     await ProfileChallengePromotionSelfTests.RunAsync();
     await ProfileChallengeFreshnessSelfTests.RunAsync();
