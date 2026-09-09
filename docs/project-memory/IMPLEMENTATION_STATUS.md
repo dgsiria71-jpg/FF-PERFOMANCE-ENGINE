@@ -5,11 +5,15 @@ This ledger records verified engineering milestones. Current branch code/tests +
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `71991379e01518adf2e1c539491a9c0339a56735`
-- Commit: `feat: route Performance capture through selected workloads`
-- Windows CI: **#993 — SUCCESS**
-- Run: `34407420906`
+- Application HEAD: `797c8c7766adea3369948d9cb330bb7ba9a69d52`
+- Commit: `feat: add capability-honest universal tuning search space`
+- Windows CI: **#1000 — SUCCESS**
+- Run: `34411645032`
 - Full gate passed: checkout/setup, native configure/build/tests, managed build, Core self-tests, permanent App self-tests, win-x64 publish, artifact upload and cleanup.
+
+Track 5 slice checkpoint:
+
+`docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
 
 Memory-sync commits after this application SHA are docs-only; the application checkpoint above remains the exact verified code authority until the next implementation slice.
 
@@ -111,26 +115,19 @@ Canonical design:
 - unknown/blank GameId does not become promoted stable identity;
 - multiple distinct running PIDs remain ambiguous and no PID is guessed.
 
-### Direct collectors — GREEN
+### Direct collectors / aggregation — GREEN
 
 - native CPU utilization + physical memory direct v2;
 - PresentMon direct v2 with explicit accepted-row coverage;
 - exact accepted-frame count metric `frame.samples.accepted.count`;
-- processor-power current/max/limit MHz telemetry using documented Windows information;
-- WDDM physical-GPU utilization with fail-closed PDH instance parsing.
+- processor-power current/max/limit MHz telemetry;
+- WDDM physical-GPU utilization with fail-closed instance parsing;
+- bounded thread-safe realtime ring buffer;
+- deterministic quality-aware 1-second and hierarchical 10-second aggregation;
+- bounded explicit session aggregate state;
+- no raw v2 frame disk persistence.
 
 No unsupported GPU/thermal/VRAM/I/O/network value is fabricated. Additional providers remain future capability-driven enrichment rather than Track 4 blockers.
-
-### Realtime storage / aggregation — GREEN
-
-- bounded thread-safe `TelemetryFrameRingBuffer`;
-- deterministic half-open windows;
-- quality/coverage-aware generic aggregation;
-- exact 1-second aggregation;
-- hierarchical 10-second aggregation;
-- bounded explicit session aggregate state;
-- realtime pipeline composition;
-- no raw v2 frame disk persistence.
 
 ### Typed diagnostics / benchmark authority — GREEN
 
@@ -138,96 +135,131 @@ No unsupported GPU/thermal/VRAM/I/O/network value is fabricated. Additional prov
 - typed `UniversalDiagnosticService`;
 - Performance capture/A-B consumes typed metric evidence with explicit per-metric provenance;
 - legacy History fallback remains readable without gaining authority;
-- typed A/B evidence History persistence preserves `Observed/PendingValidation/Validated`;
+- typed A/B History persistence preserves `Observed/PendingValidation/Validated`;
 - Guardian-bound Windows controlled benchmark uses typed evidence;
 - Auto Tuner uses direct typed PresentMon validation/repeatability authority;
 - physical Profile Challenge uses direct typed PresentMon authority;
-- legacy textual `DataQuality` is compatibility disclosure, not the active benchmark decision authority.
+- legacy textual `DataQuality` is compatibility disclosure, not active benchmark authority.
 
-### Universal A/B configuration/workload context — GREEN
+### Universal A/B context and Performance capture — GREEN
 
-Verified checkpoints preserved:
+Key checkpoints:
 
-- `4a9b12412d38a7ff0d355a74c890744290322b5a` — Windows CI #988 SUCCESS
-  - additive `PerformanceUniversalConfigurationContext` schema v1;
-  - stable GameId from exactly one Track 3 catalog identity;
-  - resolved adapter authoritative for AdapterId;
-  - machine fingerprint v2;
-  - capability values only when explicitly requested + uniquely resolved + Available + current value present;
-  - PID/path excluded from durable context;
-  - universal context History round-trip without old-record upgrade.
+- `4a9b12412d38a7ff0d355a74c890744290322b5a` — universal A/B context — Windows CI #988 SUCCESS;
+- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — session context composition — Windows CI #989 SUCCESS;
+- `21eb0d9ed7cd5c181fc609fca02f89f37883d59c` — explicit App workload context — Windows CI #991 SUCCESS;
+- `71991379e01518adf2e1c539491a9c0339a56735` — universal Performance capture + WPF route — Windows CI #993 SUCCESS.
 
-- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — Windows CI #989 SUCCESS
-  - combined legacy + universal snapshot capture;
-  - `PerformanceComparisonSession` optional universal context provider;
-  - legacy-only, universal-only, combined and context-free capture behavior;
-  - existing legacy constructor source-compatible;
-  - universal-only evidence cannot originate BlueStacks profiles.
-
-- `21eb0d9ed7cd5c181fc609fca02f89f37883d59c` — Windows CI #991 SUCCESS
-  - explicit application-owned `PerformanceWorkloadContextSelection`;
-  - AppServices explicit select/clear only;
-  - resolved adapter authority instead of untrusted identity metadata;
-  - unknown/ambiguous selection clears stale state;
-  - cross-workload legacy/universal contamination blocked;
-  - permanent App self-test added to Windows CI.
-
-### Universal Performance capture targeting — GREEN
-
-Closing checkpoint: `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 SUCCESS.
-
-Implemented:
+Final Track 4 capture rules:
 
 - selected workload retains only its own bound runtime evidence;
-- selected stable GameId resolves through existing `TelemetryWorkloadTargetResolver` semantics;
-- exact one valid RunningProcess PID/path permits process capture;
-- duplicate same-PID evidence is not ambiguity;
-- no valid running process => `UnavailableRunningProcess`;
-- more than one distinct valid PID => `AmbiguousRunningProcess`;
+- selected stable GameId resolves through `TelemetryWorkloadTargetResolver`;
+- exactly one valid RunningProcess PID/path permits process capture;
+- zero valid running processes => unavailable;
+- multiple distinct PIDs => ambiguous;
 - KnownExecutable never creates a live capture target;
-- process path/name/PID never manufactures GameId;
-- `PerformanceCaptureCoordinator.CaptureWorkloadTypedAsync(...)` uses direct typed provider only and appends typed timeline evidence;
-- existing Guardian `CaptureTypedAsync(...)` remains source-compatible;
-- no legacy `TelemetrySample` fallback is used to promote universal capture authority;
-- `PerformancePresentation` supports the universal typed result without calling a native game a BlueStacks instance;
-- `AppServices` provides one capture route authority;
 - explicit universal selection has precedence over Guardian;
-- selected but unavailable/ambiguous workload is blocked instead of silently measuring another Guardian workload;
-- when no universal selection exists, legacy Guardian/BlueStacks typed capture remains the compatibility path;
-- `PerformancePage` consumes the route/presentation service instead of deciding identity itself.
+- selected unavailable/ambiguous workload blocks instead of silently measuring another Guardian workload;
+- no universal selection preserves legacy Guardian/BlueStacks typed compatibility;
+- WPF consumes App/Core route authority rather than deciding identity itself.
 
-### TDD provenance for the closing slice
+Track 4 is closed GREEN for its canonical scope.
 
-Temporary verifier branch `ci/track4-universal-capture-verify` was not merged wholesale. Important RED/GREEN sequence is preserved:
+## Track 5 — Universal Auto Tuner + Profiles — ACTIVE
 
-- RED: selected application workload lacked a runtime capture-target seam;
-- GREEN: selector delegates to existing exact resolver;
-- RED: universal typed coordinator entry absent;
-- compatibility analysis rejected a same-name overload that would make `CaptureTypedAsync(null, ...)` ambiguous; new API uses `CaptureWorkloadTypedAsync(...)`;
-- verifier #7 GREEN: direct typed universal coordinator;
-- presentation RED → verifier #9 GREEN;
-- AppServices composition RED → verifier #11 GREEN;
-- verifier #12 RED: route precedence APIs absent;
-- verifier #13 GREEN: precedence and no-fallback behavior;
-- verifier #14 RED: route presentation absent;
-- verifier #15 GREEN: presentation contract;
-- verifier #16 / run `34407129430` GREEN: Core + App self-test + WPF build after real page wiring;
-- selective official integration deliberately excluded the temporary verifier workflow;
-- full official Windows CI #993 then passed the exact integrated application SHA.
+Canonical scope:
 
-### Track 4 closure audit
+1. generic search-space abstractions;
+2. global/system profile dimensions;
+3. game-specific candidate dimensions;
+4. automatic validated winner promotion;
+5. revalidation rules;
+6. reuse Track 4 typed evidence authority without weakening it.
 
-The canonical architecture lists Track 4 as:
+### Slice 1 — Universal search-space + system-dimension bridge — GREEN
 
-1. metric schema v2;
-2. hardware channels;
-3. universal data quality;
-4. universal A/B configuration snapshot;
-5. compatibility migration.
+Checkpoint:
 
-The detailed Track 4 spec additionally defines exact workload resolver semantics and success criteria requiring current consumers to remain green and exact commits to pass Windows CI. Those requirements are now satisfied in the current application checkpoint, so Track 4 is closed **GREEN for its canonical scope**.
+- application SHA: `797c8c7766adea3369948d9cb330bb7ba9a69d52`;
+- commit: `feat: add capability-honest universal tuning search space`;
+- Windows CI #1000 SUCCESS / run `34411645032`;
+- durable record: `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
 
-Future VRAM/thermal/I/O/network sources may be added when supported by real providers and consumers, especially under the planned Hardware Performance Engine. They do not justify fabricating values or keeping Track 4 indefinitely open.
+Implemented neutral contracts:
+
+- `UniversalTuningDimensionScope.System`;
+- `UniversalTuningDimensionScope.Workload`;
+- `UniversalTuningDimension`;
+- `UniversalTuningCandidate`;
+- `UniversalTuningSearchSpacePolicy`;
+- `UniversalTuningSearchSpacePlanner`;
+- `UniversalTuningSystemDimensionFactory`.
+
+#### Capability-honest search-space rules
+
+- dimension id is explicit and nonblank;
+- authority id is explicit and nonblank;
+- candidate values are explicit and nonblank;
+- duplicate dimension ids case-insensitively fail closed;
+- duplicate candidate values fail closed;
+- zero dimensions produce zero candidates, never a fabricated default candidate;
+- dimensions are deterministically ordered by id;
+- each authority's candidate-value order is preserved;
+- Cartesian enumeration is deterministic and the last sorted dimension varies fastest;
+- `MaxCandidates` truncates a deterministic prefix only;
+- no randomization, hidden axis, confidence, evidence or recommendation is attached by the planner.
+
+#### Windows system-dimension bridge
+
+`UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(...)` reuses the already-proven Track 2 `WindowsCapabilityCandidatePlan` rather than rebuilding capability discovery or candidate generation.
+
+Only `CanExplore == true` is projected.
+
+The bridge keeps unavailable/missing/no-space plans absent, preserves exact TargetValue text in ExplorationRank order, rejects duplicate target values, and never:
+
+- inspects or mutates the Windows registry/capability state;
+- generates new schema candidate points;
+- infers availability;
+- reads recommendation confidence/value as search authority;
+- publishes a recommendation.
+
+#### Compatibility
+
+The existing specialized path remains source-compatible and unchanged:
+
+- `TuningCandidate`;
+- `AutoTunerEngine.GenerateCandidates(...)`;
+- `AutoTunerSessionService`;
+- BlueStacks Auto Tuner runtime;
+- five profile winner roles and Custom Validated flows.
+
+No startup discovery or tuning side effect was added.
+
+#### Authority boundary
+
+**Support/search space is exploration only. It is not recommendation space.**
+
+Candidate existence does not grant:
+
+- `Observed` status;
+- `Validated` status;
+- confidence;
+- winner role;
+- persistent recommendation;
+- permission to apply a mutation.
+
+Existing controlled measurement, typed evidence, repeatability, freshness/fingerprint, validation challenge, ValidatedEvidence and promotion gates remain authoritative.
+
+#### TDD provenance
+
+Temporary verifier branch: `ci/track5-universal-search-space-verify`.
+
+- Task 1 RED: run `34410887507` failed because universal search-space contracts did not exist;
+- Task 1 GREEN: verifier #3 on `6feb03b019008092868602c6400e9272ab968200` passed Core + App.SelfTest + WPF;
+- Task 2 RED: run `34411302456` failed only because `UniversalTuningSystemDimensionFactory` did not exist;
+- Task 2 GREEN: verifier #5 / run `34411435761` on `5c50b2a268246feefcfc2ba190176f9231d52d83` passed Core + App.SelfTest + WPF;
+- selective official integration excluded the temporary verifier workflow;
+- official Windows CI #1000 passed the exact integrated application SHA.
 
 ## Recent exact checkpoints
 
@@ -239,17 +271,19 @@ Future VRAM/thermal/I/O/network sources may be added when supported by real prov
 - `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — session context composition — Windows CI #989 SUCCESS
 - `21eb0d9ed7cd5c181fc609fca02f89f37883d59c` — explicit App workload context — Windows CI #991 SUCCESS
 - `71991379e01518adf2e1c539491a9c0339a56735` — universal Performance capture + WPF route — Windows CI #993 SUCCESS
+- `797c8c7766adea3369948d9cb330bb7ba9a69d52` — universal tuning search-space foundation — Windows CI #1000 SUCCESS
 
-## Next engineering track — Track 5 Universal Auto Tuner + Profiles
+## Exact next engineering slice
 
-Do not rewrite the working FF/BlueStacks Auto Tuner. Generalize it additively.
+Continue Track 5 with **capability-honest workload/game candidate dimensions**.
 
-First implementation boundary:
+Required sequence:
 
-1. inspect canonical Track 5 requirements and current Auto Tuner/Profile candidate contracts;
-2. define a generic capability-honest search-space/candidate abstraction;
-3. keep BlueStacks/FF candidate generation as a specialized implementation;
-4. unsupported/unproven candidate dimensions remain unavailable and cannot be invented;
-5. existing typed evidence, repeatability, freshness/fingerprint and winner-validation gates remain the only promotion authority;
-6. RED first, isolated verifier, selective integration, full Windows CI;
-7. update project memory again at the resulting GREEN checkpoint.
+1. locate/read existing Track 3 generic + specialized Game Adapter contracts;
+2. reuse their declared capabilities instead of creating a second game-option catalog;
+3. define a workload tuning-dimension seam only for adapter-declared identity/authority/values;
+4. do not assume renderer/quality/resolution/FPS semantics are universal;
+5. unsupported/ambiguous/duplicate declarations fail closed;
+6. compose adapter dimensions with the already-GREEN universal planner deterministically;
+7. preserve BlueStacks/FF specialized candidate generation until its own later migration slice receives RED/GREEN proof;
+8. TDD RED → isolated verifier GREEN → selective official integration → fresh Windows CI → memory synchronization.
