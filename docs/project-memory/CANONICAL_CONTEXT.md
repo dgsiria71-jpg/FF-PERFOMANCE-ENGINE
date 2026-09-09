@@ -508,3 +508,147 @@ Durable checkpoint:
 `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
 
 Track 5 remains **ACTIVE**. Slice 1 is GREEN; next is capability-honest workload/game-adapter dimensions.
+
+## 22. Adapter-owned workload tuning authority — Track 5 Slice 2 GREEN 2026-09-09
+
+Track 5 now has an additive seam for game/workload-specific candidate dimensions without turning any game-specific setting into a universal semantic.
+
+The authoritative flow is:
+
+```text
+stable GameIdentity
+       ↓
+GameAdapterResolver
+       ↓
+resolved specialized adapter
+       ↓
+reversible config lifecycle capability gate
+       ↓
+optional IGameTuningDimensionProvider
+       ↓
+explicit workload dimensions
+       ↓
+UniversalTuningSearchSpacePlanner
+```
+
+### Optional provider, unchanged adapter base contract
+
+`IGameAdapter` remains unchanged and source-compatible.
+
+A specialized adapter may opt in through:
+
+- `GameAdapterTuningDimensionDeclaration`;
+- `IGameTuningDimensionProvider`.
+
+Generic adapters and existing adapters that do not opt in continue working normally and contribute zero game-specific tuning dimensions.
+
+The current `BlueStacksFreeFireGameAdapter` deliberately does not expose static declarations yet. Its existing candidate space depends on real machine + BlueStacks instance state and remains owned by the existing specialized generator until a dedicated bridge slice proves the mapping.
+
+### Resolved authority, never process-derived authority
+
+`UniversalTuningWorkloadDimensionFactory` accepts a stable `GameIdentity` and resolves the adapter through `GameAdapterResolver`.
+
+Authority comes from the **resolved adapter**. It never comes from:
+
+- PID;
+- executable path;
+- process name;
+- display name;
+- an unregistered raw `GameIdentity.AdapterId` string.
+
+If the requested specialization is not registered, the resolver falls back to Generic and the result is zero workload dimensions.
+
+### Reversible configuration capability gate
+
+Before provider metadata is consulted, the resolved adapter must prove all of:
+
+- `ConfigDiscovery`;
+- `ConfigSnapshot`;
+- `ConfigMutation`;
+- `Rollback`.
+
+If any one is absent, the provider is not invoked and the adapter contributes zero workload dimensions.
+
+`BenchmarkPreparation` is intentionally not required merely to **declare** an explorable dimension. Actual controlled benchmark execution remains separate orchestration and must continue to use the existing benchmark lease/evidence authority.
+
+### Namespace and declaration integrity
+
+Accepted dimensions are projected as:
+
+```text
+Id          = workload.<normalized-adapter-id>.<normalized-local-id>
+Scope       = Workload
+AuthorityId = <normalized resolved adapter id>
+Values      = exact provider-declared candidate strings/order
+```
+
+Normalization applies only to identity (`Trim().ToLowerInvariant()`). Candidate value text is preserved exactly.
+
+The factory validates the complete provider declaration set and fails closed for:
+
+- null provider result;
+- null declaration;
+- blank local id;
+- empty candidate-value list;
+- blank candidate value;
+- duplicate local ids case-insensitively;
+- duplicate exact candidate values.
+
+Returned workload dimensions are deterministically ordered by final dimension id.
+
+### Composition remains single-source
+
+No new Cartesian/composition engine was added.
+
+The existing `UniversalTuningSearchSpacePlanner` composes explicit System + Workload dimensions directly. This preserves one deterministic search-space authority and prevents a parallel game-specific planner from manufacturing hidden/default axes.
+
+### Critical authority separation
+
+**Adapter-declared dimension support proves only that the resolved adapter exposes an explorable configuration space.**
+
+It does not grant:
+
+- measured evidence;
+- confidence;
+- `Observed`;
+- `Validated`;
+- permission to mutate;
+- permission to persist;
+- profile winner status;
+- recommendation authority.
+
+The required downstream chain remains:
+
+```text
+explicit support/search space
+→ controlled measurement
+→ typed evidence
+→ repeatability/evaluation
+→ fingerprint/freshness
+→ validation challenge where applicable
+→ ValidatedEvidence
+→ winner/recommendation authority
+```
+
+### Verification checkpoint
+
+Application SHA:
+
+`8dac70fdb2c693533ae481aaadd846ab84fde228`
+
+Windows CI:
+
+`#1007` / run `34416726382` — SUCCESS.
+
+TDD verifier evidence:
+
+- RED `34412460197` → optional provider contracts absent;
+- GREEN `34412615403` → provider contract/source compatibility passed;
+- RED `34412791339` → workload dimension factory absent;
+- GREEN `34412911108` → factory + fail-closed rules + System/Workload composition passed.
+
+Durable checkpoint:
+
+`docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`
+
+Track 5 remains **ACTIVE**. The next slice must bridge the existing dynamic BlueStacks/FF candidate generator into the neutral universal abstraction without creating a duplicate static option catalog or breaking the specialized runtime/profile path.
