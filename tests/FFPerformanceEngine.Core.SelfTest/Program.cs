@@ -130,6 +130,7 @@ try
     await PersistentPcRecommendationBatchSelfTests.RunAsync();
     await WindowsCapabilityMetadataDiscoverySelfTests.RunAsync();
     WindowsCapabilityCandidatePlannerSelfTests.Run();
+    UniversalTuningSearchSpaceSelfTests.Run();
     await WindowsCapabilityControlledBenchmarkSelfTests.RunAsync();
     await GuardianBoundWindowsBenchmarkProbeSelfTests.RunAsync();
     await WindowsCapabilityPerformanceCostMapSelfTests.RunAsync();
