@@ -5,120 +5,167 @@
 - Repo: `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`
 - Branch: `build/initial-product`
 - PR: `#1` — open/draft to `main`
-- Product direction: DG Performance Engine, evolved from the existing FF Performance Engine without rewrite or mass rename.
+- Product: **DG Performance Engine**, evolved from the existing FF Performance Engine without rewrite or mass rename.
+- Repository code/tests + fresh exact Windows CI remain authoritative over stale chat or memory text.
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `21eb0d9ed7cd5c181fc609fca02f89f37883d59c`
-- Commit: `feat: wire explicit universal workload context through AppServices`
-- Windows CI: **#991 — SUCCESS**
-- CI run id: `34380228966`
+- Application HEAD: `71991379e01518adf2e1c539491a9c0339a56735`
+- Commit: `feat: route Performance capture through selected workloads`
+- Windows CI: **#993 — SUCCESS**
+- CI run id: `34407420906`
 
-The exact #991 job passed native configure/build/tests, managed build, the full Core self-test suite, the new permanent WPF `App.SelfTest`, `win-x64` publish, artifact upload and post-job cleanup.
+The exact #993 job passed checkout/setup, native configure/build/tests, managed build, the full Core self-test suite, permanent WPF `App.SelfTest`, `win-x64` publish, artifact upload and cleanup.
 
-Repository-native continuity remains authoritative: current branch code/tests + fresh exact-commit Windows CI outrank stale handoffs or chat reconstruction.
+A repository checkpoint was then added at `docs/project-memory/checkpoints/2026-09-09-track4-universal-telemetry.complete`; memory-sync commits are docs-only and do not change the verified application tree above.
 
 ## Track state
 
-- Track 0 — Foundation Hardening: GREEN
-- Track 1 — Universal Diagnostic Foundation: GREEN
-- Track 2 — System Optimizer / evidence authority: GREEN through current branch
-- Track 3 — Game Discovery + Adapter Framework: GREEN
-- Track 4 — Universal Telemetry / Evidence: ACTIVE, near closure of the current canonical scope
-- Track 5+ — planned; do not skip the remaining proven Track 4 universal capture-target boundary.
+- Track 0 — Foundation Hardening: **GREEN**
+- Track 1 — Universal Diagnostic Foundation: **GREEN**
+- Track 2 — System Optimizer / evidence authority: **GREEN through current branch**
+- Track 3 — Game Discovery + Adapter Framework: **GREEN**
+- Track 4 — Universal Telemetry / Evidence: **GREEN — canonical scope completed**
+- Track 5 — Universal Auto Tuner + Profiles: **NEXT**
+- Track 6+ — planned; follow `ROADMAP.md` and the unified architecture.
 
-## Track 4 verified state
+## Track 4 closure decision
 
-Current code includes:
+The post-#993 closure audit was performed against:
 
-- typed metric schema v2 with explicit unit/domain/aggregation/quality/coverage/source/origin;
-- conservative legacy bridge; absence represents unavailable values;
-- unambiguous workload target resolver from Track 3 bound RunningProcess evidence;
-- direct native CPU + physical-memory v2 telemetry;
-- direct PresentMon v2 telemetry plus exact accepted-frame count;
-- bounded realtime ring buffer and deterministic 1-second/10-second aggregation;
-- processor-power CPU clock/current/max/limit telemetry;
-- WDDM physical-GPU utilization with fail-closed parsing;
-- typed fail-closed `UniversalBottleneckAnalyzer` v2 and typed `UniversalDiagnosticService`;
-- Performance capture/A-B typed metric evidence with History compatibility;
-- Guardian-bound Windows controlled benchmark typed evidence;
-- Auto Tuner and physical Profile Challenge typed PresentMon benchmark authority;
-- additive `PerformanceUniversalConfigurationContext` bound to stable Track 3 GameId + resolved adapter + machine fingerprint + explicitly proven capability values;
-- `PerformanceEvidenceSnapshot.UniversalContext` History round-trip without upgrading old records;
-- `PerformanceComparisonSession` composes legacy-only, universal-only, combined or context-free snapshots;
-- explicit `PerformanceWorkloadContextSelection` owned by the application boundary;
-- `AppServices` exposes explicit select/clear operations and supplies the universal provider to normal `PerformanceComparison` captures;
-- permanent `FFPerformanceEngine.App.SelfTest` is executed by Windows CI.
+- `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`;
+- `docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md`;
+- current branch production code/tests;
+- exact Windows CI #993.
 
-## Most recent verified checkpoints
+The canonical Track 4 requirements are now covered:
 
-- `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6` — Profile Challenge typed authority — Windows CI #986 SUCCESS.
-- `4a9b12412d38a7ff0d355a74c890744290322b5a` — additive universal A/B workload/configuration context — Windows CI #988 SUCCESS.
-- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — universal+legacy context composition in `PerformanceComparisonSession` — Windows CI #989 SUCCESS.
-- `bd22ae0a8ca93b57289d0786532f1b6eb5d5ffb0` — memory checkpoint after universal session composition — Windows CI #990 SUCCESS.
-- `21eb0d9ed7cd5c181fc609fca02f89f37883d59c` — explicit application workload context + cross-workload guard + permanent App self-test — Windows CI #991 SUCCESS.
+1. metric schema v2;
+2. proven hardware telemetry channels;
+3. universal typed data quality/provenance/coverage;
+4. universal A/B workload/configuration context;
+5. compatibility migration without weakening legacy/history authority;
+6. stable workload process targeting through exact bound `RunningProcess` evidence;
+7. universal Performance capture wired through application and WPF boundaries.
 
-## Application workload-context invariants now proven
+Future VRAM/thermal/I/O/network providers remain valid enrichment only when a real supported provider and concrete consumer exist. Missing providers remain Unknown/Unavailable and do not keep Track 4 artificially open.
 
-- App construction starts with no selected universal workload; no game discovery/selection is performed implicitly.
-- Selection accepts only an already-resolved `ResolvedGameCatalogResult` plus an explicitly requested stable Track 3 `GameId`.
-- Requested GameId is normalized and must resolve to exactly one catalog entry.
-- Adapter authority comes from the resolved adapter, never untrusted `GameIdentity.AdapterId` metadata.
-- Unknown or ambiguous selection fails closed and clears prior selection so stale identity cannot leak into later A/B evidence.
-- Capability values remain opt-in and must still satisfy the universal-context availability/current-value gates.
-- `CapturePerformanceConfiguration()` remains the unchanged BlueStacks/Guardian legacy provider.
-- `PerformanceComparison` receives universal context only from the explicit application selection provider.
-- A frozen evidence snapshot cannot represent two different workloads: legacy FF/FFMAX configuration plus a universal context for another GameId causes the incompatible universal context to be omitted fail-closed.
-- Matching BlueStacks legacy + matching universal GameId may coexist additively.
-- Universal-only context still does not bypass `Observed/PendingValidation/Validated` or `CanOriginateProfile`.
+## Final Track 4 verified state
 
-## TDD evidence for the application-composition slice
+### Telemetry schema / provenance
 
-Temporary verifier branch `ci/track4-remaining-verify` was used only as an isolated proving ground and was not merged wholesale.
+- immutable typed `TelemetryFrame` v2;
+- stable metric descriptors and explicit unit/domain/aggregation;
+- per-metric `Measured`/`Partial` quality, coverage, source id and origin;
+- missing channels represented by absence/Unavailable, never synthetic zero;
+- coverage remains producer-local completeness, never probability/confidence;
+- conservative `TelemetrySample -> TelemetryFrame` compatibility bridge.
 
-- verifier #14: intended RED — `PerformanceWorkloadContextSelection` absent (`CS0246`).
-- verifier #15: first GREEN attempt exposed nullable-boundary compile error (`CS8601`); fixed rather than suppressed.
-- verifier #16: second intended RED reached semantic cross-workload contamination guard (FFMAX legacy + Steam universal).
-- verifier #17: Core + WPF build GREEN after selector + central cross-workload guard.
-- verifier #18: app-level intended RED — `AppServices` lacked selection/wiring APIs.
-- verifier #19: Core + real `App.SelfTest` + WPF build GREEN.
-- selective official integration then passed Windows CI #991 on the exact application SHA.
+### Direct collectors / aggregation
 
-Temporary verifier workflows/branches remain non-authoritative and must not be merged as infrastructure.
+- native CPU utilization + physical-memory telemetry;
+- processor-power current/max/limit MHz evidence;
+- WDDM physical-GPU utilization with fail-closed instance parsing;
+- PresentMon direct typed frame evidence + exact accepted-frame count;
+- bounded thread-safe ring buffer;
+- deterministic 1-second and hierarchical 10-second aggregation;
+- bounded explicit session aggregate state;
+- no raw v2 frame disk persistence.
 
-## Authority invariants
+### Typed consumers / authority
 
-- `Observed != Validated` remains unchanged.
-- Current exact machine/environment fingerprint and freshness gates remain required.
+- typed fail-closed `UniversalBottleneckAnalyzer`;
+- typed `UniversalDiagnosticService`;
+- Performance A/B consumes typed per-metric quality/provenance while retaining History fallback;
+- typed A/B History persistence preserves `Observed/PendingValidation/Validated`;
+- Guardian-bound Windows controlled benchmarks use typed evidence;
+- Auto Tuner and physical Profile Challenge use direct typed PresentMon authority;
+- Global Controlled Benchmark Lease, exact fingerprint/freshness and recommendation gates remain unchanged.
+
+### Universal A/B context
+
+- `PerformanceUniversalConfigurationContext` is additive to the exact legacy BlueStacks configuration;
+- stable Track 3 GameId + resolved adapter + machine fingerprint are preserved;
+- relevant capability values are included only when explicitly proven available/current;
+- PID/path are never durable workload identity;
+- History round-trip does not upgrade old records;
+- cross-workload legacy/universal contamination fails closed;
+- universal-only evidence does not acquire BlueStacks profile-origin authority.
+
+### Universal Performance capture targeting
+
+The completed boundary introduced:
+
+- `PerformanceWorkloadContextSelection` retaining only bound evidence for the explicitly selected GameId;
+- `ResolveCaptureTarget(TelemetryWorkloadTargetResolver)` using the already-validated Track 3/4 resolver contract;
+- exact one-PID `RunningProcess` resolution only;
+- duplicate equivalent evidence for the same PID remains exact;
+- zero valid running PIDs => unavailable;
+- multiple distinct valid PIDs => ambiguous;
+- `KnownExecutable`/App Paths never authorizes a live capture;
+- unknown GameId is never promoted;
+- no fuzzy process matching and no GameId inference from PID/path/process/display name.
+
+`PerformanceCaptureCoordinator` now has a separate `CaptureWorkloadTypedAsync(...)` entry point. The existing Guardian `CaptureTypedAsync(...)` remains source-compatible; the new path never falls back to `TelemetrySample`.
+
+### Application routing invariant
+
+`AppServices` owns the route, not WPF:
+
+- if a universal stable GameId is explicitly selected, that selection has routing precedence;
+- if its exact `RunningProcess` target is unavailable or ambiguous, capture is blocked;
+- **do not silently fall back to Guardian/BlueStacks while that universal selection exists**;
+- if no universal selection exists, the existing Guardian/BlueStacks typed route remains the compatibility path.
+
+This prevents measuring a different workload merely because Guardian currently owns a BlueStacks binding.
+
+`PerformanceCaptureRoutePresentation` exposes one deterministic presentation contract, and `PerformancePage` now consumes `ResolvePerformanceCaptureRoute()` plus `CaptureCurrentPerformanceTelemetryAsync()` instead of reimplementing target policy.
+
+## TDD / verifier provenance for Universal Performance Capture Targeting
+
+Temporary branch: `ci/track4-universal-capture-verify`. It is a proving ground only; its workflow was intentionally **not** integrated into the official branch.
+
+Key provenance preserved:
+
+- initial selector RED: selected workload had no capture-target seam;
+- selector GREEN: explicit selection resolves only its bound evidence through `TelemetryWorkloadTargetResolver`;
+- universal coordinator RED: typed workload capture entry did not exist;
+- compatibility review changed the new API name to `CaptureWorkloadTypedAsync(...)` so legacy calls such as `CaptureTypedAsync(null, ...)` never become overload-ambiguous;
+- verifier #7: direct typed universal coordinator GREEN;
+- presentation RED then verifier #9 GREEN;
+- AppServices composition RED then verifier #11 GREEN;
+- verifier #12 RED: route precedence APIs absent;
+- verifier #13 GREEN: selected-workload precedence + no-fallback rule;
+- verifier #14 RED: route presentation absent;
+- verifier #15 GREEN: universal/Guardian route presentation;
+- verifier #16 / run `34407129430`: Core + App.SelfTest + WPF build GREEN after real `PerformancePage` wiring;
+- selective atomic official integration excluded `.github/workflows/core-track4-universal-capture-verifier.yml`;
+- official application SHA `71991379...` passed full Windows CI #993.
+
+## Non-negotiable invariants still active
+
+- `Observed != Validated`.
+- Current exact machine/environment fingerprint and freshness remain mandatory where authority requires them.
 - Global Controlled Benchmark Lease semantics remain unchanged.
 - Missing telemetry is Unknown/absent, never implicit headroom or zero.
-- Coverage is completeness, never probability/confidence.
+- Coverage is completeness, never confidence.
 - Stable workload identity never comes from PID/path/process/display name.
 - `TelemetrySample` remains a compatibility model, not new typed authority.
-- No startup game/process discovery is added.
-- No raw v2 frame disk persistence is introduced by Track 4 migration.
+- Game discovery remains explicit/on-demand; never add it to `AppServices.InitializeAsync()`.
+- No raw v2 frame database was introduced.
 - No anti-cheat/integrity bypass.
-
-## Current remaining Track 4 boundary
-
-The application can now persist a proven universal workload context, but **Performance capture targeting remains BlueStacks-only**.
-
-`PerformanceCaptureCoordinator.CaptureTypedAsync(...)` still accepts `GuardianLiveSessionStatus`, calls `PerformanceCaptureTargetPolicy.FromGuardianStatus(...)`, and refuses capture without an exact Guardian-bound BlueStacks PID. Meanwhile Track 4 already has `TelemetryWorkloadTargetResolver`, which can fail-closed resolve an exact running PID from a proven stable GameId plus bound `RunningProcess` evidence.
-
-The explicit application selector currently stores only the stable selected catalog entry needed for persistence; it does not yet expose the bound runtime evidence required for universal process capture.
+- UI presents/orchestrates; Core/application services own identity, evidence and route decisions.
 
 ## Exact next action
 
-Continue Track 4 with an isolated TDD slice for **Universal Performance Capture Targeting**:
+Begin **Track 5 — Universal Auto Tuner + Profiles** without rewriting the existing working BlueStacks/FF tuner.
 
-1. RED: an explicitly selected stable GameId with exactly one valid bound RunningProcess must resolve to an exact process capture target using the existing `TelemetryWorkloadTargetResolver` semantics.
-2. Preserve the existing Guardian/BlueStacks `CaptureTypedAsync` overload and behavior unchanged/source-compatible.
-3. Add no fuzzy process matching and no GameId inference from PID/path/name.
-4. KnownExecutable/App Paths evidence must never create a live capture target.
-5. Unknown, unavailable or ambiguous selected workload must fail closed without invoking PresentMon.
-6. Exact target may invoke the existing typed PresentMon-by-PID capture and append typed timeline evidence.
-7. Keep discovery explicit/on-demand; no startup discovery or polling side effect.
-8. Add application wiring only after Core target/capture behavior is GREEN.
-9. Run isolated verifier, integrate selectively, then require fresh full Windows CI on the exact official SHA.
+First slice must be architecture/TDD driven:
 
-After this boundary is GREEN, reassess Track 4 closure before choosing any additional hardware sensor slice. VRAM/thermals/I/O/network are candidates only when a real supported provider and a concrete consumer are both proven.
+1. read the Track 5 requirements from the canonical architecture and current Auto Tuner/Profile contracts;
+2. define the smallest generic search-space/candidate abstraction that can represent universal/system dimensions while preserving the existing BlueStacks candidate path as a specialized implementation;
+3. RED first for capability-honest candidate dimensions and fail-closed unsupported values;
+4. do not change winner promotion authority — measured/repeated/validated evidence and current freshness/fingerprint gates remain required;
+5. no automatic discovery or tuning side effect at app startup;
+6. run isolated verifier, then selective official integration and fresh Windows CI before GREEN;
+7. after the resulting GREEN checkpoint, update this memory system again before closing the delivery.
