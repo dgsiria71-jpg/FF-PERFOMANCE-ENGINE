@@ -67,6 +67,9 @@ public sealed class BlueStacksUniversalTuningCandidateBridge
         if (!capturedSettings.Keys.Any(key => key.StartsWith(instancePrefix, StringComparison.OrdinalIgnoreCase)))
             return Empty(identity, adapterId);
 
+        var capturedRenderer = ReadCapturedValue(capturedSettings, instancePrefix, "graphics_renderer")
+                               ?? ReadCapturedValue(capturedSettings, instancePrefix, "graphics_engine");
+
         var prefix = $"workload.{adapterId}.";
         var cpuId = prefix + "cpu-cores";
         var fpsId = prefix + "fps-target";
@@ -86,6 +89,10 @@ public sealed class BlueStacksUniversalTuningCandidateBridge
         {
             var plan = BlueStacksAutoTunerRuntime.BuildCandidatePlan(candidate, instance, capturedSettings);
             if (!plan.CanApply) continue;
+            if (!string.IsNullOrWhiteSpace(capturedRenderer)
+                && !string.Equals(candidate.Renderer, "Auto", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(candidate.Renderer, capturedRenderer, StringComparison.OrdinalIgnoreCase))
+                continue;
 
             var cpu = candidate.CpuCores.ToString(CultureInfo.InvariantCulture);
             var ram = candidate.RamMb.ToString(CultureInfo.InvariantCulture);
@@ -165,6 +172,24 @@ public sealed class BlueStacksUniversalTuningCandidateBridge
            && capabilities.ConfigMutation
            && capabilities.BenchmarkPreparation
            && capabilities.Rollback;
+
+    private static string? ReadCapturedValue(
+        IReadOnlyDictionary<string, string> capturedSettings,
+        string instancePrefix,
+        string settingName)
+    {
+        foreach (var pair in capturedSettings)
+        {
+            if (!pair.Key.StartsWith(instancePrefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var shortKey = pair.Key[instancePrefix.Length..];
+            if (!string.Equals(shortKey, settingName, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var value = pair.Value?.Trim().Trim('"');
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        return null;
+    }
 
     private static string NormalizeId(string? value)
         => value?.Trim().ToLowerInvariant() ?? string.Empty;
