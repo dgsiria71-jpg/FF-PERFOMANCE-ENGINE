@@ -28,6 +28,9 @@ jobs:
       - name: Core self-tests
         timeout-minutes: 3
         run: dotnet run --project tests/FFPerformanceEngine.Core.SelfTest/FFPerformanceEngine.Core.SelfTest.csproj -c Release
+      - name: App self-tests
+        timeout-minutes: 3
+        run: dotnet run --project tests/FFPerformanceEngine.App.SelfTest/FFPerformanceEngine.App.SelfTest.csproj -c Release
       - name: Publish app
         shell: pwsh
         run: |

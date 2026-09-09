@@ -1,5 +1,6 @@
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Telemetry;
+using FFPerformanceEngine.Core.Workloads;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -86,6 +87,14 @@ public sealed record PerformanceEvidenceSnapshot
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("A comparison snapshot name is required.", nameof(name));
         ArgumentNullException.ThrowIfNull(interval);
+
+        // A single frozen evidence snapshot cannot truthfully describe two
+        // different workloads. Preserve the current exact BlueStacks context and
+        // fail closed by omitting an incompatible additive universal context.
+        if (configuration is not null
+            && universalContext is not null
+            && !ContextsTargetSameWorkload(configuration, universalContext))
+            universalContext = null;
 
         var copiedPoints = interval.Points
             .Select(point => point with
@@ -178,6 +187,20 @@ public sealed record PerformanceEvidenceSnapshot
         if (string.Equals(dataQuality, "Measured", StringComparison.OrdinalIgnoreCase)) return true;
         return !string.IsNullOrWhiteSpace(dataQuality)
                && dataQuality.StartsWith("PresentMon · ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContextsTargetSameWorkload(
+        PerformanceConfigurationSnapshot configuration,
+        PerformanceUniversalConfigurationContext universalContext)
+    {
+        var legacyIdentity = LegacyGameIdentityBridge.FromGameKind(configuration.Game);
+        return legacyIdentity is not null
+               && !string.IsNullOrWhiteSpace(legacyIdentity.GameId)
+               && !string.IsNullOrWhiteSpace(universalContext.GameId)
+               && string.Equals(
+                   legacyIdentity.GameId.Trim(),
+                   universalContext.GameId.Trim(),
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static double[] FiniteValues(IEnumerable<double?> values)
