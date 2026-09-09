@@ -59,6 +59,7 @@ internal static class UniversalDiagnosticServiceV2SelfTests
             "Typed UniversalDiagnosticService must reject a null bottleneck context.");
 
         Console.WriteLine("PASS Track 4 UniversalDiagnosticService consumes typed telemetry directly without a legacy quality round-trip");
+        PerformanceTypedEvidenceSelfTests.Run();
     }
 
     private static TelemetryMetricObservation Metric(
