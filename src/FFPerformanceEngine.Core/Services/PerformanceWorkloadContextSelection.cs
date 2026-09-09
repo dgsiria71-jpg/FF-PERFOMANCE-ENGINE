@@ -1,4 +1,5 @@
 using FFPerformanceEngine.Core.Diagnostics;
+using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
 
 namespace FFPerformanceEngine.Core.Services;
@@ -74,6 +75,19 @@ public sealed class PerformanceWorkloadContextSelection
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 
+        var selectedEvidence = (catalog.BoundEvidence ?? Array.Empty<BoundGameEvidence>())
+            .Where(bound => bound?.Observation is not null
+                            && string.Equals(
+                                NormalizeId(bound.GameId),
+                                canonicalGameId,
+                                StringComparison.Ordinal))
+            .Select(bound => bound with
+            {
+                GameId = canonicalGameId,
+                Observation = bound.Observation with { }
+            })
+            .ToArray();
+
         var selectedCatalog = new ResolvedGameCatalogResult
         {
             Games =
@@ -83,7 +97,8 @@ public sealed class PerformanceWorkloadContextSelection
                     Identity = identity with { GameId = canonicalGameId },
                     Adapter = adapter
                 }
-            ]
+            ],
+            BoundEvidence = Array.AsReadOnly(selectedEvidence)
         };
 
         lock (_gate)
@@ -117,6 +132,24 @@ public sealed class PerformanceWorkloadContextSelection
                 catalog,
                 gameId,
                 relevantCapabilityIds);
+    }
+
+    public TelemetryWorkloadTarget ResolveCaptureTarget(
+        TelemetryWorkloadTargetResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        ResolvedGameCatalogResult? catalog;
+        string? gameId;
+        lock (_gate)
+        {
+            catalog = _selectedCatalog;
+            gameId = _selectedGameId;
+        }
+
+        return catalog is null || string.IsNullOrWhiteSpace(gameId)
+            ? resolver.Resolve(new ResolvedGameCatalogResult(), null)
+            : resolver.Resolve(catalog, gameId);
     }
 
     public void Clear()
