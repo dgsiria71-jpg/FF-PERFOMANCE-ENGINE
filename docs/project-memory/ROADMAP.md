@@ -47,11 +47,11 @@ Additional discovery is optional enrichment, not a Track 4 blocker.
 
 ## Track 4 — Universal Telemetry / Evidence — ACTIVE, NEAR CLOSURE OF CURRENT CANONICAL SCOPE
 
-Current verified official checkpoint:
+Current verified official application checkpoint:
 
 ```text
-HEAD db39145d35bd83370b2d39ad3ffe239d4e9ffdf6
-Windows CI #986 / run 34320863316 — SUCCESS
+HEAD 8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7
+Windows CI #989 / run 34371201511 — SUCCESS
 ```
 
 GREEN now includes:
@@ -79,21 +79,28 @@ GREEN now includes:
 - Auto Tuner typed benchmark authority ✅
 - physical Profile Challenge typed benchmark authority ✅
 - repository audit confirms no remaining production `PresentMonFrameCount` authority ✅
+- additive universal A/B workload/configuration context ✅
+- universal context History round-trip without old-record upgrade ✅
+- combined BlueStacks legacy + universal context capture ✅
+- `PerformanceComparisonSession` supports legacy-only, universal-only, combined and context-free captures ✅
+- universal-only evidence does not weaken profile-origin authority ✅
+
+Recent universal-context checkpoints:
+
+- `4a9b12412d38a7ff0d355a74c890744290322b5a` — Windows CI #988 SUCCESS
+- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — Windows CI #989 SUCCESS
 
 ### Current Track 4 sequence
 
-1. **Additive universal A/B configuration/workload context** ← NEXT
-   - stable Track 3 GameId/workload;
-   - machine/Windows context;
-   - adapter id/version when proven;
-   - relevant capability values when proven;
-   - game/emulator config when known;
-   - display/driver context only when material and actually observed;
-   - preserve the existing BlueStacks-specific `PerformanceConfigurationSnapshot` unchanged for legacy profile/freshness authority.
-2. History compatibility for new universal context; old records remain valid but are never silently upgraded.
-3. Re-run exact validation/freshness/Observed/Pending/Validated tests on the additive model.
-4. Reassess Track 4 closure.
-5. Add further hardware channels only when there is a real, supported provider and a concrete diagnostic/tuning consumer. Candidate domains include VRAM, thermals, I/O and network; missing sensors remain Unknown rather than fabricated.
+1. **Explicit application workload-context composition** ← NEXT
+   - provide universal context to the already-capable `PerformanceComparisonSession` only from an explicitly proven stable Track 3 GameId/catalog result;
+   - preserve `CapturePerformanceConfiguration()` and current BlueStacks behavior;
+   - no startup/implicit discovery;
+   - no GameId inference from PID/path/process/display names;
+   - absence of proven universal state returns null and keeps legacy-only captures.
+2. Re-prove History and profile authority in the real composition path.
+3. Reassess Track 4 closure.
+4. Add further hardware channels only when there is a real supported provider and a concrete diagnostic/tuning consumer. Candidate domains include VRAM, thermals, I/O and network; missing sensors remain Unknown rather than fabricated.
 
 Track 4 invariants:
 

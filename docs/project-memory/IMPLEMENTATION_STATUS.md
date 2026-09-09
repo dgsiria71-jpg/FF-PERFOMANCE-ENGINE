@@ -5,10 +5,10 @@ This ledger records verified engineering milestones. Current branch code/tests +
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- HEAD: `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6`
-- Commit: `feat: migrate Profile Challenge benchmark authority to typed telemetry`
-- Windows CI: **#986 — SUCCESS**
-- Run: `34320863316`
+- HEAD: `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7`
+- Commit: `feat: compose universal context in performance sessions`
+- Windows CI: **#989 — SUCCESS**
+- Run: `34371201511`
 - Full gate: native configure/build/tests, managed build, Core self-tests, win-x64 publish and artifact upload all passed.
 
 ## Product foundation
@@ -62,7 +62,7 @@ Implemented and verified:
 
 Stable identity comes only from launcher/source-native keys. PID/path/executable observations remain evidence and never manufacture GameId.
 
-## Track 4 — Universal Telemetry / Evidence — ACTIVE, advanced
+## Track 4 — Universal Telemetry / Evidence — ACTIVE, near closure
 
 Canonical design:
 
@@ -100,7 +100,7 @@ No unsupported GPU/thermal/VRAM/I/O/network value is fabricated.
 - realtime pipeline composition;
 - no raw v2 frame disk persistence.
 
-### Typed consumers / evidence authority — GREEN
+### Typed consumers / benchmark authority — GREEN
 
 - typed fail-closed UniversalBottleneckAnalyzer v2;
 - typed UniversalDiagnosticService;
@@ -108,46 +108,72 @@ No unsupported GPU/thermal/VRAM/I/O/network value is fabricated.
 - typed A/B evidence persistence preserves `Observed/PendingValidation/Validated`;
 - Guardian-bound Windows controlled benchmark typed evidence;
 - Auto Tuner typed PresentMon benchmark authority;
-- physical Profile Challenge typed PresentMon benchmark authority.
+- physical Profile Challenge typed PresentMon benchmark authority;
+- legacy textual benchmark authority no longer drives those production benchmark decisions.
 
-Recent exact checkpoints:
+### Universal A/B configuration/workload context — GREEN in Core
+
+Official checkpoints:
+
+- `4a9b12412d38a7ff0d355a74c890744290322b5a` — Windows CI #988 SUCCESS
+  - adds `PerformanceUniversalConfigurationContext` schema v1;
+  - stable GameId comes only from exactly one Track 3 catalog identity;
+  - resolved adapter is authoritative for AdapterId;
+  - machine fingerprint v2 is preserved;
+  - capability values are included only when explicitly requested + uniquely resolved + Available + current value present;
+  - PID/path are not persisted;
+  - unknown adapter version/workload/display/driver details remain absent;
+  - `PerformanceEvidenceSnapshot.UniversalContext` persists through History without upgrading old records.
+
+- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — Windows CI #989 SUCCESS
+  - adds combined legacy + universal snapshot capture;
+  - `PerformanceComparisonSession` accepts an optional universal context provider additively;
+  - normal SetBaseline/SetCandidate can preserve both contexts together;
+  - existing one-provider legacy constructor remains source-compatible;
+  - universal-only/no-context sessions fail closed;
+  - universal-only evidence still cannot originate BlueStacks profiles.
+
+### Recent exact checkpoints
 
 - `32e46b71d48ffcdb0550351896c6c46e1a54e42e` — integrated typed diagnostics/benchmark pipeline — Windows CI #983 SUCCESS
 - `eb6855a38a0a838af9c5f529831f520803750a2f` — exact accepted-frame count — Windows CI #984 SUCCESS
 - `1d4cb81c514dd8848754526a6b8c5a51b081a637` — Auto Tuner typed authority — Windows CI #985 SUCCESS
 - `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6` — Profile Challenge typed authority — Windows CI #986 SUCCESS
+- `4a9b12412d38a7ff0d355a74c890744290322b5a` — universal A/B context — Windows CI #988 SUCCESS
+- `8595e03f7c0dc0f63e9caad42e9b01dcdfa5a9d7` — session context composition — Windows CI #989 SUCCESS
 
 ### Legacy benchmark-authority audit — GREEN
 
-Temporary verifier run `34320920186` passed the complete Core self-test suite plus repository audit.
-
-Findings:
+Earlier temporary verifier audit proved:
 
 - zero production `PresentMonFrameCount` references;
 - Auto Tuner and Profile Challenge active code no longer call legacy `CaptureBenchmarkAsync`;
 - remaining production `CaptureBenchmarkAsync` members are compatibility surfaces only;
-- `PresentMon · N frames` remains only legacy output/compatibility disclosure and tests, not typed benchmark authority;
+- `PresentMon · N frames` remains legacy output/compatibility disclosure, not typed benchmark authority;
 - old History rehydration remains supported;
 - no validation/freshness gate was weakened.
 
 ## Current Track 4 gap
 
-`PerformanceConfigurationSnapshot` and `PerformanceEnvironmentFingerprint` remain intentionally Free Fire/BlueStacks-specific. They encode BlueStacks instance/Android identity, emulator CPU/RAM, renderer, FPS target, resolution and DPI and are deeply bound to historical profile/freshness validation.
+The Core contract and `PerformanceComparisonSession` are ready for universal context, but the real application composition still uses:
 
-The canonical Track 4 end state additionally requires an **additive universal A/B configuration/workload context** that can represent stable non-BlueStacks workloads without guessing unavailable facts.
+`PerformanceComparison = new PerformanceComparisonSession(CapturePerformanceConfiguration);`
+
+`CapturePerformanceConfiguration()` remains intentionally Free Fire/BlueStacks + Guardian specific. The WPF application does not yet own an explicit selected generic stable GameId/catalog result that can feed the new universal provider.
+
+This is now the remaining proven integration boundary. It must not be solved by startup discovery or by guessing GameId from PID/path/process/display names.
 
 Required invariants for the next slice:
 
-1. existing BlueStacks snapshot semantics remain intact;
-2. stable workload identity comes from Track 3 GameId;
-3. PID/path remain runtime evidence only;
-4. adapter/version/display/driver/capability fields are optional unless directly proven;
-5. old History without universal context rehydrates safely and is not upgraded;
-6. new evidence may carry universal context additively;
-7. `Observed/PendingValidation/Validated` authority remains unchanged.
+1. current BlueStacks provider and `PerformanceConfigurationSnapshot` semantics remain intact;
+2. generic workload identity must be an explicitly proven Track 3 GameId;
+3. any required game discovery remains explicit/on-demand;
+4. no proven universal context => provider returns null and legacy-only behavior remains;
+5. proven universal context may be attached additively, including alongside BlueStacks legacy context;
+6. History/profile authority remains unchanged.
 
 ## Exact next action
 
-TDD slice: **Universal A/B Configuration / Workload Context**.
+TDD slice: **Explicit application workload-context composition**.
 
-RED first, verify the intended failure, implement the minimum additive contract, run a clean Core verifier, integrate selectively into `build/initial-product`, and require a fresh full Windows CI on the exact official SHA before calling GREEN.
+RED first for the smallest app-facing state/provider seam, verify the intended failure, implement only the additive composition, run an isolated verifier, integrate selectively, and require a fresh full Windows CI on the exact official SHA before calling GREEN.
