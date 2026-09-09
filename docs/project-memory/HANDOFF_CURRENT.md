@@ -10,16 +10,16 @@
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `797c8c7766adea3369948d9cb330bb7ba9a69d52`
-- Commit: `feat: add capability-honest universal tuning search space`
-- Windows CI: **#1000 — SUCCESS**
-- CI run id: `34411645032`
+- Application HEAD: `8dac70fdb2c693533ae481aaadd846ab84fde228`
+- Commit: `feat: add capability-honest game adapter tuning dimensions`
+- Windows CI: **#1007 — SUCCESS**
+- CI run id: `34416726382`
 
-The exact #1000 job passed checkout/setup, native configure/build/tests, managed build, full Core self-tests, permanent App self-tests, `win-x64` publish, artifact upload and cleanup.
+The exact #1007 job passed checkout/setup, native configure/build/tests, managed build, full Core self-tests, permanent App self-tests, `win-x64` publish, artifact upload and cleanup.
 
 Checkpoint record:
 
-`docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
+`docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`
 
 Memory-sync commits after the application SHA are docs-only and do not replace the application checkpoint above as code authority.
 
@@ -32,15 +32,12 @@ Memory-sync commits after the application SHA are docs-only and do not replace t
 - Track 4 — Universal Telemetry / Evidence: **GREEN — canonical scope completed**
 - Track 5 — Universal Auto Tuner + Profiles: **ACTIVE**
   - Slice 1 — universal search-space + system-dimension bridge: **GREEN**
+  - Slice 2 — capability-honest game-adapter workload dimensions: **GREEN**
 - Track 6+ — planned; follow `ROADMAP.md` and the unified architecture.
 
 ## Track 4 authority preserved
 
-Track 4 closed at application SHA:
-
-`71991379e01518adf2e1c539491a9c0339a56735`
-
-Windows CI #993 / run `34407420906` SUCCESS.
+Track 4 closed at application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 / run `34407420906` SUCCESS.
 
 Core invariants that Track 5 must preserve:
 
@@ -60,20 +57,9 @@ Core invariants that Track 5 must preserve:
 
 ## Track 5 Slice 1 — Universal tuning search space — GREEN
 
-### Purpose
+Application SHA `797c8c7766adea3369948d9cb330bb7ba9a69d52`, Windows CI #1000 / run `34411645032` SUCCESS.
 
-Create the smallest additive universal candidate/search-space abstraction without rewriting the existing BlueStacks/FF Auto Tuner.
-
-The existing legacy path remains intact:
-
-- `TuningCandidate` still contains BlueStacks/FF-specific CPU cores, RAM, renderer, FPS target and resolution;
-- `AutoTunerEngine.GenerateCandidates(...)` remains source-compatible;
-- `AutoTunerSessionService` remains the specialized BlueStacks/FF runtime/session path;
-- profile persistence and winner authority remain unchanged.
-
-### Neutral contracts
-
-Added:
+Added neutral contracts:
 
 - `UniversalTuningDimensionScope { System, Workload }`;
 - `UniversalTuningDimension`;
@@ -82,126 +68,112 @@ Added:
 - `UniversalTuningSearchSpacePlanner`;
 - `UniversalTuningSystemDimensionFactory`.
 
-### Search-space invariants
+The planner is pure, deterministic and bounded. It accepts only explicit dimension identity, authority and values; invalid/duplicate declarations fail closed; zero dimensions produce zero candidates; support/search space is exploration only, never recommendation/validation/winner/persistence authority.
 
-A universal dimension requires:
+The system bridge consumes existing Track 2 `WindowsCapabilityCandidatePlan` and accepts only `CanExplore == true`; it does not rediscover, mutate or infer Windows state and does not consult recommendation confidence/value as search authority.
 
-- explicit nonblank `Id`;
-- explicit nonblank `AuthorityId`;
-- one or more explicit candidate values.
+## Track 5 Slice 2 — Game-adapter workload dimensions — GREEN
+
+### Purpose
+
+Allow specialized Game Adapters to contribute workload-specific search-space dimensions without making any game option universal and without rewriting the existing BlueStacks/FF tuner.
+
+### Optional adapter contract
+
+Added to the Track 3 adapter layer without changing `IGameAdapter`:
+
+- `GameAdapterTuningDimensionDeclaration`;
+- optional `IGameTuningDimensionProvider`.
+
+`GenericGameAdapter` and the current `BlueStacksFreeFireGameAdapter` deliberately do **not** implement this provider in this slice. Existing adapter implementations therefore remain source-compatible.
+
+### Resolved adapter authority
+
+Added `UniversalTuningWorkloadDimensionFactory`.
+
+Rules:
+
+1. take the caller-selected stable `GameIdentity`;
+2. resolve authority only through `GameAdapterResolver`;
+3. Generic/unregistered specialization => zero workload dimensions;
+4. adapter without `IGameTuningDimensionProvider` => zero dimensions;
+5. require `ConfigDiscovery + ConfigSnapshot + ConfigMutation + Rollback` before the provider is invoked;
+6. provider receives the exact stable `GameIdentity` supplied by the caller;
+7. local id is normalized only for identity and namespaced as `workload.<adapter-id>.<local-id>`;
+8. `AuthorityId` is the normalized id of the **resolved** adapter;
+9. candidate values preserve exact provider text and order;
+10. dimensions are returned deterministically by final id.
 
 Fail closed:
 
-- blank dimension id;
-- blank authority id;
-- empty candidate-value list;
-- blank candidate value;
-- duplicate dimension id case-insensitively;
-- duplicate candidate value.
+- null provider result;
+- null declaration;
+- blank local id;
+- empty value list;
+- blank value;
+- duplicate local ids case-insensitively;
+- duplicate exact candidate values.
 
-Zero declared dimensions produce **zero candidates**, not a fabricated empty/default candidate.
+No PID/path/process/display name can create tuning authority.
 
-The planner:
+### Composition
 
-1. validates the complete input;
-2. sorts dimensions deterministically by id;
-3. preserves each authority's declared candidate-value order exactly;
-4. builds the Cartesian product with the last sorted dimension varying fastest;
-5. truncates only at deterministic `MaxCandidates`;
-6. never randomizes the explored prefix;
-7. never attaches hidden/default axes;
-8. never attaches evidence, confidence or recommendation authority.
+No second search-space compositor was needed. The already-GREEN `UniversalTuningSearchSpacePlanner` directly composes explicit System + Workload dimensions into the deterministic Cartesian space. No hidden/default game axis is added.
 
-### Windows system-dimension bridge
+### Authority boundary
 
-`UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(...)` consumes the already-existing Track 2 `WindowsCapabilityCandidatePlan`.
+**Adapter-declared workload support is exploration only.** It does not grant measured evidence, confidence, recommendation, winner role, permission to persist, or permission to mutate.
 
-Only `plan.CanExplore == true` becomes a universal System dimension.
-
-Therefore these remain absent:
-
-- `Unavailable`;
-- `MissingCurrentState`;
-- `NoCandidateSpace`;
-- nominal `Ready` with zero candidates.
-
-For a valid plan:
-
-- `CapabilityId` becomes both dimension identity and authority identity;
-- targets remain exact producer `TargetValue` strings;
-- ordering follows `ExplorationRank`;
-- duplicate targets fail closed.
-
-The bridge does **not**:
-
-- inspect the Windows capability registry;
-- create new schema points;
-- infer availability;
-- mutate Windows;
-- consult recommended values or recommendation confidence;
-- publish recommendation authority.
-
-### Closed authority boundary
-
-**Support/search space is exploration only. It is not recommendation, validation, winner status or persistence authority.**
-
-The existing evidence chain remains authoritative:
+The existing authority chain remains:
 
 ```text
-candidate/support space
+explicit support/search space
 → controlled measurement
 → typed evidence
 → repeatability/evaluation
-→ PendingValidation where applicable
-→ fresh validation challenge
+→ freshness/fingerprint
+→ validation challenge where applicable
 → ValidatedEvidence
 → winner/recommendation authority
 ```
 
-Track 5 is not allowed to shortcut that chain.
+### TDD provenance
 
-## TDD provenance for Slice 1
+Temporary proving branch: `ci/track5-game-adapter-dimensions-verify`.
 
-Temporary proving branch:
+- Task 1 RED — verifier #1 / run `34412460197`: compile failed only because `IGameTuningDimensionProvider` and `GameAdapterTuningDimensionDeclaration` did not exist;
+- Task 1 GREEN — verifier #3 / run `34412615403` on `997fc7d3c9c73923a15ea3a9d4975d82b8e1b4fa`: Core + App.SelfTest + WPF SUCCESS;
+- Task 2 RED — verifier #4 / run `34412791339`: compile failed only because `UniversalTuningWorkloadDimensionFactory` did not exist;
+- Task 2/3 GREEN — verifier #5 / run `34412911108` on `56bfd6c0ef05c70e6148ad5a411313c627be7dbd`: Core + App.SelfTest + WPF SUCCESS, including deterministic System + Workload composition;
+- selective atomic official integration created `8dac70fdb2c693533ae481aaadd846ab84fde228` and excluded the temporary verifier workflow;
+- official Windows CI #1007 / run `34416726382` passed the exact integrated SHA.
 
-`ci/track5-universal-search-space-verify`
-
-The temporary verifier workflow was deliberately excluded from the official branch.
-
-Observed RED/GREEN sequence:
-
-- Task 1 RED — run `34410887507`: compile failed because `UniversalTuningDimensionScope`, `UniversalTuningDimension` and `UniversalTuningCandidate` did not exist;
-- Task 1 GREEN — verifier #3 on `6feb03b019008092868602c6400e9272ab968200`: Core + App.SelfTest + WPF SUCCESS;
-- Task 2 RED — run `34411302456`: compile failed only because `UniversalTuningSystemDimensionFactory` did not exist;
-- Task 2 GREEN — verifier #5 / run `34411435761` on `5c50b2a268246feefcfc2ba190176f9231d52d83`: Core + App.SelfTest + WPF SUCCESS;
-- selective atomic official integration created `797c8c7766adea3369948d9cb330bb7ba9a69d52` without the temporary verifier workflow;
-- official Windows CI #1000 then passed the exact integrated SHA.
-
-Tests are registered explicitly from the permanent Core self-test `Program.cs`; no `ModuleInitializer` was introduced.
+Permanent tests are called explicitly from Core self-test `Program.cs`; no new `ModuleInitializer` was introduced.
 
 ## Non-negotiable invariants still active
 
 - `Observed != Validated`.
 - Candidate support/search space is not recommendation space.
 - Unsupported/unproven tuning dimensions are absent, never guessed.
+- Game option semantics are adapter-owned; renderer/quality/resolution/FPS/etc. are not assumed universal.
+- Workload tuning authority comes from the adapter resolved for stable `GameIdentity`, never from PID/path/process/display name.
+- A provider without reversible config lifecycle cannot contribute dimensions.
 - Current exact machine/environment fingerprint and freshness remain mandatory where authority requires them.
 - Global Controlled Benchmark Lease semantics remain unchanged.
-- Stable workload identity never comes from PID/path/process/display name.
 - Game discovery remains explicit/on-demand; never add it to `AppServices.InitializeAsync()`.
 - No hidden tuning side effect is introduced by search-space construction.
 - Existing BlueStacks/FF Auto Tuner remains the first specialized implementation and stays source-compatible until a separately tested migration explicitly changes it.
 
 ## Exact next action
 
-Continue **Track 5** with the next additive slice: capability-honest workload/game dimensions.
+Continue **Track 5** with the next additive slice: connect the existing specialized BlueStacks/FF candidate space to the universal abstraction **without duplicating or replacing its environment/instance-specific candidate generator**.
 
-Before implementation:
+Required sequence:
 
-1. locate and read the existing Track 3 generic/specialized Game Adapter contracts in the current repository;
-2. identify what those adapters already prove about supported workload configuration/capabilities;
-3. do **not** create a second game-option catalog;
-4. define a workload-dimension seam only where an adapter can explicitly declare dimension identity, authority and candidate values;
-5. do not assume renderer, graphics quality, resolution, FPS target or other semantics are universal across games;
-6. RED first for unsupported/ambiguous/duplicate declarations and deterministic composition with the already-GREEN universal search-space planner;
-7. preserve the existing BlueStacks/FF tuner path until a later specialized adapter composition slice has its own RED/GREEN proof;
-8. isolated verifier → selective official integration → exact Windows CI → memory synchronization.
+1. read the current `AutoTunerEngine.GenerateCandidates(...)`, `TuningCandidate`, BlueStacks runtime/session and config snapshot/mutation contracts;
+2. identify the exact machine + BlueStacks-instance inputs that make its candidate space dynamic;
+3. design an additive bridge/provider seam that reuses the existing generator as authority instead of inventing static BlueStacks options;
+4. preserve the legacy candidate/runtime/session path and five winner roles unchanged until later winner/profile migration;
+5. prove mapping/correlation between legacy specialized candidates and neutral universal dimensions/candidates without losing reversibility or identity;
+6. RED first, isolated verifier, then GREEN;
+7. selective official integration → exact Windows CI → memory synchronization.
