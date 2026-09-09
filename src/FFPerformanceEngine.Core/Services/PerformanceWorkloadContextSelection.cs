@@ -49,8 +49,16 @@ public sealed class PerformanceWorkloadContextSelection
         }
 
         var match = matches[0];
-        var canonicalGameId = NormalizeId(match.Identity.GameId);
-        var resolvedAdapterId = NormalizeId(match.Adapter?.AdapterId);
+        var identity = match.Identity;
+        var adapter = match.Adapter;
+        if (identity is null || adapter is null)
+        {
+            Clear();
+            return false;
+        }
+
+        var canonicalGameId = NormalizeId(identity.GameId);
+        var resolvedAdapterId = NormalizeId(adapter.AdapterId);
         if (string.IsNullOrWhiteSpace(canonicalGameId)
             || string.IsNullOrWhiteSpace(resolvedAdapterId))
         {
@@ -72,8 +80,8 @@ public sealed class PerformanceWorkloadContextSelection
             [
                 new ResolvedGameCatalogEntry
                 {
-                    Identity = match.Identity with { GameId = canonicalGameId },
-                    Adapter = match.Adapter
+                    Identity = identity with { GameId = canonicalGameId },
+                    Adapter = adapter
                 }
             ]
         };
