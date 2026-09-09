@@ -243,8 +243,6 @@ Evidence sources have different strength:
 
 Passive data can reduce confidence and request revalidation after game/driver/environment drift; it cannot silently overwrite strong controlled evidence.
 
-Scene/load clusters may include CPU-heavy, GPU-heavy, VRAM-heavy, streaming-heavy, effects/combat-heavy, population-heavy, thermal sustained load and mixed/unknown.
-
 ## 13. Graphics / Game Performance Engine
 
 Optimization strength is layered:
@@ -264,8 +262,8 @@ For anti-cheat/integrity-protected games, DG remains conservative: supported con
 
 Approved future scope includes:
 
-- CPU Topology & Scheduler Engine (P/E cores, SMT, processor groups, CCD/CCX/cache locality, affinity/preferred-core policy, background isolation);
-- CPU Power & Boost Engine (power policy, EPP/performance preference, boost, parking, sustained limits, thermal/power headroom);
+- CPU Topology & Scheduler Engine;
+- CPU Power & Boost Engine;
 - GPU/VRAM vendor capability adapters;
 - memory/working-set and storage/I/O engines;
 - WDDM/display, network/latency and input responsiveness domains.
@@ -276,7 +274,7 @@ Hardware tuning is capability-aware and evidence-based. Higher clocks/power are 
 
 Cleaner has Safe, Game/System Deep and Extreme policies, but personal/user-created data is a hard boundary.
 
-Extreme Cleanup may remove healthy *regenerable* caches (launcher/game/emulator/shader where safely rebuildable) after clear warning. It never automatically treats saves, mods, screenshots, recordings, presets, personal configs, documents or other user-created content as disposable.
+Extreme Cleanup may remove healthy *regenerable* caches after clear warning. It never automatically treats saves, mods, screenshots, recordings, presets, personal configs, documents or other user-created content as disposable.
 
 ## 16. System Optimizer session vs persistent state
 
@@ -371,38 +369,142 @@ When a universal stable GameId is explicitly selected, that selection owns Perfo
 - while that selection exists, the app must **not** silently fall back to an unrelated Guardian/BlueStacks workload;
 - when no universal selection exists, the legacy Guardian/BlueStacks typed route remains the compatibility path.
 
-This rule prevents cross-workload telemetry contamination while preserving all previously validated FF/BlueStacks behavior.
-
-### Layer ownership
-
-- Core owns target resolution and typed capture contracts.
-- Application services own current route selection/composition.
-- WPF owns presentation/orchestration only and consumes the resolved route/presentation contract.
-- UI must not guess process identity or decide fallback independently.
-
-### Typed evidence invariants
-
-- each numeric observation has explicit source, quality, coverage and origin;
-- missing metrics remain absent/Unknown, never zero-filled;
-- coverage is completeness, never probability;
-- direct typed universal capture does not promote legacy `TelemetrySample` fallback data;
-- old History remains readable without acquiring new authority;
-- `Observed != Validated`;
-- Global Controlled Benchmark Lease, freshness/fingerprint checks and durable validation gates remain unchanged;
-- no startup workload discovery was introduced;
-- no raw v2 telemetry database was introduced;
-- no anti-cheat/integrity bypass was introduced.
-
 ### Track 4 completion checkpoint
 
-Closing application SHA:
+Closing application SHA: `71991379e01518adf2e1c539491a9c0339a56735`.
 
-`71991379e01518adf2e1c539491a9c0339a56735`
+Windows CI #993 / run `34407420906` — SUCCESS.
+
+Track 4 is **GREEN for its current canonical scope**.
+
+## 21. Universal Auto Tuner search-space authority — Track 5 Slice 1 GREEN 2026-09-09
+
+Track 5 generalizes the existing Auto Tuner and Profiles additively. The specialized FF/BlueStacks tuner remains working code and is not replaced merely to obtain universal type names.
+
+The first universal tuning layer deliberately separates three concepts:
+
+```text
+PROVEN SUPPORT / DECLARED OPTION
+              ↓
+      UNIVERSAL SEARCH SPACE
+              ↓
+     CONTROLLED MEASUREMENT
+              ↓
+        TYPED EVIDENCE
+              ↓
+ REPEATABILITY / FRESHNESS / VALIDATION
+              ↓
+ WINNER / RECOMMENDATION AUTHORITY
+```
+
+An item appearing in the search space proves only that an explicit authority exposed it as an explorable candidate. It does **not** prove that the setting is beneficial, recommended, validated, safe to persist, or entitled to a profile winner role.
+
+### Neutral dimension model
+
+A universal tuning dimension has:
+
+- `Id`: stable dimension identity;
+- `Scope`: `System` or `Workload`;
+- `AuthorityId`: the authority that explicitly supplied the candidate space;
+- `CandidateValues`: exact declared options.
+
+The neutral `UniversalTuningCandidate` contains only a mapping of dimension id → selected value. It intentionally has no confidence, evidence level, recommendation, winner role or persistence flag.
+
+### Fail-closed declaration rules
+
+Universal tuning rejects rather than repairs/invents:
+
+- blank dimension id;
+- blank authority id;
+- an empty candidate list;
+- blank candidate values;
+- duplicate dimension ids case-insensitively;
+- duplicate candidate values.
+
+Zero dimensions produce zero candidates. There is no implicit “default candidate”.
+
+### Deterministic bounded exploration
+
+`UniversalTuningSearchSpacePlanner`:
+
+1. validates all declarations before returning candidates;
+2. orders dimensions deterministically by id;
+3. preserves each authority's declared candidate-value order exactly;
+4. forms the Cartesian product;
+5. varies the last sorted dimension fastest;
+6. stops at `MaxCandidates` as a deterministic prefix;
+7. never randomizes candidate order;
+8. never creates hidden axes or default values;
+9. performs no machine mutation and grants no evidence/recommendation authority.
+
+This bounded product is a planning primitive, not an instruction to benchmark every possible combination blindly. Later Track 5 search strategy can prune/adapt exploration while preserving the declared-authority boundary.
+
+### System dimensions reuse Track 2 authority
+
+Windows/system tuning dimensions do not recreate capability discovery.
+
+The bridge consumes the existing `WindowsCapabilityCandidatePlan` produced by the Track 2 capability candidate planner.
+
+Only `CanExplore == true` enters the universal search space.
+
+Therefore:
+
+- `Unavailable` stays absent;
+- `MissingCurrentState` stays absent;
+- `NoCandidateSpace` stays absent;
+- `Ready` with zero candidates stays absent.
+
+For accepted plans:
+
+- normalized CapabilityId is both dimension identity and authority identity;
+- TargetValue strings remain exact;
+- ExplorationRank determines target order;
+- duplicate target values fail closed.
+
+The bridge does not inspect the registry, infer availability, generate schema points, mutate Windows, consult recommendation confidence/value or publish a recommendation.
+
+### Specialized compatibility
+
+The existing FF/BlueStacks path remains unchanged and source-compatible:
+
+- `TuningCandidate`;
+- `AutoTunerEngine.GenerateCandidates(...)`;
+- `AutoTunerSessionService`;
+- `BlueStacksAutoTunerRuntime`;
+- existing five winner roles;
+- Custom Validated challenge/promotion mechanisms.
+
+Future migration of that specialized search space into the neutral universal model receives its own TDD slice. Do not force a destructive conversion merely because universal contracts now exist.
+
+### Workload/game authority requirement
+
+The next universal dimensions must come from existing or deliberately extended Game Adapter authority.
+
+Do not assume these names/semantics are universal:
+
+- renderer;
+- graphics quality;
+- resolution;
+- FPS target;
+- internal render scale;
+- game engine toggles.
+
+A generic adapter may expose only what it can prove. A specialized adapter may expose deeper dimensions only when it understands the workload/configuration semantics and can support reversible application/verification as later orchestration requires.
+
+Do not create a second independent catalog of game options inside Auto Tuner.
+
+### Verification checkpoint
+
+Application SHA:
+
+`797c8c7766adea3369948d9cb330bb7ba9a69d52`
 
 Windows CI:
 
-`#993` / run `34407420906` — SUCCESS.
+`#1000` / run `34411645032` — SUCCESS.
 
-Track 4 is therefore **GREEN for its current canonical scope**. Future VRAM/thermal/I/O/network sensors are capability-driven extensions only when real providers and concrete consumers exist; they do not justify fabricated measurements or indefinite Track 4 status.
+Durable checkpoint:
 
-The next canonical engineering track is **Track 5 — Universal Auto Tuner + Profiles**, beginning with additive generic search-space/candidate abstractions while preserving the working FF/BlueStacks tuner as the first specialized implementation and retaining all typed evidence/validation authority.
+`docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
+
+Track 5 remains **ACTIVE**. Slice 1 is GREEN; next is capability-honest workload/game-adapter dimensions.
