@@ -151,6 +151,7 @@ try
     await GameDiscoveryFoundationSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
+    PresentMonTypedCaptureMetadataSelfTests.Run();
     UniversalBottleneckAnalyzerV2SelfTests.Run();
     UniversalDiagnosticServiceV2SelfTests.Run();
 }
