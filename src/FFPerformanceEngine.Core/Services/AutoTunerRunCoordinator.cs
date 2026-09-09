@@ -1,6 +1,6 @@
 using System.Runtime.ExceptionServices;
-using System.Text.RegularExpressions;
 using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
@@ -31,7 +31,17 @@ public interface IAutoTunerRuntime
 {
     Task<AutoTunerRuntimeResult> ApplyCandidateAsync(TuningCandidate candidate, CancellationToken cancellationToken = default);
     Task<AutoTunerRuntimeResult> PrepareGameAsync(GameKind game, CancellationToken cancellationToken = default);
+
+    // Kept temporarily for source compatibility with callers that still consume the
+    // legacy sample surface. AutoTunerRunCoordinator never uses this method as
+    // benchmark authority.
     Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default);
+
+    // Runtimes that have not migrated to typed telemetry fail closed. There is no
+    // implicit conversion from DataQuality text to v2 evidence.
+    Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<TelemetryFrame?>(null);
+
     Task CompleteCandidateAsync(CancellationToken cancellationToken = default);
     Task RestoreBaselineAsync(CancellationToken cancellationToken = default);
 }
@@ -50,7 +60,6 @@ public sealed record AutoTunerValidationPolicy
 
 public sealed class AutoTunerRunCoordinator
 {
-    private static readonly Regex PresentMonFrameCount = new(@"(?<count>\d+)\s+frames?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly AutoTunerEngine _engine;
     private readonly IAutoTunerRuntime _runtime;
     private readonly AutoTunerValidationPolicy _validation;
@@ -98,8 +107,6 @@ public sealed class AutoTunerRunCoordinator
         if (game is not (GameKind.FreeFire or GameKind.FreeFireMax))
             throw new ArgumentOutOfRangeException(nameof(game), game, "Auto Tuner requires Free Fire or Free Fire MAX.");
 
-        // Keep machine-wide CPU/GPU/PresentMon evidence uncontaminated for the full
-        // mutate -> measure -> cleanup -> baseline-restore lifecycle.
         await using var benchmarkLease = await _benchmarkLeases
             .AcquireAsync($"Auto Tuner · {game}", cancellationToken)
             .ConfigureAwait(false);
@@ -138,7 +145,7 @@ public sealed class AutoTunerRunCoordinator
                     var prepared = await _runtime.PrepareGameAsync(game, cancellationToken).ConfigureAwait(false);
                     if (!prepared.Success) continue;
 
-                    var accepted = new List<TelemetrySample>(_validation.RequiredSamples(mode));
+                    var accepted = new List<TelemetryFrame>(_validation.RequiredSamples(mode));
                     var attempts = 0;
                     var stable = false;
                     var requiredSamples = _validation.RequiredSamples(mode);
@@ -153,8 +160,8 @@ public sealed class AutoTunerRunCoordinator
                             candidates.Count,
                             $"Measuring candidate {candidateNumber}: capture {attempts} of {_validation.MaxAttemptsPerCandidate}."));
 
-                        var sample = await _runtime.CaptureBenchmarkAsync(cancellationToken).ConfigureAwait(false);
-                        if (!IsAcceptableCapture(sample, _validation.MinimumPresentMonFrames, out var rejectionReason))
+                        var frame = await _runtime.CaptureBenchmarkFrameAsync(cancellationToken).ConfigureAwait(false);
+                        if (!IsAcceptableCapture(frame, _validation.MinimumPresentMonFrames, out var rejectionReason))
                         {
                             progress?.Invoke(new(
                                 AutoTunerRunStage.ValidatingBenchmark,
@@ -164,7 +171,7 @@ public sealed class AutoTunerRunCoordinator
                             continue;
                         }
 
-                        accepted.Add(sample!);
+                        accepted.Add(frame!);
                         stable = accepted.Count >= requiredSamples
                                  && FpsCoefficientOfVariation(accepted) <= _validation.MaximumFpsCoefficientOfVariation;
 
@@ -181,7 +188,7 @@ public sealed class AutoTunerRunCoordinator
 
                     if (accepted.Count == 0) continue;
 
-                    var aggregated = AggregateSamples(accepted, attempts, stable);
+                    var aggregated = AggregateFrames(accepted, attempts, stable);
                     evidence.Add(new CandidateEvidence
                     {
                         Candidate = candidate,
@@ -200,7 +207,6 @@ public sealed class AutoTunerRunCoordinator
                             candidates.Count,
                             $"Cleaning candidate {candidateNumber}."));
 
-                        // User cancellation must never cancel rollback/cleanup after a restart-required candidate was applied.
                         await _runtime.CompleteCandidateAsync(CancellationToken.None).ConfigureAwait(false);
                     }
                 }
@@ -247,28 +253,49 @@ public sealed class AutoTunerRunCoordinator
         return result;
     }
 
-    private static bool IsAcceptableCapture(TelemetrySample? sample, int minimumPresentMonFrames, out string reason)
+    private static bool IsAcceptableCapture(
+        TelemetryFrame? frame,
+        int minimumPresentMonFrames,
+        out string reason)
     {
-        if (sample is null)
+        if (frame is null)
         {
-            reason = "telemetry capture returned no sample";
-            return false;
-        }
-        if (sample.Fps is null or <= 0 || double.IsNaN(sample.Fps.Value) || double.IsInfinity(sample.Fps.Value))
-        {
-            reason = "FPS evidence is unavailable or invalid";
-            return false;
-        }
-        if (string.Equals(sample.DataQuality, "Unavailable", StringComparison.OrdinalIgnoreCase))
-        {
-            reason = "telemetry source marked the capture unavailable";
+            reason = "typed telemetry capture returned no frame";
             return false;
         }
 
-        var match = PresentMonFrameCount.Match(sample.DataQuality ?? string.Empty);
-        if (match.Success && int.TryParse(match.Groups["count"].Value, out var frameCount) && frameCount < minimumPresentMonFrames)
+        if (frame.FrameQuality != TelemetryMetricQuality.Measured)
         {
-            reason = $"capture contains only {frameCount} PresentMon frames; minimum is {minimumPresentMonFrames}";
+            reason = "typed telemetry frame is not fully measured";
+            return false;
+        }
+
+        if (!TryGetDirectPresentMon(frame, TelemetryStandardMetrics.FrameFpsAverage, out var fps)
+            || fps.Value <= 0d
+            || fps.Coverage <= 0d)
+        {
+            reason = "measured direct PresentMon FPS evidence is unavailable or invalid";
+            return false;
+        }
+
+        if (!TryGetDirectPresentMon(frame, TelemetryStandardMetrics.FrameAcceptedSampleCount, out var count))
+        {
+            reason = "exact accepted PresentMon frame count is unavailable";
+            return false;
+        }
+
+        if (count.Coverage != 1d
+            || count.Value < 0d
+            || Math.Abs(count.Value - Math.Round(count.Value)) > 0.000001d)
+        {
+            reason = "accepted PresentMon frame count is not exact";
+            return false;
+        }
+
+        var acceptedFrames = (long)Math.Round(count.Value);
+        if (acceptedFrames < minimumPresentMonFrames)
+        {
+            reason = $"capture contains only {acceptedFrames} accepted PresentMon frames; minimum is {minimumPresentMonFrames}";
             return false;
         }
 
@@ -276,60 +303,100 @@ public sealed class AutoTunerRunCoordinator
         return true;
     }
 
-    private static TelemetrySample AggregateSamples(IReadOnlyList<TelemetrySample> samples, int attempts, bool stable)
+    private static bool TryGetDirectPresentMon(
+        TelemetryFrame frame,
+        TelemetryMetricDescriptor descriptor,
+        out TelemetryMetricObservation observation)
     {
-        var coefficient = FpsCoefficientOfVariation(samples);
+        observation = null!;
+        if (!frame.TryGetMetric(descriptor.Id, out var found) || found is null) return false;
+        if (!double.IsFinite(found.Value)
+            || found.Quality != TelemetryMetricQuality.Measured
+            || found.SourceId != "presentmon"
+            || found.Origin != TelemetryMetricOrigin.Direct)
+            return false;
+
+        observation = found;
+        return true;
+    }
+
+    private static TelemetrySample AggregateFrames(
+        IReadOnlyList<TelemetryFrame> frames,
+        int attempts,
+        bool stable)
+    {
+        var coefficient = FpsCoefficientOfVariation(frames);
         return new TelemetrySample
         {
-            Timestamp = samples.Max(x => x.Timestamp),
-            Fps = Average(samples.Select(x => x.Fps)),
-            OnePercentLow = Average(samples.Select(x => x.OnePercentLow)),
-            PointOnePercentLow = Average(samples.Select(x => x.PointOnePercentLow)),
-            FrameTimeMs = Average(samples.Select(x => x.FrameTimeMs)),
-            FrameTimeP95Ms = Average(samples.Select(x => x.FrameTimeP95Ms)),
-            FrameTimeP99Ms = Average(samples.Select(x => x.FrameTimeP99Ms)),
-            StutterPercent = Average(samples.Select(x => x.StutterPercent)),
-            LatencyMs = Average(samples.Select(x => x.LatencyMs)),
-            CpuPercent = Average(samples.Select(x => x.CpuPercent)),
-            GpuPercent = Average(samples.Select(x => x.GpuPercent)),
-            MemoryUsedGb = Average(samples.Select(x => x.MemoryUsedGb)),
-            MemoryTotalGb = Average(samples.Select(x => x.MemoryTotalGb)),
-            CpuTemperatureC = Average(samples.Select(x => x.CpuTemperatureC)),
-            GpuTemperatureC = Average(samples.Select(x => x.GpuTemperatureC)),
-            PingMs = Average(samples.Select(x => x.PingMs)),
-            JitterMs = Average(samples.Select(x => x.JitterMs)),
-            PacketLossPercent = Average(samples.Select(x => x.PacketLossPercent)),
-            DataQuality = $"{(stable ? "Validated" : "Observed")} repeatability · {samples.Count} accepted / {attempts} attempts · FPS CV {coefficient:P1}"
+            Timestamp = frames.Max(x => x.Timestamp),
+            Fps = AverageMetric(frames, TelemetryStandardMetrics.FrameFpsAverage),
+            OnePercentLow = AverageMetric(frames, TelemetryStandardMetrics.FrameFpsLow1),
+            PointOnePercentLow = AverageMetric(frames, TelemetryStandardMetrics.FrameFpsLow01),
+            FrameTimeMs = AverageMetric(frames, TelemetryStandardMetrics.FrameTimeAverageMs),
+            FrameTimeP95Ms = AverageMetric(frames, TelemetryStandardMetrics.FrameTimeP95Ms),
+            FrameTimeP99Ms = AverageMetric(frames, TelemetryStandardMetrics.FrameTimeP99Ms),
+            StutterPercent = AverageMetric(frames, TelemetryStandardMetrics.FrameStutterPercent),
+            LatencyMs = AverageMetric(frames, TelemetryStandardMetrics.FrameLatencyAverageMs),
+            CpuPercent = AverageMetric(frames, TelemetryStandardMetrics.SystemCpuUtilizationPercent),
+            GpuPercent = AverageMetric(frames, TelemetryStandardMetrics.SystemGpuUtilizationPercent),
+            MemoryUsedGb = AverageMetric(frames, TelemetryStandardMetrics.SystemMemoryUsedGb),
+            MemoryTotalGb = AverageMetric(frames, TelemetryStandardMetrics.SystemMemoryTotalGb),
+            CpuTemperatureC = AverageMetric(frames, TelemetryStandardMetrics.CpuTemperatureCelsius),
+            GpuTemperatureC = AverageMetric(frames, TelemetryStandardMetrics.GpuTemperatureCelsius),
+            PingMs = AverageMetric(frames, TelemetryStandardMetrics.NetworkPingMs),
+            JitterMs = AverageMetric(frames, TelemetryStandardMetrics.NetworkJitterMs),
+            PacketLossPercent = AverageMetric(frames, TelemetryStandardMetrics.NetworkPacketLossPercent),
+            DataQuality = $"{(stable ? "Validated" : "Observed")} repeatability · {frames.Count} accepted / {attempts} attempts · FPS CV {coefficient:P1}"
         };
     }
 
-    private static double FpsCoefficientOfVariation(IReadOnlyList<TelemetrySample> samples)
+    private static double FpsCoefficientOfVariation(IReadOnlyList<TelemetryFrame> frames)
     {
-        var values = samples.Select(x => x.Fps).Where(x => x is > 0).Select(x => x!.Value).ToArray();
-        if (values.Length <= 1) return 0;
+        var values = frames
+            .Select(frame => ReadMeasuredValue(frame, TelemetryStandardMetrics.FrameFpsAverage))
+            .Where(value => value is > 0d)
+            .Select(value => value!.Value)
+            .ToArray();
+        if (values.Length <= 1) return 0d;
         var mean = values.Average();
-        if (mean <= 0) return double.PositiveInfinity;
-        var variance = values.Select(x => Math.Pow(x - mean, 2)).Average();
+        if (mean <= 0d) return double.PositiveInfinity;
+        var variance = values.Select(value => Math.Pow(value - mean, 2)).Average();
         return Math.Sqrt(variance) / mean;
     }
 
-    private static double CalculateConfidence(IReadOnlyList<TelemetrySample> samples, bool stable)
+    private static double CalculateConfidence(IReadOnlyList<TelemetryFrame> frames, bool stable)
     {
-        var aggregate = AggregateSamples(samples, samples.Count, stable);
+        var aggregate = AggregateFrames(frames, frames.Count, stable);
         var confidence = stable ? 0.86 : 0.52;
-        confidence += Math.Min(samples.Count, 4) * 0.025;
+        confidence += Math.Min(frames.Count, 4) * 0.025;
         if (aggregate.OnePercentLow is > 0) confidence += 0.025;
         if (aggregate.FrameTimeP95Ms is > 0) confidence += 0.015;
         if (aggregate.FrameTimeP99Ms is > 0) confidence += 0.01;
         if (aggregate.LatencyMs is > 0) confidence += 0.01;
-        confidence -= Math.Min(0.30, FpsCoefficientOfVariation(samples) * 0.75);
+        confidence -= Math.Min(0.30, FpsCoefficientOfVariation(frames) * 0.75);
         return Math.Clamp(confidence, 0.40, 0.99);
     }
 
-    private static double? Average(IEnumerable<double?> values)
+    private static double? AverageMetric(
+        IReadOnlyList<TelemetryFrame> frames,
+        TelemetryMetricDescriptor descriptor)
     {
-        var available = values.Where(x => x.HasValue && !double.IsNaN(x.Value) && !double.IsInfinity(x.Value)).Select(x => x!.Value).ToArray();
-        return available.Length == 0 ? null : available.Average();
+        var values = frames
+            .Select(frame => ReadMeasuredValue(frame, descriptor))
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .ToArray();
+        return values.Length == 0 ? null : values.Average();
+    }
+
+    private static double? ReadMeasuredValue(
+        TelemetryFrame frame,
+        TelemetryMetricDescriptor descriptor)
+    {
+        if (!frame.TryGetMetric(descriptor.Id, out var observation) || observation is null) return null;
+        return observation.Quality == TelemetryMetricQuality.Measured && double.IsFinite(observation.Value)
+            ? observation.Value
+            : null;
     }
 
     private static void ValidatePolicy(AutoTunerValidationPolicy policy)
