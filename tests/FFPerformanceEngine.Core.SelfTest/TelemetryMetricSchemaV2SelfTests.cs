@@ -68,8 +68,15 @@ internal static class TelemetryMetricSchemaV2SelfTests
                 && descriptor.Domain == TelemetryMetricDomain.System
                 && descriptor.Aggregation == TelemetryAggregationKind.Gauge),
             "Processor-power metrics must use MHz/System/Gauge semantics.");
-        Require(TelemetryStandardMetrics.All.Count == 20,
-            "The current v2 standard catalog must expose 17 compatibility metrics plus three processor-power metrics.");
+
+        var acceptedFrameCount = TelemetryStandardMetrics.FrameAcceptedSampleCount;
+        Require(acceptedFrameCount.Id == "frame.samples.accepted.count"
+                && acceptedFrameCount.Unit == TelemetryUnit.Count
+                && acceptedFrameCount.Domain == TelemetryMetricDomain.Frame
+                && acceptedFrameCount.Aggregation == TelemetryAggregationKind.Sum,
+            "Accepted PresentMon frame count must use stable Frame/Count/Sum semantics.");
+        Require(TelemetryStandardMetrics.All.Count == 21,
+            "The current v2 standard catalog must expose 17 compatibility metrics, three processor-power metrics and accepted PresentMon frame count.");
         Require(TelemetryStandardMetrics.All
                     .Select(item => item.Id)
                     .Distinct(StringComparer.Ordinal)
