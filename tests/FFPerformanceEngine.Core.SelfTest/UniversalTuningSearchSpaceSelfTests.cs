@@ -1,5 +1,6 @@
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.SystemOptimization;
 
 internal static class UniversalTuningSearchSpaceSelfTests
 {
@@ -10,6 +11,7 @@ internal static class UniversalTuningSearchSpaceSelfTests
         DeterministicCartesianProduct();
         CandidateBudgetIsDeterministic();
         LegacyBlueStacksCandidateRemainsUnchanged();
+        WindowsCapabilityPlanBridgeIsCapabilityHonest();
 
         Console.WriteLine("PASS Track 5 universal tuning search-space contract");
     }
@@ -128,6 +130,124 @@ internal static class UniversalTuningSearchSpaceSelfTests
                 && legacy.FpsTarget == 120
                 && legacy.Resolution == "1920x1080",
             "Track 5 search-space foundations must be additive and keep the existing BlueStacks TuningCandidate source-compatible.");
+    }
+
+    private static void WindowsCapabilityPlanBridgeIsCapabilityHonest()
+    {
+        var ready = new WindowsCapabilityCandidatePlan
+        {
+            CapabilityId = "windows.power.active_policy",
+            CurrentValue = "balanced",
+            Disposition = WindowsCapabilityCandidatePlanDisposition.Ready,
+            Candidates =
+            [
+                new WindowsCapabilityCandidate
+                {
+                    CapabilityId = "windows.power.active_policy",
+                    TargetValue = "extreme",
+                    ExplorationRank = 2,
+                    Source = WindowsCapabilityCandidateSource.ExplicitMetadata
+                },
+                new WindowsCapabilityCandidate
+                {
+                    CapabilityId = "windows.power.active_policy",
+                    TargetValue = "performance",
+                    ExplorationRank = 1,
+                    Source = WindowsCapabilityCandidateSource.ExplicitMetadata
+                }
+            ]
+        };
+
+        var dimension = UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(ready);
+        Require(dimension is not null,
+            "A Ready Windows capability plan with explicit candidates must become one universal system dimension.");
+        Require(dimension!.Scope == UniversalTuningDimensionScope.System,
+            "Windows capability exploration must enter the universal search space as a System dimension.");
+        Require(dimension.Id == "windows.power.active_policy"
+                && dimension.AuthorityId == "windows.power.active_policy",
+            "The Windows capability id must remain both dimension identity and explicit authority identity.");
+        Require(dimension.CandidateValues.SequenceEqual(new[] { "performance", "extreme" }, StringComparer.Ordinal),
+            "The bridge must order plan targets by ExplorationRank while preserving exact TargetValue text.");
+
+        foreach (var disposition in new[]
+                 {
+                     WindowsCapabilityCandidatePlanDisposition.Unavailable,
+                     WindowsCapabilityCandidatePlanDisposition.MissingCurrentState,
+                     WindowsCapabilityCandidatePlanDisposition.NoCandidateSpace
+                 })
+        {
+            var blocked = UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(new WindowsCapabilityCandidatePlan
+            {
+                CapabilityId = "windows.test.blocked",
+                CurrentValue = disposition == WindowsCapabilityCandidatePlanDisposition.MissingCurrentState ? null : "current",
+                Disposition = disposition,
+                Candidates =
+                [
+                    new WindowsCapabilityCandidate
+                    {
+                        CapabilityId = "windows.test.blocked",
+                        TargetValue = "target",
+                        ExplorationRank = 1,
+                        Source = WindowsCapabilityCandidateSource.ExplicitMetadata
+                    }
+                ]
+            });
+            Require(blocked is null,
+                $"Windows candidate plans with disposition {disposition} must remain absent from universal tuning search space.");
+        }
+
+        var emptyReady = UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(new WindowsCapabilityCandidatePlan
+        {
+            CapabilityId = "windows.test.empty",
+            CurrentValue = "current",
+            Disposition = WindowsCapabilityCandidatePlanDisposition.Ready,
+            Candidates = Array.Empty<WindowsCapabilityCandidate>()
+        });
+        Require(emptyReady is null,
+            "A nominally Ready plan without candidates must remain absent instead of becoming an empty/default dimension.");
+
+        RequireThrows<ArgumentException>(() => UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(
+            new WindowsCapabilityCandidatePlan
+            {
+                CapabilityId = " ",
+                CurrentValue = "current",
+                Disposition = WindowsCapabilityCandidatePlanDisposition.Ready,
+                Candidates =
+                [
+                    new WindowsCapabilityCandidate
+                    {
+                        CapabilityId = " ",
+                        TargetValue = "target",
+                        ExplorationRank = 1,
+                        Source = WindowsCapabilityCandidateSource.ExplicitMetadata
+                    }
+                ]
+            }), "A Ready capability plan without stable capability identity must be rejected, not converted into anonymous tuning authority.");
+
+        RequireThrows<ArgumentException>(() => UniversalTuningSystemDimensionFactory.FromWindowsCandidatePlan(
+            new WindowsCapabilityCandidatePlan
+            {
+                CapabilityId = "windows.test.duplicate",
+                CurrentValue = "current",
+                Disposition = WindowsCapabilityCandidatePlanDisposition.Ready,
+                Candidates =
+                [
+                    new WindowsCapabilityCandidate
+                    {
+                        CapabilityId = "windows.test.duplicate",
+                        TargetValue = "target",
+                        ExplorationRank = 1,
+                        Source = WindowsCapabilityCandidateSource.ExplicitMetadata
+                    },
+                    new WindowsCapabilityCandidate
+                    {
+                        CapabilityId = "windows.test.duplicate",
+                        TargetValue = "target",
+                        ExplorationRank = 2,
+                        Source = WindowsCapabilityCandidateSource.SchemaGenerated
+                    }
+                ]
+            }), "Duplicate Windows target values must be rejected so the bridge never silently rewrites producer search intent.");
     }
 
     private static UniversalTuningDimension Dimension(
