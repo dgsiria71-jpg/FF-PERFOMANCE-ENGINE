@@ -75,12 +75,6 @@ This file records decisions that were explicitly closed in project chats/specs. 
 
 ## Track 4 universal Performance capture routing — closed 2026-09-09
 
-Previous state:
-
-- the Performance screen/capture path was still Guardian/BlueStacks-specific even after universal workload context existed for A/B/History.
-
-New closed decision:
-
 - an explicitly selected stable universal GameId has **capture-route precedence** over Guardian;
 - its runtime target is resolved only from that selection's bound `RunningProcess` evidence through the shared `TelemetryWorkloadTargetResolver` contract;
 - exactly one valid PID/path may be captured;
@@ -93,31 +87,58 @@ New closed decision:
 - WPF displays the route chosen by application/Core policy and does not own workload identity/fallback logic;
 - universal capture uses direct typed telemetry and does not promote a legacy `TelemetrySample` fallback.
 
-Reason:
+Reason: prevent cross-workload telemetry contamination while preserving the existing validated Guardian compatibility path.
 
-- prevent cross-workload telemetry contamination and accidental measurement of a different BlueStacks process/game merely because Guardian currently has an exact binding;
-- preserve stable identity rules and the existing validated Guardian compatibility path simultaneously.
-
-Affected scope:
-
-- Track 4 Universal Telemetry/Evidence;
-- `PerformanceWorkloadContextSelection`;
-- `PerformanceCaptureCoordinator`;
-- `AppServices` Performance capture bridge/route;
-- `PerformancePage` presentation/orchestration;
-- Track 5 and later consumers must preserve this routing authority unless a new explicit architecture decision supersedes it.
-
-Verification:
-
-- closing application commit `71991379e01518adf2e1c539491a9c0339a56735`;
-- Windows CI #993 / run `34407420906` SUCCESS.
+Verification: application commit `71991379e01518adf2e1c539491a9c0339a56735`; Windows CI #993 / run `34407420906` SUCCESS.
 
 ## Track 4 closure — closed 2026-09-09
 
 - Track 4 is **GREEN for the current canonical scope** after the exact universal Performance capture integration passed Windows CI #993.
-- Closure is based on the unified architecture requirements (`metric schema v2`, `hardware channels`, `universal data quality`, `universal A/B config snapshot`, `compatibility migration`) plus the detailed Track 4 success criteria.
-- Future supported sensor/provider enrichment does not reopen Track 4 by default. Place it under the most appropriate active/future track (especially Hardware Performance Engine) unless it changes a Track 4 invariant.
+- Closure is based on the unified architecture requirements plus the detailed Track 4 success criteria.
+- Future supported sensor/provider enrichment does not reopen Track 4 by default.
 - Next canonical engineering track is Track 5 — Universal Auto Tuner + Profiles.
+
+## Track 5 universal search-space authority — closed 2026-09-09
+
+Previous risk:
+
+- the existing BlueStacks `TuningCandidate` was specialized, while future universal tuning needs to combine Windows/system and workload-specific dimensions without treating every supported value as a recommendation or inventing generic game semantics.
+
+Closed decision:
+
+- universal tuning uses an **additive neutral search-space model**; the working BlueStacks/FF candidate/runtime path is preserved until a separately tested migration changes it;
+- every universal tuning dimension requires explicit dimension identity, explicit authority identity and explicit candidate values;
+- unsupported, unavailable, missing-current-state or no-candidate-space dimensions remain absent rather than receiving defaults;
+- zero dimensions produce zero candidates, never a fabricated empty/default candidate;
+- invalid blank/duplicate dimensions or values fail closed;
+- universal candidate enumeration is deterministic and bounded; truncation never randomizes the explored prefix;
+- the search-space planner is pure: it does not discover capabilities, mutate the machine, attach evidence/confidence or publish a recommendation;
+- Windows system dimensions may enter universal tuning only through an already-produced `WindowsCapabilityCandidatePlan` with `CanExplore == true`;
+- the Windows bridge preserves producer `TargetValue` text and `ExplorationRank` order and does not consult recommendation value/confidence as search authority;
+- **candidate support/search space is exploration only and is not recommendation, validation, winner or persistence authority**;
+- Track 5 must continue using the existing controlled measurement → typed evidence → repeatability/freshness/fingerprint → validation → ValidatedEvidence/promotion chain;
+- game/workload dimensions must come from explicit adapter authority; Track 5 must not create a second generic game-option catalog or assume renderer/quality/resolution/FPS semantics apply to every game;
+- no discovery or tuning side effect is added to application startup.
+
+Reason:
+
+- cleanly separate “this target can be explored” from “this target is beneficial/validated”;
+- let system and workload authorities contribute dimensions without weakening Track 2/4 evidence or stable identity rules;
+- preserve the already-working FF/BlueStacks implementation while building the universal architecture around it.
+
+Affected scope:
+
+- Track 5 Universal Auto Tuner + Profiles;
+- `UniversalTuningSearchSpacePlanner`;
+- `UniversalTuningSystemDimensionFactory`;
+- future game-adapter tuning-dimension providers;
+- future universal winner/profile orchestration.
+
+Verification:
+
+- application commit `797c8c7766adea3369948d9cb330bb7ba9a69d52`;
+- Windows CI #1000 / run `34411645032` SUCCESS;
+- TDD checkpoint `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
 
 ## Graphics/runtime
 
