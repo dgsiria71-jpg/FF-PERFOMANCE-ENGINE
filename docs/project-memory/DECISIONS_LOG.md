@@ -126,19 +126,50 @@ Reason:
 - let system and workload authorities contribute dimensions without weakening Track 2/4 evidence or stable identity rules;
 - preserve the already-working FF/BlueStacks implementation while building the universal architecture around it.
 
-Affected scope:
-
-- Track 5 Universal Auto Tuner + Profiles;
-- `UniversalTuningSearchSpacePlanner`;
-- `UniversalTuningSystemDimensionFactory`;
-- future game-adapter tuning-dimension providers;
-- future universal winner/profile orchestration.
-
 Verification:
 
 - application commit `797c8c7766adea3369948d9cb330bb7ba9a69d52`;
 - Windows CI #1000 / run `34411645032` SUCCESS;
-- TDD checkpoint `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
+- checkpoint `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
+
+## Track 5 adapter-owned workload tuning authority — closed 2026-09-09
+
+Previous risk:
+
+- Track 5 needed workload/game dimensions, but making renderer/quality/FPS/resolution/etc. global would invent semantics and create a second option catalog disconnected from the real adapter/runtime that can discover, snapshot, mutate and roll back the workload.
+
+Closed decision:
+
+- `IGameAdapter` remains unchanged; tuning declarations are optional through `IGameTuningDimensionProvider` so existing/generic adapters remain source-compatible;
+- `GameAdapterTuningDimensionDeclaration` is adapter-owned support/search metadata only;
+- workload tuning authority is resolved only through `GameAdapterResolver` for the caller-selected stable `GameIdentity`;
+- an unregistered requested specialization falls back to Generic and therefore contributes zero workload tuning dimensions;
+- Generic and adapters without the optional provider contribute zero workload dimensions;
+- a provider is not consulted unless the resolved adapter proves `ConfigDiscovery + ConfigSnapshot + ConfigMutation + Rollback`;
+- `BenchmarkPreparation` is not required merely to declare search support; actual controlled benchmark execution remains a later orchestration concern under the existing benchmark/evidence authority;
+- final workload dimension identity is `workload.<normalized-adapter-id>.<normalized-local-id>`;
+- `AuthorityId` comes from the **resolved adapter**, never from executable/path/process/display-name evidence;
+- candidate value text and provider order are preserved exactly;
+- null provider output, null declarations, blank local IDs, empty value lists, blank values, duplicate local IDs and duplicate exact values fail closed;
+- System + Workload composition reuses `UniversalTuningSearchSpacePlanner`; no second compositor or hidden game axis exists;
+- the current `BlueStacksFreeFireGameAdapter` does not receive invented static dimensions in this slice because its candidate space is machine/instance-dependent and remains owned by the existing specialized generator until a dedicated bridge slice;
+- **adapter-declared support grants no evidence, confidence, mutation permission, persistence permission, winner role or recommendation authority**.
+
+Reason:
+
+- preserve a single source of truth for game-specific options;
+- prevent unsupported generic semantics from leaking across games;
+- require reversible configuration capability before a workload can even contribute explorable config dimensions;
+- keep stable workload identity and resolved adapter authority separate from transient process evidence;
+- allow the existing universal planner to compose explicit System + Workload dimensions without introducing duplicate orchestration.
+
+Verification:
+
+- application commit `8dac70fdb2c693533ae481aaadd846ab84fde228`;
+- Windows CI #1007 / run `34416726382` SUCCESS;
+- TDD RED run `34412460197`, GREEN run `34412615403`;
+- TDD RED run `34412791339`, GREEN run `34412911108`;
+- checkpoint `docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`.
 
 ## Graphics/runtime
 
