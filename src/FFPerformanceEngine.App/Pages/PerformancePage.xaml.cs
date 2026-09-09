@@ -44,19 +44,12 @@ public partial class PerformancePage : UserControl
         var presentMonAvailable = App.Services.PresentMon.FindExecutable() is not null;
         ProviderText.Text = presentMonAvailable ? "PresentMon pronto" : "PresentMon indisponível";
 
-        var target = PerformanceCaptureTargetPolicy.FromGuardianStatus(App.Services.GuardianHost.CurrentStatus);
-        if (target.CanCapture)
-        {
-            TargetText.Text = $"Instância {target.InstanceName} · PID {target.ProcessId}";
-            TargetDetailText.Text = "O mesmo processo vinculado pelo Guardian será medido; não há seleção aproximada de outro HD-Player.";
-        }
-        else
-        {
-            TargetText.Text = "Aguardando vínculo exato do Guardian";
-            TargetDetailText.Text = "A captura permanece bloqueada até existir uma instância e um PID BlueStacks inequívocos.";
-        }
+        var route = App.Services.ResolvePerformanceCaptureRoute();
+        var routePresentation = PerformanceCaptureRoutePresentation.FromRoute(route);
+        TargetText.Text = routePresentation.TargetText;
+        TargetDetailText.Text = routePresentation.TargetDetail;
 
-        MeasureButton.IsEnabled = !_captureInProgress && presentMonAvailable && target.CanCapture;
+        MeasureButton.IsEnabled = !_captureInProgress && presentMonAvailable && routePresentation.CanMeasure;
         RefreshTimeline();
     }
 
@@ -67,14 +60,15 @@ public partial class PerformancePage : UserControl
         _captureInProgress = true;
         MeasureButton.IsEnabled = false;
         MeasureButton.Content = "Medindo...";
-        CaptureDetailText.Text = "Capturando 10 segundos do PID vinculado pelo Guardian.";
+        var routePresentation = PerformanceCaptureRoutePresentation.FromRoute(
+            App.Services.ResolvePerformanceCaptureRoute());
+        CaptureDetailText.Text = routePresentation.CaptureDetail;
 
         try
         {
-            var result = await App.Services.PerformanceCapture.CaptureTypedAsync(
-                App.Services.GuardianHost.CurrentStatus,
+            var presentation = await App.Services.CaptureCurrentPerformanceTelemetryAsync(
                 TimeSpan.FromSeconds(10));
-            ApplyPresentation(PerformancePresentation.FromCapture(result));
+            ApplyPresentation(presentation);
         }
         catch (OperationCanceledException)
         {
