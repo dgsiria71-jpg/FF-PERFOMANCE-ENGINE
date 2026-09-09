@@ -49,9 +49,10 @@ internal static class PresentMonTelemetryV2SelfTests
         RequireMetric(frame, TelemetryStandardMetrics.FrameTimeP99Ms, legacy.FrameTimeP99Ms, 0.6);
         RequireMetric(frame, TelemetryStandardMetrics.FrameStutterPercent, legacy.StutterPercent, 0.6);
         RequireMetric(frame, TelemetryStandardMetrics.FrameLatencyAverageMs, legacy.LatencyMs, 0.8);
+        RequireMetric(frame, TelemetryStandardMetrics.FrameAcceptedSampleCount, 3d, 1d);
 
-        Require(frame.Metrics.Count == 8,
-            "PresentMon v2 output must contain only the eight frame/latency metrics proven by this CSV.");
+        Require(frame.Metrics.Count == 9,
+            "PresentMon v2 output must contain the eight frame/latency values plus exact accepted-frame count proven by this CSV.");
         Require(frame.FrameQuality == TelemetryMetricQuality.Measured,
             "Direct PresentMon observations remain Measured while coverage carries incomplete-row information.");
 
@@ -75,8 +76,9 @@ internal static class PresentMonTelemetryV2SelfTests
         const string noLatencyCsv = "MsBetweenPresents\n10\n20\n";
         var noLatencyFrame = service.ParseCsvFrame(noLatencyCsv)
                              ?? throw new InvalidOperationException("Frame-only PresentMon CSV unexpectedly returned null.");
-        Require(noLatencyFrame.Metrics.Count == 7,
-            "Frame-only PresentMon CSV must emit seven frame metrics and omit latency.");
+        Require(noLatencyFrame.Metrics.Count == 8,
+            "Frame-only PresentMon CSV must emit seven frame values plus accepted-frame count and omit latency.");
+        RequireMetric(noLatencyFrame, TelemetryStandardMetrics.FrameAcceptedSampleCount, 2d, 1d);
         Require(!noLatencyFrame.TryGetMetric(TelemetryStandardMetrics.FrameLatencyAverageMs.Id, out _),
             "Absent latency observations must remain absent rather than becoming zero.");
 
@@ -98,7 +100,7 @@ internal static class PresentMonTelemetryV2SelfTests
             "Legacy PresentMon CaptureProcessAsync API must remain callable.");
 
         _stage = "complete";
-        Console.WriteLine("PASS Track 4 PresentMon parser exposes direct measured v2 telemetry with explicit accepted-row coverage");
+        Console.WriteLine("PASS Track 4 PresentMon parser exposes direct measured v2 telemetry with explicit accepted-row coverage and count");
     }
 
     private static void RequireMetric(
@@ -107,7 +109,7 @@ internal static class PresentMonTelemetryV2SelfTests
         double? expectedValue,
         double expectedCoverage)
     {
-        Require(expectedValue is double, $"Legacy expected value for '{descriptor.Id}' must be present.");
+        Require(expectedValue is double, $"Expected value for '{descriptor.Id}' must be present.");
         Require(frame.TryGetMetric(descriptor.Id, out var observation) && observation is not null,
             $"Expected PresentMon v2 metric '{descriptor.Id}' is missing.");
         RequireClose(observation!.Value, expectedValue!.Value, descriptor.Id);

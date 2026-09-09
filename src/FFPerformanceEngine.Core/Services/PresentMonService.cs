@@ -94,7 +94,7 @@ public sealed class PresentMonService
         if (statistics is null) return null;
 
         var frameCoverage = (double)statistics.AcceptedFrameRows / statistics.DataRowCount;
-        var metrics = new List<TelemetryMetricObservation>(8)
+        var metrics = new List<TelemetryMetricObservation>(9)
         {
             Direct(TelemetryStandardMetrics.FrameFpsAverage, statistics.FpsAverage, frameCoverage),
             Direct(TelemetryStandardMetrics.FrameFpsLow1, statistics.FpsLow1, frameCoverage),
@@ -102,7 +102,8 @@ public sealed class PresentMonService
             Direct(TelemetryStandardMetrics.FrameTimeAverageMs, statistics.FrameTimeAverageMs, frameCoverage),
             Direct(TelemetryStandardMetrics.FrameTimeP95Ms, statistics.FrameTimeP95Ms, frameCoverage),
             Direct(TelemetryStandardMetrics.FrameTimeP99Ms, statistics.FrameTimeP99Ms, frameCoverage),
-            Direct(TelemetryStandardMetrics.FrameStutterPercent, statistics.StutterPercent, frameCoverage)
+            Direct(TelemetryStandardMetrics.FrameStutterPercent, statistics.StutterPercent, frameCoverage),
+            Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, statistics.AcceptedFrameRows, 1d)
         };
 
         if (statistics.LatencyAverageMs is double latency)

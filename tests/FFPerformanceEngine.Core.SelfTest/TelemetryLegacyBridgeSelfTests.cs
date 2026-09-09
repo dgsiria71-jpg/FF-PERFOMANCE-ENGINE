@@ -44,6 +44,8 @@ internal static class TelemetryLegacyBridgeSelfTests
             TelemetryMetricQuality.Measured, "presentmon", TelemetryMetricOrigin.Direct);
         RequireMetric(presentMon, TelemetryStandardMetrics.SystemCpuUtilizationPercent,
             TelemetryMetricQuality.Partial, "legacy-bridge", TelemetryMetricOrigin.Legacy);
+        Require(!presentMon.TryGetMetric(TelemetryStandardMetrics.FrameAcceptedSampleCount.Id, out _),
+            "Legacy DataQuality text must never be parsed into typed accepted-frame count authority.");
 
         _stage = "system-policy";
         var system = TelemetryLegacyBridge.FromLegacy(new TelemetrySample
@@ -152,13 +154,14 @@ internal static class TelemetryLegacyBridgeSelfTests
         });
         Require(all.Metrics.Count == 17,
             "Every finite legacy TelemetrySample field must map explicitly to exactly the 17 legacy-mappable v2 metrics.");
-        Require(TelemetryStandardMetrics.All.Count == 20,
-            "The current v2 schema must contain the 17 legacy-compatible metrics plus three processor-power metrics.");
+        Require(TelemetryStandardMetrics.All.Count == 21,
+            "The current v2 schema must contain 17 legacy-compatible metrics, three processor-power metrics and direct PresentMon accepted-frame count.");
         Require(!all.Metrics.Any(item =>
                 item.Metric.Id == TelemetryStandardMetrics.CpuClockCurrentAverageMhz.Id
                 || item.Metric.Id == TelemetryStandardMetrics.CpuClockMaximumAverageMhz.Id
-                || item.Metric.Id == TelemetryStandardMetrics.CpuClockLimitMinimumMhz.Id),
-            "The legacy bridge must never fabricate processor-power telemetry that TelemetrySample cannot prove.");
+                || item.Metric.Id == TelemetryStandardMetrics.CpuClockLimitMinimumMhz.Id
+                || item.Metric.Id == TelemetryStandardMetrics.FrameAcceptedSampleCount.Id),
+            "The legacy bridge must never fabricate processor-power or accepted-frame-count telemetry that TelemetrySample fields cannot prove.");
         Require(all.Metrics.All(item => item.Coverage == 1d),
             "Finite legacy values must carry full observation coverage in the compatibility bridge.");
 
