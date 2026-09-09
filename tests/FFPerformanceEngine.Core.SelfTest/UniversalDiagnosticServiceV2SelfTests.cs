@@ -60,6 +60,7 @@ internal static class UniversalDiagnosticServiceV2SelfTests
 
         Console.WriteLine("PASS Track 4 UniversalDiagnosticService consumes typed telemetry directly without a legacy quality round-trip");
         PerformanceTypedEvidenceSelfTests.Run();
+        PerformanceTypedEvidenceHistorySelfTests.RunAsync().GetAwaiter().GetResult();
     }
 
     private static TelemetryMetricObservation Metric(
