@@ -17,6 +17,12 @@ Require(!initialRoute.UsesSelectedWorkload
         && initialRoute.WorkloadTarget is null
         && !initialRoute.CanCapture,
     "Without explicit universal selection, Performance routing must remain on the legacy Guardian path and fail closed when Guardian has no exact binding.");
+var initialRoutePresentation = PerformanceCaptureRoutePresentation.FromRoute(initialRoute);
+Require(!initialRoutePresentation.CanMeasure
+        && initialRoutePresentation.TargetText.Contains("Guardian", StringComparison.Ordinal)
+        && initialRoutePresentation.TargetDetail.Contains("BlueStacks", StringComparison.Ordinal)
+        && initialRoutePresentation.CaptureDetail.Contains("Guardian", StringComparison.Ordinal),
+    "Legacy Guardian routing must have one deterministic UI presentation without pretending a universal workload is selected.");
 var initialCapture = await services.CaptureSelectedPerformanceTelemetryAsync(TimeSpan.FromMilliseconds(1));
 Require(!initialCapture.Captured
         && initialCapture.Frame is null
@@ -67,6 +73,13 @@ Require(exactRoute.UsesSelectedWorkload
         && exactRoute.GuardianTarget is null
         && exactRoute.CanCapture,
     "An explicit stable workload with one exact RunningProcess must take routing authority over Guardian and expose only its exact universal target.");
+var exactRoutePresentation = PerformanceCaptureRoutePresentation.FromRoute(exactRoute);
+Require(exactRoutePresentation.CanMeasure
+        && exactRoutePresentation.TargetText.Contains("steam:730", StringComparison.Ordinal)
+        && exactRoutePresentation.TargetText.Contains("7730", StringComparison.Ordinal)
+        && exactRoutePresentation.TargetDetail.Contains("RunningProcess", StringComparison.Ordinal)
+        && !exactRoutePresentation.TargetText.Contains("Instância", StringComparison.Ordinal),
+    "Universal exact routing UI must expose stable GameId + exact PID without relabeling a native game as a BlueStacks instance.");
 
 var timestamp = new DateTimeOffset(2026, 9, 9, 17, 0, 0, TimeSpan.Zero);
 var baseline = services.PerformanceComparison.SetBaseline(
@@ -95,6 +108,13 @@ Require(blockedRoute.UsesSelectedWorkload
         && blockedRoute.GuardianTarget is null
         && !blockedRoute.CanCapture,
     "An explicitly selected workload with only KnownExecutable evidence must remain authoritative but blocked; routing must not silently fall back to Guardian.");
+var blockedRoutePresentation = PerformanceCaptureRoutePresentation.FromRoute(blockedRoute);
+Require(!blockedRoutePresentation.CanMeasure
+        && blockedRoutePresentation.TargetText.Contains("steam:730", StringComparison.Ordinal)
+        && !blockedRoutePresentation.TargetText.Contains("PID", StringComparison.Ordinal)
+        && blockedRoutePresentation.TargetDetail.Contains("permanece selecionado", StringComparison.OrdinalIgnoreCase)
+        && blockedRoutePresentation.TargetDetail.Contains("Guardian", StringComparison.Ordinal),
+    "Blocked universal routing UI must keep the selected GameId visible and explicitly disclose that Guardian fallback is forbidden.");
 var blockedPresentation = await services.CaptureCurrentPerformanceTelemetryAsync(TimeSpan.FromMilliseconds(1));
 Require(!blockedPresentation.HasMeasurement
         && blockedPresentation.Instance == "—"
@@ -130,7 +150,7 @@ Require(!rejectedCapture.Captured
         && rejectedCapture.Target.BindingQuality == TelemetryWorkloadBindingQuality.UnknownGame,
     "A rejected workload selection must never fall through to an unrelated Guardian/BlueStacks capture target.");
 
-Console.WriteLine("PASS Track 4 AppServices explicit workload context, capture routing and universal targeting are on-demand, stable-identity bound and fail-closed");
+Console.WriteLine("PASS Track 4 AppServices explicit workload context, capture routing, route presentation and universal targeting are on-demand, stable-identity bound and fail-closed");
 return 0;
 
 static BoundGameEvidence Bound(
