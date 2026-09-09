@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class AutoTunerRunCoordinatorSelfTests
 {
@@ -18,10 +19,10 @@ internal static class AutoTunerRunCoordinatorSelfTests
             new TuningCandidate { CpuCores = 6, RamMb = 6144, Renderer = "Auto", FpsTarget = 120, Resolution = "1920x1080" }
         };
         var runtime = new FakeRuntime(
-            new TelemetrySample { Fps = 90, OnePercentLow = 80, FrameTimeMs = 11.1, StutterPercent = 1.8, LatencyMs = 10 },
-            new TelemetrySample { Fps = 91, OnePercentLow = 81, FrameTimeMs = 11.0, StutterPercent = 1.7, LatencyMs = 9.8 },
-            new TelemetrySample { Fps = 118, OnePercentLow = 108, FrameTimeMs = 8.5, StutterPercent = 0.8, LatencyMs = 8 },
-            new TelemetrySample { Fps = 119, OnePercentLow = 109, FrameTimeMs = 8.4, StutterPercent = 0.7, LatencyMs = 7.9 });
+            Frame(90, 80, 11.1, 10),
+            Frame(91, 81, 11.0, 9.8),
+            Frame(118, 108, 8.5, 8),
+            Frame(119, 109, 8.4, 7.9));
         var coordinator = new AutoTunerRunCoordinator(new AutoTunerEngine(), runtime);
         var progress = new List<AutoTunerRunProgress>();
 
@@ -34,10 +35,11 @@ internal static class AutoTunerRunCoordinatorSelfTests
             "apply:4:4096:90:1280x720", "prepare:FreeFireMax", "capture", "capture", "complete",
             "apply:6:6144:120:1920x1080", "prepare:FreeFireMax", "capture", "capture", "complete",
             "restore"
-        ]), "Candidate lifecycle ordering must be deterministic, adaptive validation must repeat stable measurements, and baseline restoration must happen last.");
+        ]), "Candidate lifecycle ordering must be deterministic, typed adaptive validation must repeat stable measurements, and baseline restoration must happen last.");
+        Require(!runtime.Events.Contains("legacy-capture"), "Auto Tuner coordinator must never use legacy TelemetrySample benchmark authority.");
         Require(progress.Any(x => x.Stage == AutoTunerRunStage.Completed), "Run must emit a completed progress event.");
 
-        var failingRuntime = new FakeRuntime(new TelemetrySample { Fps = 90 }) { FailPreparation = true };
+        var failingRuntime = new FakeRuntime(Frame(90, 80, 11.1, 10)) { FailPreparation = true };
         var failingCoordinator = new AutoTunerRunCoordinator(new AutoTunerEngine(), failingRuntime);
         var failed = await failingCoordinator.RunAsync(GameKind.FreeFire, AutoTunerMode.Adaptive, [candidates[0]]);
         Require(failed.Evidence.Count == 0, "Failed preparation must never fabricate benchmark evidence.");
@@ -47,14 +49,36 @@ internal static class AutoTunerRunCoordinatorSelfTests
         Console.WriteLine("PASS end-to-end auto tuner candidate lifecycle");
     }
 
+    private static TelemetryFrame Frame(double fps, double low1, double frameTimeMs, double latencyMs)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps),
+                Direct(TelemetryStandardMetrics.FrameFpsLow1, low1),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, frameTimeMs),
+                Direct(TelemetryStandardMetrics.FrameTimeP95Ms, frameTimeMs * 1.1),
+                Direct(TelemetryStandardMetrics.FrameStutterPercent, 1d),
+                Direct(TelemetryStandardMetrics.FrameLatencyAverageMs, latencyMs),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, 1200d)
+            ]);
+
+    private static TelemetryMetricObservation Direct(TelemetryMetricDescriptor descriptor, double value)
+        => new(
+            descriptor,
+            value,
+            TelemetryMetricQuality.Measured,
+            1d,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
+
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
     }
 
-    private sealed class FakeRuntime(params TelemetrySample[] samples) : IAutoTunerRuntime
+    private sealed class FakeRuntime(params TelemetryFrame[] frames) : IAutoTunerRuntime
     {
-        private readonly Queue<TelemetrySample> _samples = new(samples);
+        private readonly Queue<TelemetryFrame> _frames = new(frames);
         public List<string> Events { get; } = [];
         public bool FailPreparation { get; init; }
 
@@ -72,8 +96,14 @@ internal static class AutoTunerRunCoordinatorSelfTests
 
         public Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default)
         {
+            Events.Add("legacy-capture");
+            return Task.FromResult<TelemetrySample?>(new TelemetrySample { Fps = 777, DataQuality = "PresentMon · 9999 frames" });
+        }
+
+        public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+        {
             Events.Add("capture");
-            return Task.FromResult<TelemetrySample?>(_samples.Count == 0 ? null : _samples.Dequeue());
+            return Task.FromResult<TelemetryFrame?>(_frames.Count == 0 ? null : _frames.Dequeue());
         }
 
         public Task CompleteCandidateAsync(CancellationToken cancellationToken = default)

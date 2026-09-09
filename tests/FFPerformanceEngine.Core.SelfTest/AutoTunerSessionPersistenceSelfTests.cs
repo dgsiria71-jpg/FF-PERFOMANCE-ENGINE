@@ -1,5 +1,6 @@
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class AutoTunerSessionPersistenceSelfTests
 {
@@ -50,7 +51,7 @@ internal static class AutoTunerSessionPersistenceSelfTests
             var profiles = new ProfileService(Path.Combine(root, "profiles.json"));
             var history = new HistoryService(Path.Combine(root, "history.json"));
             var factory = new FakeRuntimeFactory(() => new FakeRuntime([
-                ValidSample(118), ValidSample(119)
+                ValidFrame(118), ValidFrame(119)
             ]));
             var service = new AutoTunerSessionService(new AutoTunerEngine(), factory, profiles, history);
             var instance = Instance("Pie64");
@@ -82,7 +83,7 @@ internal static class AutoTunerSessionPersistenceSelfTests
             await profiles.SaveAsync([old]);
             var history = new HistoryService(Path.Combine(root, "history.json"));
             var factory = new FakeRuntimeFactory(() => new FakeRuntime([
-                ValidSample(60), ValidSample(120), ValidSample(62), ValidSample(118), ValidSample(61)
+                ValidFrame(60), ValidFrame(120), ValidFrame(62), ValidFrame(118), ValidFrame(61)
             ]));
             var service = new AutoTunerSessionService(
                 new AutoTunerEngine(),
@@ -163,16 +164,27 @@ internal static class AutoTunerSessionPersistenceSelfTests
         Resolution = "1280x720"
     };
 
-    private static TelemetrySample ValidSample(double fps) => new()
-    {
-        Fps = fps,
-        OnePercentLow = fps * 0.88,
-        FrameTimeMs = 1000d / fps,
-        FrameTimeP95Ms = 1000d / (fps * 0.82),
-        StutterPercent = 0.8,
-        LatencyMs = 8,
-        DataQuality = "PresentMon · 1200 frames"
-    };
+    private static TelemetryFrame ValidFrame(double fps)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps),
+                Direct(TelemetryStandardMetrics.FrameFpsLow1, fps * 0.88),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, 1000d / fps),
+                Direct(TelemetryStandardMetrics.FrameTimeP95Ms, 1000d / (fps * 0.82)),
+                Direct(TelemetryStandardMetrics.FrameStutterPercent, 0.8),
+                Direct(TelemetryStandardMetrics.FrameLatencyAverageMs, 8d),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, 1200d)
+            ]);
+
+    private static TelemetryMetricObservation Direct(TelemetryMetricDescriptor descriptor, double value)
+        => new(
+            descriptor,
+            value,
+            TelemetryMetricQuality.Measured,
+            1d,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
 
     private static void Require(bool condition, string message)
     {
@@ -190,9 +202,9 @@ internal static class AutoTunerSessionPersistenceSelfTests
         }
     }
 
-    private sealed class FakeRuntime(IEnumerable<TelemetrySample> samples) : IAutoTunerRuntime
+    private sealed class FakeRuntime(IEnumerable<TelemetryFrame> frames) : IAutoTunerRuntime
     {
-        private readonly Queue<TelemetrySample> _samples = new(samples);
+        private readonly Queue<TelemetryFrame> _frames = new(frames);
 
         public Task<AutoTunerRuntimeResult> ApplyCandidateAsync(TuningCandidate candidate, CancellationToken cancellationToken = default)
             => Task.FromResult(AutoTunerRuntimeResult.Ok("applied"));
@@ -201,7 +213,10 @@ internal static class AutoTunerSessionPersistenceSelfTests
             => Task.FromResult(AutoTunerRuntimeResult.Ok("prepared"));
 
         public Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<TelemetrySample?>(_samples.Count == 0 ? null : _samples.Dequeue());
+            => Task.FromResult<TelemetrySample?>(new TelemetrySample { Fps = 777, DataQuality = "PresentMon · 9999 frames" });
+
+        public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<TelemetryFrame?>(_frames.Count == 0 ? null : _frames.Dequeue());
 
         public Task CompleteCandidateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RestoreBaselineAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

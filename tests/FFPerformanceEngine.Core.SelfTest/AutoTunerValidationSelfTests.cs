@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.Telemetry;
 
 internal static class AutoTunerValidationSelfTests
 {
@@ -21,9 +22,9 @@ internal static class AutoTunerValidationSelfTests
     private static async Task RepeatsRejectedCaptureAndValidatesStableSamples()
     {
         var runtime = new ValidationRuntime([
-            new TelemetrySample { Fps = 100, OnePercentLow = 85, FrameTimeMs = 10, DataQuality = "PresentMon · 20 frames" },
-            new TelemetrySample { Fps = 100, OnePercentLow = 88, FrameTimeMs = 10.0, FrameTimeP95Ms = 11.4, StutterPercent = 1.2, DataQuality = "PresentMon · 1200 frames" },
-            new TelemetrySample { Fps = 102, OnePercentLow = 89, FrameTimeMs = 9.8, FrameTimeP95Ms = 11.0, StutterPercent = 1.0, DataQuality = "PresentMon · 1224 frames" }
+            Frame(100, 20),
+            Frame(100, 1200),
+            Frame(102, 1224)
         ]);
         var policy = new AutoTunerValidationPolicy
         {
@@ -37,11 +38,12 @@ internal static class AutoTunerValidationSelfTests
 
         var result = await coordinator.RunAsync(GameKind.FreeFire, AutoTunerMode.Adaptive, [Candidate()]);
 
-        Require(runtime.CaptureCount == 3, "A contaminated/too-short capture must be discarded and automatically repeated.");
+        Require(runtime.CaptureCount == 3, "A contaminated/too-short typed capture must be discarded and automatically repeated.");
+        Require(runtime.LegacyCaptureCount == 0, "Repeatability validation must not fall back to legacy DataQuality parsing.");
         Require(result.Evidence.Count == 1, "Stable repeated samples must produce one aggregated candidate evidence record.");
         Require(result.Evidence[0].Evidence == EvidenceLevel.Validated, "Stable repeated measurements must be validated.");
         Require(result.Evidence[0].Sample.Fps is > 100 and < 102, "Validated evidence must aggregate accepted repetitions rather than using one lucky capture.");
-        Require(result.Evidence[0].Sample.DataQuality.Contains("2 accepted", StringComparison.OrdinalIgnoreCase), "Aggregated sample must disclose repetition count in data quality.");
+        Require(result.Evidence[0].Sample.DataQuality.Contains("2 accepted", StringComparison.OrdinalIgnoreCase), "Aggregated compatibility sample must disclose repetition count.");
     }
 
     private static async Task KeepsHighVarianceCandidateOutOfWinnerSelection()
@@ -62,6 +64,7 @@ internal static class AutoTunerValidationSelfTests
         var result = await coordinator.RunAsync(GameKind.FreeFireMax, AutoTunerMode.Adaptive, [Candidate()]);
 
         Require(runtime.CaptureCount == 4, "High variance must consume the allowed repeat budget before the candidate is classified.");
+        Require(runtime.LegacyCaptureCount == 0, "High-variance classification must remain typed end to end.");
         Require(result.Evidence.Count == 1 && result.Evidence[0].Evidence == EvidenceLevel.Observed, "A candidate that never converges must remain observed, not validated.");
         Require(result.Winners.Count == 0, "Unstable evidence must never become a winner profile.");
     }
@@ -86,20 +89,34 @@ internal static class AutoTunerValidationSelfTests
         {
         }
 
-        Require(runtime.CompleteCalled, "Candidate cleanup must run when benchmark cancellation interrupts a run.");
+        Require(runtime.CompleteCalled, "Candidate cleanup must run when typed benchmark cancellation interrupts a run.");
         Require(!runtime.CompleteReceivedCanceledToken, "Safety cleanup must use a non-canceled token so rollback cannot be skipped by user cancellation.");
         Require(runtime.RestoreCalled, "Final baseline restoration must run after cancellation.");
+        Require(runtime.LegacyCaptureCount == 0, "Cancellation handling must not invoke the legacy benchmark surface.");
     }
 
-    private static TelemetrySample Valid(double fps) => new()
-    {
-        Fps = fps,
-        OnePercentLow = fps * 0.85,
-        FrameTimeMs = 1000d / fps,
-        FrameTimeP95Ms = 1000d / (fps * 0.80),
-        StutterPercent = 1.0,
-        DataQuality = "PresentMon · 1000 frames"
-    };
+    private static TelemetryFrame Valid(double fps) => Frame(fps, 1000);
+
+    private static TelemetryFrame Frame(double fps, double acceptedFrames)
+        => new(
+            DateTimeOffset.UtcNow,
+            [
+                Direct(TelemetryStandardMetrics.FrameFpsAverage, fps),
+                Direct(TelemetryStandardMetrics.FrameFpsLow1, fps * 0.85),
+                Direct(TelemetryStandardMetrics.FrameTimeAverageMs, 1000d / fps),
+                Direct(TelemetryStandardMetrics.FrameTimeP95Ms, 1000d / (fps * 0.80)),
+                Direct(TelemetryStandardMetrics.FrameStutterPercent, 1d),
+                Direct(TelemetryStandardMetrics.FrameAcceptedSampleCount, acceptedFrames)
+            ]);
+
+    private static TelemetryMetricObservation Direct(TelemetryMetricDescriptor descriptor, double value)
+        => new(
+            descriptor,
+            value,
+            TelemetryMetricQuality.Measured,
+            1d,
+            "presentmon",
+            TelemetryMetricOrigin.Direct);
 
     private static TuningCandidate Candidate() => new()
     {
@@ -115,10 +132,11 @@ internal static class AutoTunerValidationSelfTests
         if (!condition) throw new InvalidOperationException(message);
     }
 
-    private sealed class ValidationRuntime(IEnumerable<TelemetrySample> samples) : IAutoTunerRuntime
+    private sealed class ValidationRuntime(IEnumerable<TelemetryFrame> frames) : IAutoTunerRuntime
     {
-        private readonly Queue<TelemetrySample> _samples = new(samples);
+        private readonly Queue<TelemetryFrame> _frames = new(frames);
         public int CaptureCount { get; private set; }
+        public int LegacyCaptureCount { get; private set; }
         public bool CompleteCalled { get; private set; }
         public bool CompleteReceivedCanceledToken { get; private set; }
         public bool RestoreCalled { get; private set; }
@@ -132,13 +150,19 @@ internal static class AutoTunerValidationSelfTests
 
         public Task<TelemetrySample?> CaptureBenchmarkAsync(CancellationToken cancellationToken = default)
         {
+            LegacyCaptureCount++;
+            return Task.FromResult<TelemetrySample?>(new TelemetrySample { Fps = 777, DataQuality = "PresentMon · 9999 frames" });
+        }
+
+        public Task<TelemetryFrame?> CaptureBenchmarkFrameAsync(CancellationToken cancellationToken = default)
+        {
             CaptureCount++;
             if (CancelOnCapture is not null)
             {
                 CancelOnCapture.Cancel();
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            return Task.FromResult<TelemetrySample?>(_samples.Count == 0 ? null : _samples.Dequeue());
+            return Task.FromResult<TelemetryFrame?>(_frames.Count == 0 ? null : _frames.Dequeue());
         }
 
         public Task CompleteCandidateAsync(CancellationToken cancellationToken = default)
