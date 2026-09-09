@@ -1,18 +1,18 @@
-name: Core Parser Diagnostic
+name: Core SelfTest Verifier
 
 on:
   push:
     branches: [ ci/typed-benchmark-verify ]
 
 jobs:
-  core-selftest-diagnostic:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  core-selftest-verifier:
+    runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Run Core self-tests with parser traces
-        timeout-minutes: 3
+      - name: Run Core self-tests
+        timeout-minutes: 5
         run: dotnet run --project tests/FFPerformanceEngine.Core.SelfTest/FFPerformanceEngine.Core.SelfTest.csproj -c Release
