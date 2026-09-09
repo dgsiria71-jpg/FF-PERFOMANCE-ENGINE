@@ -31,12 +31,13 @@ public sealed record PerformanceEvidenceSnapshot
     public double? AverageFrameTimeMs { get; init; }
     public double? AverageLatencyMs { get; init; }
     public PerformanceConfigurationSnapshot? Configuration { get; init; }
+    public PerformanceUniversalConfigurationContext? UniversalContext { get; init; }
 
     public static PerformanceEvidenceSnapshot Capture(
         string name,
         PerformanceIntervalSummary interval,
         DateTimeOffset capturedAt)
-        => CaptureCore(name, interval, capturedAt, null);
+        => CaptureCore(name, interval, capturedAt, null, null);
 
     public static PerformanceEvidenceSnapshot Capture(
         string name,
@@ -45,14 +46,25 @@ public sealed record PerformanceEvidenceSnapshot
         PerformanceConfigurationSnapshot configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        return CaptureCore(name, interval, capturedAt, configuration.Rehydrate());
+        return CaptureCore(name, interval, capturedAt, configuration.Rehydrate(), null);
+    }
+
+    public static PerformanceEvidenceSnapshot Capture(
+        string name,
+        PerformanceIntervalSummary interval,
+        DateTimeOffset capturedAt,
+        PerformanceUniversalConfigurationContext universalContext)
+    {
+        ArgumentNullException.ThrowIfNull(universalContext);
+        return CaptureCore(name, interval, capturedAt, null, universalContext.Rehydrate());
     }
 
     private static PerformanceEvidenceSnapshot CaptureCore(
         string name,
         PerformanceIntervalSummary interval,
         DateTimeOffset capturedAt,
-        PerformanceConfigurationSnapshot? configuration)
+        PerformanceConfigurationSnapshot? configuration,
+        PerformanceUniversalConfigurationContext? universalContext)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("A comparison snapshot name is required.", nameof(name));
@@ -106,7 +118,8 @@ public sealed record PerformanceEvidenceSnapshot
             AverageFps = averageFps,
             AverageFrameTimeMs = averageFrameTime,
             AverageLatencyMs = averageLatency,
-            Configuration = configuration
+            Configuration = configuration,
+            UniversalContext = universalContext
         };
     }
 
@@ -114,9 +127,13 @@ public sealed record PerformanceEvidenceSnapshot
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         var configuration = snapshot.Configuration?.Rehydrate();
-        return configuration is null
-            ? Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt)
-            : Capture(snapshot.Name, snapshot.Interval, snapshot.CapturedAt, configuration);
+        var universalContext = snapshot.UniversalContext?.Rehydrate();
+        return CaptureCore(
+            snapshot.Name,
+            snapshot.Interval,
+            snapshot.CapturedAt,
+            configuration,
+            universalContext);
     }
 
     private static bool IsMeasuredFramePoint(PerformanceTimelinePoint point)
