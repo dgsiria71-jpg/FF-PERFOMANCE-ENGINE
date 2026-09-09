@@ -86,22 +86,14 @@ GREEN includes:
 - Guardian-bound Windows benchmark typed evidence ✅
 - Auto Tuner typed benchmark authority ✅
 - physical Profile Challenge typed benchmark authority ✅
-- repository audit: no remaining production `PresentMonFrameCount` recommendation/benchmark authority ✅
 - additive universal A/B workload/configuration context ✅
 - universal context History round-trip without old-record upgrade ✅
-- combined BlueStacks legacy + universal context capture ✅
-- `PerformanceComparisonSession` legacy-only, universal-only, combined and context-free modes ✅
-- universal-only evidence cannot acquire BlueStacks profile-origin authority ✅
 - explicit application workload context selection/clear ✅
-- selected workload retains only its own bound evidence ✅
 - exact universal Performance capture from one bound RunningProcess PID ✅
-- KnownExecutable cannot authorize process capture ✅
-- multiple valid PIDs remain ambiguous and no PID is guessed ✅
-- universal capture uses direct typed provider only ✅
 - selected workload has capture-route precedence over Guardian ✅
-- unavailable/ambiguous selected workload blocks instead of silently falling back to another workload ✅
-- no universal selection preserves legacy Guardian/BlueStacks compatibility route ✅
-- Performance WPF renders/uses application route authority instead of owning identity policy ✅
+- unavailable/ambiguous selected workload blocks instead of silently falling back ✅
+- no universal selection preserves legacy Guardian/BlueStacks compatibility ✅
+- WPF consumes Core/application route authority ✅
 - exact official Windows CI for final integrated slice ✅
 
 Recent Track 4 checkpoints:
@@ -115,9 +107,9 @@ Recent Track 4 checkpoints:
 - `21eb0d9ed7cd5c181fc609fca02f89f37883d59c` — explicit application workload context — CI #991 SUCCESS
 - `71991379e01518adf2e1c539491a9c0339a56735` — universal Performance capture route/WPF — CI #993 SUCCESS
 
-Track 4 closure does **not** claim nonexistent sensors. VRAM/thermals/I/O/network remain Unknown when unsupported and may be added later only with real provider + concrete consumer. They are future capability enrichment, especially relevant to Track 7, not fabricated Track 4 debt.
+Track 4 closure does **not** claim nonexistent sensors. VRAM/thermals/I/O/network remain Unknown when unsupported and may be added later only with real provider + concrete consumer.
 
-## Track 5 — Universal Auto Tuner + Profiles — NEXT
+## Track 5 — Universal Auto Tuner + Profiles — ACTIVE
 
 Canonical scope:
 
@@ -128,19 +120,65 @@ Canonical scope:
 - revalidation rules;
 - reuse Track 4 typed evidence authority.
 
+### Slice 1 — Generic search-space + Windows system dimension bridge — GREEN
+
+Verified application checkpoint:
+
+```text
+HEAD 797c8c7766adea3369948d9cb330bb7ba9a69d52
+feat: add capability-honest universal tuning search space
+Windows CI #1000 / run 34411645032 — SUCCESS
+```
+
+Checkpoint record:
+
+`docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
+
+Implemented:
+
+- neutral `UniversalTuningDimensionScope` with `System` and `Workload` ✅
+- explicit `UniversalTuningDimension` identity + authority + candidate values ✅
+- neutral `UniversalTuningCandidate` ✅
+- deterministic bounded `UniversalTuningSearchSpacePlanner` ✅
+- fail-closed invalid/blank/duplicate dimension declarations ✅
+- zero dimensions produce zero candidates, never a fabricated default candidate ✅
+- deterministic Cartesian enumeration with exact bounded prefix ✅
+- no hidden/default axes, randomness, confidence, evidence or recommendation authority ✅
+- `UniversalTuningSystemDimensionFactory` reuses Track 2 `WindowsCapabilityCandidatePlan` ✅
+- only `CanExplore == true` plans become system dimensions ✅
+- Unavailable/MissingCurrentState/NoCandidateSpace remain absent ✅
+- producer TargetValue preserved exactly in ExplorationRank order ✅
+- duplicate target values fail closed ✅
+- existing BlueStacks/FF `TuningCandidate`, `AutoTunerEngine` and runtime/session path remain source-compatible ✅
+- no startup discovery/tuning side effect ✅
+
+Closed boundary:
+
+**search/support space is exploration only; it is not recommendation or validated winner authority.** Existing typed evidence, repeatability, freshness/fingerprint, validation challenge, ValidatedEvidence and Global Controlled Benchmark Lease semantics remain unchanged.
+
+TDD evidence:
+
+- Task 1 RED: run `34410887507`;
+- Task 1 GREEN: verifier #3 on `6feb03b019008092868602c6400e9272ab968200`;
+- Task 2 RED: run `34411302456`;
+- Task 2 GREEN: verifier #5 / run `34411435761` on `5c50b2a268246feefcfc2ba190176f9231d52d83`;
+- official integration: `797c8c7766adea3369948d9cb330bb7ba9a69d52`, CI #1000 SUCCESS.
+
 ### Immediate sequence
 
-1. **Generic search-space/candidate contract** ← NEXT
-   - audit current `AutoTunerEngine`, candidate/profile models and specialized BlueStacks runtime;
-   - introduce the smallest additive generic abstraction;
-   - capability-honest: unsupported/unproven dimensions are absent, never guessed;
-   - preserve the current BlueStacks/FF search space as the first specialized implementation;
-   - no startup discovery/tuning side effects.
-2. Compose system/universal candidate dimensions from proven capabilities.
-3. Add game-adapter candidate dimensions without assuming universal semantics for renderer/quality/etc.
-4. Generalize evidence-backed winner/profile outputs while preserving the existing five roles and Custom Validated authority.
-5. Revalidation and promotion must keep typed measured evidence, repeatability, freshness/fingerprint and existing validation gates.
-6. Integrate with UI only after Core/application policy is proven.
+1. Generic search-space/candidate contract ✅
+2. Compose system/universal dimensions from proven Windows capability candidate plans ✅
+3. **Add capability-honest workload/game-adapter dimensions** ← NEXT
+   - locate and reuse existing Track 3 generic/specialized adapter contracts;
+   - adapter must explicitly declare dimension identity, authority and values;
+   - do not invent a second game-option catalog;
+   - do not assume renderer, quality, resolution, FPS target or similar semantics are universal across games;
+   - unsupported/ambiguous/duplicate declarations fail closed;
+   - compose only explicit workload dimensions with the already-GREEN neutral planner.
+4. Connect the specialized BlueStacks/FF candidate space to the universal abstraction in its own TDD slice without breaking the legacy path.
+5. Generalize evidence-backed winner/profile outputs while preserving the existing five roles and Custom Validated authority.
+6. Revalidation and automatic promotion must retain typed measured evidence, repeatability, freshness/fingerprint and existing validation gates.
+7. Integrate with UI only after Core/application policy is proven.
 
 Every independent slice remains TDD RED → GREEN → exact Windows CI → memory synchronization.
 
@@ -157,7 +195,7 @@ Every independent slice remains TDD RED → GREEN → exact Windows CI → memor
 - vendor capability adapters
 - CPU controls
 - GPU controls
-- additional proven telemetry where needed (for example VRAM/thermals/I/O/network when supported)
+- additional proven telemetry where needed
 - Expert integration
 - Auto Tuner integration
 - instability detection
