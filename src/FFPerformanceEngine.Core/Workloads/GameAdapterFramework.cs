@@ -27,6 +27,27 @@ public interface IGameAdapter
 }
 
 /// <summary>
+/// Adapter-owned declaration of one workload-specific tuning dimension. The
+/// candidate values are support/search-space metadata only; they carry no
+/// recommendation, validation or persistence authority by themselves.
+/// </summary>
+public sealed record GameAdapterTuningDimensionDeclaration
+{
+    public string Id { get; init; } = string.Empty;
+    public IReadOnlyList<string> CandidateValues { get; init; } = Array.Empty<string>();
+}
+
+/// <summary>
+/// Optional Track 5 capability for specialized adapters that can explicitly
+/// declare workload tuning dimensions. IGameAdapter intentionally does not
+/// inherit this interface so existing and generic adapters remain source-compatible.
+/// </summary>
+public interface IGameTuningDimensionProvider
+{
+    IReadOnlyList<GameAdapterTuningDimensionDeclaration> GetTuningDimensions(GameIdentity identity);
+}
+
+/// <summary>
 /// Safe fallback for games without a specialized adapter. Generic Windows,
 /// process, hardware and telemetry optimization lives in universal engines;
 /// therefore this adapter intentionally does not claim game-config powers.
