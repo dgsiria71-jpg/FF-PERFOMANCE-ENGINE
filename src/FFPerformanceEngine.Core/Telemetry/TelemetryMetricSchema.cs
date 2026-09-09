@@ -126,6 +126,12 @@ public static class TelemetryStandardMetrics
     public static readonly TelemetryMetricDescriptor FrameLatencyAverageMs = Metric(
         "frame.latency.avg_ms", TelemetryUnit.Milliseconds, TelemetryMetricDomain.Frame);
 
+    public static readonly TelemetryMetricDescriptor FrameAcceptedSampleCount = new(
+        "frame.samples.accepted.count",
+        TelemetryUnit.Count,
+        TelemetryMetricDomain.Frame,
+        TelemetryAggregationKind.Sum);
+
     public static readonly TelemetryMetricDescriptor SystemCpuUtilizationPercent = Metric(
         "system.cpu.utilization.percent", TelemetryUnit.Percent, TelemetryMetricDomain.System);
 
@@ -172,6 +178,7 @@ public static class TelemetryStandardMetrics
         FrameTimeP99Ms,
         FrameStutterPercent,
         FrameLatencyAverageMs,
+        FrameAcceptedSampleCount,
         SystemCpuUtilizationPercent,
         CpuClockCurrentAverageMhz,
         CpuClockMaximumAverageMhz,
