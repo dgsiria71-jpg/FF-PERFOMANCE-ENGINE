@@ -151,6 +151,7 @@ try
     await GameDiscoveryFoundationSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
+    WddmGpuPdhInstanceParserSelfTests.Run();
 }
 finally
 {
