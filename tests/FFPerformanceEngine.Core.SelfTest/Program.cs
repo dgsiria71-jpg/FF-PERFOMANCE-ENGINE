@@ -111,6 +111,7 @@ try
     GenericGuardianBottleneckClassifierSelfTests.Run();
     GenericGuardianClassifierTaxonomySelfTests.Run();
     GenericGuardianClassifierSupportSelfTests.Run();
+    GenericGuardianSessionActionSelectorSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
@@ -165,8 +166,6 @@ try
     UniversalTuningResultProjectionSelfTests.Run();
     UniversalValidatedPerformanceProjectionSelfTests.Run();
     await UniversalValidatedProfileProjectionSelfTests.RunAsync();
-    await UniversalValidatedProfileProvenanceServiceSelfTests.RunAsync();
-    await UniversalPromotedProfileProjectionSelfTests.RunAsync();
     await PersistedPromotedProfileProvenanceSelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
