@@ -252,7 +252,7 @@ internal static class UniversalValidatedProfileProjectionSelfTests
                 MachineName = environment.MachineName,
                 WindowsDescription = environment.WindowsDescription,
                 LogicalProcessors = environment.LogicalProcessors,
-                MemoryTotalMb = environment.MemoryTotalGb * 1024L,
+                MemoryTotalMb = (long)Math.Round(environment.MemoryTotalGb.GetValueOrDefault() * 1024d),
                 Is64BitOs = environment.Is64BitOs,
                 HardwareSignatures = ["CPU|TEST", "GPU|TEST"]
             },
