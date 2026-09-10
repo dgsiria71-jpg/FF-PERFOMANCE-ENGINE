@@ -1,0 +1,109 @@
+# Track 6.1 Slice 1 — Generic Workload State Machine — COMPLETE
+
+Date: 2026-09-10
+Status: GREEN
+
+## Architecture authority
+
+This Slice implements the first bounded foundation of the already-approved **Track 6 — Adaptive Guardian 2.0** architecture. The macro design remains the specification committed at:
+
+`docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
+
+Track 6 implementation order remains closed as:
+
+1. generic workload state machine;
+2. universal classifiers;
+3. session optimizer actions;
+4. learned action reliability;
+5. post-session queue.
+
+This checkpoint does not reopen or replace that architecture.
+
+## Official application authority
+
+- Application SHA: `725065a90cef2ebd04a9d4d19e703ba46756bcb1`
+- Commit: `feat: add Track 6 generic workload state machine`
+- Windows CI: **#1039 — SUCCESS**
+- Run: `34522642478`
+- Full official gate passed: checkout/setup, native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
+
+## TDD evidence
+
+Verifier branch:
+
+`ci/track6-generic-workload-state-machine-verify`
+
+RED:
+
+- SHA `5a8ca66ab2adf1bf9962bc922f2eeeda274b6679`
+- verifier run `34521933778`
+- native path passed;
+- managed build failed only because the new production contracts did not exist: `GenericGuardianWorkloadStateMachine`, `GenericGuardianWorkloadSignals`, `GuardianWorkloadState`, `GuardianWorkloadStateConfidence` (`CS0246` / `CS0103`).
+- no collateral failure was present.
+
+GREEN:
+
+- SHA `0db8de367e4424b375ecfa9d4eb97cfdf1ede575`
+- verifier run `34522187740`
+- native configure/build/test, managed build, Core self-tests, App self-tests and publish all succeeded.
+
+Selective official integration excluded the temporary verifier workflow.
+
+## Permanent files
+
+- `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`
+- `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadStateMachine.cs`
+- `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWorkloadStateMachineSelfTests.cs`
+- `tests/FFPerformanceEngine.Core.SelfTest/Program.cs`
+
+## Closed behavior of this Slice
+
+Permanent generic state contracts:
+
+- `GuardianWorkloadState`: `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`;
+- `GuardianWorkloadStateConfidence`: `Unknown / Low / Medium / High`;
+- `GenericGuardianWorkloadSignals`: explicit system-online, foreground, render-activity and recent-input signals;
+- `GuardianWorkloadStateSnapshot`: exact stable identity/adapter context + existing `TelemetryWorkloadTarget`;
+- `GenericGuardianWorkloadStateMachine`: stateful, Core-only, no side effects outside its transition memory.
+
+Authority and transition rules:
+
+- runtime target authority is reused from the existing `TelemetryWorkloadTargetResolver`;
+- exact stable `GameId` remains separate from transient PID/path;
+- unknown or duplicate stable identity fails closed to `Unresolved`;
+- ambiguous running targets fail closed to `Unresolved` and never become actionable;
+- `KnownExecutable`-only evidence never authorizes live state;
+- a newly exact workload or changed PID enters `Starting`;
+- the same exact process without sufficient active evidence settles at `Ready`;
+- generic `Active` requires render activity plus foreground or recent-input evidence; this Slice invents no universal FPS threshold;
+- losing the exact process after `Starting/Ready/Active` yields one conservative `Ending`, then `Desktop` if absence persists;
+- explicit system offline yields `Offline` and removes stale live-process authorization from the returned target;
+- `Reset()` clears transition memory;
+- catalog/evidence inputs remain read-only;
+- exact resolved `GameIdentity` and adapter references are preserved when identity is proven.
+
+## Explicit non-scope
+
+This Slice does **not** complete Track 6 item 1 by itself and does not implement Track 6 items 2–5.
+
+It adds no discovery, startup scan, telemetry capture, universal classifier, dynamic baseline, mutation, canary, Profile authority, History persistence, Guardian Knowledge persistence, AppServices composition or WPF surface. Existing specialized BlueStacks/Free Fire Guardian files were left unchanged.
+
+## Preserved invariants
+
+- `Observed != Validated`.
+- Missing capability/telemetry remains absent/Unknown.
+- `KnownExecutable` never grants live capture/action.
+- Global Controlled Benchmark Lease and Guardian suspend/reconcile remain untouched.
+- Specialized FF/BlueStacks Guardian remains compatibility authority while the neutral path is introduced additively.
+- UI remains presentation/request only.
+- No anti-cheat/integrity bypass.
+
+## Exact next action
+
+Continue approved **Track 6 item 1 — generic workload state machine**, not Track 6 item 2 yet.
+
+Before writing the next RED, inspect the current Windows/typed seams for foreground/window ownership, render/process telemetry and recent-input acquisition. Define the smallest explicit/on-demand observation bridge that can produce `GenericGuardianWorkloadSignals` for an already-selected stable `GameId` and exact resolved process without running discovery at startup or granting action authority.
+
+Then repeat the canonical gate:
+
+`docs/memory/context → bounded Slice design → TDD RED → exact intended RED → minimal production → verifier GREEN → selective official integration → exact Windows CI → memory/checkpoint sync → exact documentary-head CI`.

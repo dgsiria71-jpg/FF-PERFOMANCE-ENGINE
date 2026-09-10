@@ -202,6 +202,8 @@ detect state → detect real degradation → identify likely cause
 
 During active gameplay, only actions proven appropriate for the current workload/state are eligible; larger changes wait for safer boundaries.
 
+The Track 6 macro architecture was already approved on 2026-09-06 and is not to be redesigned during incremental implementation. The approved generic/specialized state model, multimodal detection, dynamic baseline, classifier families, canary flow, cooldown/action budget, Quick Boost and Mid-Game semantics remain authoritative in `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`.
+
 ## 12. Adaptive Performance Governor
 
 Governor is continuous control inside already-known safe policy ranges and remains distinct from Guardian experiments and Auto Tuner exploration. Hysteresis, cooldown, step limits and `LIVE_SAFE` classification prevent oscillation.
@@ -406,7 +408,7 @@ Track 5 later slices extend the same authority model through real Custom profile
 - Track 3 Game Discovery + Adapter Framework — GREEN
 - Track 4 Universal Telemetry / Evidence — GREEN for current canonical scope
 - Track 5 Universal Auto Tuner + Profiles — **GREEN for current canonical scope**; Slices 1–13 verified through application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS
-- Track 6 Adaptive Guardian 2.0 — planned; next design boundary
+- Track 6 Adaptive Guardian 2.0 — **ACTIVE; macro architecture approved; item 1 generic workload state machine in progress; Slice 1 GREEN at application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS**
 - Track 7 Hardware Performance Engine — planned
 - Track 8 Deep Cleaner — planned
 - Track 9 Auto Optimize — planned
@@ -425,3 +427,34 @@ Universal layers can only narrow/correlate already-authorized specialized state.
 Deferred non-blocking expansion includes new game-specific physical tuning adapters/runtimes, renderer/graphics mutation only after verified reversible lifecycle support, future non-BlueStacks persisted provenance once such adapters own real measurement/mutation/profile authority, and optional provenance UI batching/polish. These items do not reopen Track 5 by default.
 
 Closure checkpoint: `docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`.
+
+## 28. Track 6 item 1 generic workload state foundation — Slice 1 GREEN — 2026-09-10
+
+Track 6 implementation follows the macro architecture already approved on 2026-09-06. Slice 1 introduces the neutral Core lifecycle foundation without modifying the specialized BlueStacks/Free Fire Guardian.
+
+Permanent contract:
+
+`src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadStateMachine.cs`
+
+The generic state machine reuses `ResolvedGameCatalogResult` and `TelemetryWorkloadTargetResolver`; it does not create a second identity or PID/path authority. It exposes conservative states `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending` and categorical confidence `Unknown / Low / Medium / High`.
+
+Canonical Slice 1 rules:
+
+- unknown/duplicate stable GameId fails closed to `Unresolved`;
+- ambiguous running targets fail closed and never become actionable;
+- `KnownExecutable` never authorizes a live state;
+- a new exact workload/PID starts at `Starting`;
+- a stable exact process without sufficient activity settles at `Ready`;
+- generic `Active` requires render activity plus foreground or recent input; no universal FPS threshold is fabricated;
+- loss of exact process after a live lifecycle yields one `Ending`, then `Desktop`;
+- explicit system offline yields `Offline` and suppresses stale process authorization;
+- exact resolved identity and adapter references are preserved when proven;
+- inputs are read-only and `Reset()` clears transition memory.
+
+This Slice grants no discovery, capture, baseline, classifier, mutation, canary, Profile, History, Knowledge, AppServices or WPF authority. It is only the first bounded foundation of Track 6 item 1.
+
+TDD evidence: RED `5a8ca66ab2adf1bf9962bc922f2eeeda274b6679` / run `34521933778`; verifier GREEN `0db8de367e4424b375ecfa9d4eb97cfdf1ede575` / run `34522187740`; official application `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS.
+
+Checkpoint: `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-state-machine.complete`.
+
+Next within approved item 1: inspect current foreground/window, render/process-telemetry and recent-input seams, then add the smallest explicit/on-demand observation bridge feeding `GenericGuardianWorkloadSignals`. Do not advance to Track 6 universal classifiers until the generic state path has trustworthy runtime signal acquisition.

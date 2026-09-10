@@ -24,57 +24,21 @@ Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #
 
 ## Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
 
-Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Track 5 closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
+Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Final Track 5 closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
 
-Canonical objective was achieved: generalize the proven specialized Auto Tuner/Profile system additively while preserving evidence, validation, freshness, winner and persistence authority.
+Track 5 is the additive universal Auto Tuner/Profile foundation over proven specialized BlueStacks/Free Fire authority. It does not claim that every discovered game already has a physical tuning runtime. Universal search/correlation/provenance does not manufacture evidence, `Validated`, winner, mutation or persistence authority.
 
-### Verified Slices
+Closure checkpoint:
 
-1. Universal search-space + Windows system dimensions — GREEN — `797c8c7766adea3369948d9cb330bb7ba9a69d52`, CI #1000.
-2. Capability-honest adapter-owned workload dimensions — GREEN — `8dac70fdb2c693533ae481aaadd846ab84fde228`, CI #1007.
-3. Dynamic BlueStacks/FF candidate binding — GREEN — `39246089fb28f510287e79639356a4e16d1b6b02`, CI #1014.
-4. Evidence-backed universal result/winner projection — GREEN — `f24c8c25612182db3c12351185fa54be227a8252`, CI #1016.
-5. Universal projection of already-authorized validated History — GREEN — `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4`, CI #1018.
-6. Universal provenance for a real specialized Custom Validated profile — GREEN — `4563ef6ab36d5dfdc29375b7156df9b357fa652d`, CI #1020.
-7. Universal provenance after an already-authorized specialized promotion — GREEN — `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`, CI #1022.
-8. Current persisted-Custom provenance reproving — GREEN — `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, CI #1024.
-9. AppServices persisted-Custom provenance composition — GREEN — `20408ab20957afb43834b456df581bb0e417b4d0`, CI #1026.
-10. Profiles persisted-Custom provenance presentation — GREEN — `07b4264e438a5052ddca45d8b5eda111d74f4270`, CI #1028.
-11. Persisted promoted-winner provenance across restart — GREEN — `b755064b72c0c4f91f864bae665cd327d8cc1488`, CI #1030.
-12. AppServices persisted promoted-winner provenance composition — GREEN — `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032.
-13. Profiles persisted promoted-winner provenance presentation — GREEN — `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, CI #1034 / run `34502895182`.
+`docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`
 
-### Closure boundary
+## Track 6 — Adaptive Guardian 2.0 — ACTIVE
 
-Track 5 is the **universal foundation**, not a promise that every discovered game already has a physical tuning runtime. The working specialized BlueStacks/Free Fire path remains authoritative while universal contracts provide stable, capability-honest search/correlation/provenance seams.
+The macro architecture was already approved on 2026-09-06 in:
 
-Universal search-space metadata never grants evidence or recommendation authority. Universal result/profile/promotion projections never create `Validated`, a winner or persistence state. Persisted provenance is re-proven against current capability and exact specialized source state and fails closed to null when it cannot be proven. AppServices paths are explicit/on-demand; WPF remains presentation-only.
+`docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
 
-Deferred non-blocking refinements include additional game-specific physical tuning adapters/runtimes, reversible renderer/graphics-option mutation when actually proven, future non-BlueStacks persisted provenance after those adapters gain real authority, and optional provenance UI batching/polish.
-
-Closure checkpoint: `docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`.
-
-Every independent implementation slice remains:
-
-```text
-docs/memory/context
-→ bounded design
-→ TDD RED
-→ exact intended RED
-→ minimal production
-→ verifier GREEN
-→ selective official integration
-→ exact Windows CI
-→ memory/checkpoint sync
-→ exact documentary-head CI
-→ next increment
-```
-
-## Track 6 — Adaptive Guardian 2.0 — ARCHITECTURE APPROVED / IMPLEMENTATION NEXT
-
-The macro-architecture is **not a new design boundary**. It was already approved on 2026-09-06 in `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md` and preserved in `CANONICAL_CONTEXT.md` / `DECISIONS_LOG.md`.
-
-Guardian 2.0 is an expansion of the working Guardian, not a replacement. Its approved mission is to keep an active workload inside the expected performance region of the current profile using contextual, measured and reversible interventions.
+Do not reopen or redesign it merely because implementation moves to a new Slice.
 
 Approved state model:
 
@@ -90,11 +54,9 @@ OFFLINE
 → POST-WORKLOAD
 ```
 
-Specialized adapters may expose richer states. The generic fallback works conservatively with `Desktop / Starting / Active / Ending`; it must not manufacture unsupported lobby/match semantics.
+Generic fallback is conservative (`Desktop / Starting / Active / Ending`) while specialized adapters may expose richer states when they possess real state-detection authority. Detection may combine process, foreground/window, render activity, input, frame pattern, launcher/emulator and adapter signals, with explicit confidence.
 
-Approved detection is multimodal and may combine process, window/foreground, render activity, input pattern, frame pattern, launcher/emulator signals and adapter-specific signals. State output carries confidence; missing signals remain absent/Unknown.
-
-Approved classifier families are CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
+Approved classifier families remain CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
 
 Approved intervention model:
 
@@ -108,35 +70,80 @@ detect degradation
 → KEEP or ROLLBACK
 ```
 
-Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost applies only already-validated compatible actions. Mid-Game Optimize performs quick diagnosis and one contextual Live-Safe canary path. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and are distinct from global Balanced/Performance/Extreme policy.
+Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost uses only already-validated compatible actions. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and remain distinct from global Balanced/Performance/Extreme policy.
 
 ### Approved Track 6 implementation order
 
-1. **generic workload state machine**;
-2. **universal classifiers**;
-3. **session optimizer actions**;
-4. **learned action reliability**;
-5. **post-session queue**.
+1. **generic workload state machine** — IN PROGRESS;
+2. **universal classifiers** — pending item 1;
+3. **session optimizer actions** — pending item 2;
+4. **learned action reliability** — pending item 3;
+5. **post-session queue** — pending item 4.
 
-This sequence is already decided at architecture level. Each item may still be decomposed into small TDD Slices after inspecting current code, but that decomposition must implement the approved architecture rather than reopen or replace it. Helper contracts such as exact workload binding are implementation details of the relevant approved item, not new product architecture.
+### Track 6 item 1 — Generic workload state machine
 
-### Non-negotiable Track 6 constraints inherited from existing architecture
+#### Slice 1 — Core lifecycle foundation — GREEN
+
+- application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`;
+- Windows CI **#1039 / run `34522642478` SUCCESS**;
+- plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`;
+- checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-state-machine.complete`.
+
+Permanent behavior:
+
+- generic states `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`;
+- categorical state confidence `Unknown / Low / Medium / High`;
+- reuse of `TelemetryWorkloadTargetResolver` for exact runtime authority;
+- unknown/duplicate/ambiguous targets fail closed;
+- `KnownExecutable` never becomes live;
+- new exact process/PID enters `Starting`;
+- stable process without active evidence becomes `Ready`;
+- generic `Active` requires render activity plus foreground or recent input;
+- exact process loss yields one `Ending`, then `Desktop`;
+- explicit offline suppresses live-process authorization;
+- no discovery, telemetry capture, baseline, classifier, mutation, canary, persistence, AppServices or WPF integration in this Slice;
+- existing specialized BlueStacks/FF Guardian remains unchanged.
+
+TDD verifier:
+
+- RED `5a8ca66ab2adf1bf9962bc922f2eeeda274b6679`, run `34521933778`, clean missing-contract failure only;
+- GREEN `0db8de367e4424b375ecfa9d4eb97cfdf1ede575`, run `34522187740`, native/managed/Core/App/publish SUCCESS;
+- temporary workflow excluded from official integration.
+
+#### Next Slice inside item 1
+
+Inspect the current exact Windows/typed seams for foreground/window ownership, render/process telemetry and recent input. Then add the smallest explicit/on-demand observation bridge that produces `GenericGuardianWorkloadSignals` for an already-selected stable `GameId` and exact resolved process.
+
+This next Slice must reuse Track 3/4 authority, fail closed on unavailable/ambiguous runtime identity, add no startup discovery and grant no action/baseline/profile authority. Do not advance to universal classifiers until item 1 has a complete trustworthy observation/state path.
+
+### Track 6 non-negotiable constraints
 
 - Guardian does not own deep Auto Tuner exploration;
 - gameplay interventions require workload-appropriate `LIVE_SAFE` authority;
 - controlled evidence outranks passive observation;
-- passive evidence may reduce confidence/request revalidation after drift but cannot silently overwrite stronger validated evidence;
-- Global Controlled Benchmark Lease/ownership prevents Guardian from contaminating controlled work;
+- Global Controlled Benchmark Lease prevents Guardian contamination of controlled work;
 - interventions must be measurable and reversible or explicitly non-mutating;
 - missing telemetry/capability remains Unknown/absent;
 - stable workload identity remains distinct from transient process evidence;
-- `KnownExecutable` never authorizes a live process binding/capture;
-- existing BlueStacks/FF Guardian behavior is preserved through compatibility while universal contracts are introduced incrementally;
-- UI presents state and requests; policy remains outside WPF.
+- `KnownExecutable` never authorizes live process binding/capture;
+- BlueStacks/FF Guardian behavior stays preserved during incremental universalization;
+- UI presents/requests; policy remains outside WPF.
 
-### Exact next implementation boundary
+Every independent implementation Slice remains:
 
-Begin item 1, **generic workload state machine**, by reusing the already-GREEN Track 3/4 stable `GameIdentity`, bound `RunningProcess` evidence and exact workload target resolution plus the current Guardian supervisor/live-session/host lifecycle. Derive the smallest additive implementation Slice, write its TDD RED first, observe the exact RED, then implement only enough production for GREEN. Do not request another approval of the already-closed macro architecture unless a real contradiction with the canonical specification is discovered.
+```text
+docs/memory/context
+→ bounded design
+→ TDD RED
+→ exact intended RED
+→ minimal production
+→ verifier GREEN
+→ selective official integration
+→ exact Windows CI
+→ memory/checkpoint sync
+→ exact documentary-head CI
+→ next Slice
+```
 
 ## Track 7 — Hardware Performance Engine — PLANNED
 
@@ -156,4 +163,4 @@ Analyze, Games, Cleaner and System Optimize surfaces plus the approved Home/Prof
 
 ## Expanded master architecture
 
-Approved future domains remain recorded in `CANONICAL_CONTEXT.md`, `DECISIONS_LOG.md` and earlier checkpoints. Exact historical Track 11–19 numbering remains non-authoritative until its original source is recovered.
+A larger historical Track 0–19 master architecture was reported, but its raw source is not currently mounted. Do not fabricate exact Track 11–19 numbering. Preserve recovered approved domains in `CANONICAL_CONTEXT.md`, `DECISIONS_LOG.md`, `CHAT_CONTEXT_RECONSTRUCTION.md` and the unified architecture spec until the original source is recovered.
