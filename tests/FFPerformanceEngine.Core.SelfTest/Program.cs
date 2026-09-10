@@ -156,6 +156,7 @@ try
     await GameDiscoveryFoundationSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
     GameAdapterTuningDimensionSelfTests.Run();
+    BlueStacksUniversalTuningCandidateBridgeSelfTests.Run();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
