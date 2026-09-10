@@ -1,0 +1,118 @@
+# Track 6.2 Slice 1 — Universal Classifier Bridge — COMPLETE
+
+Date: 2026-09-10
+Branch: `build/initial-product`
+
+## Scope
+
+This checkpoint closes the first bounded Slice of approved Track 6 item 2 — universal classifiers.
+
+The Slice adds a passive/read-only Guardian policy seam over the already-proven Track 4 typed `UniversalBottleneckAnalyzer`. It does not create a second analyzer and does not grant action or validation authority.
+
+## Permanent implementation
+
+Plan:
+
+`docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`
+
+Core:
+
+`src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`
+
+Tests:
+
+`tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianBottleneckClassifierSelfTests.cs`
+
+## Contract
+
+`GenericGuardianBottleneckClassifier` accepts:
+
+- exact `GenericGuardianWorkloadObservation` from Track 6 item 1;
+- caller-provided `BottleneckAnalysisContext`;
+- existing `UniversalBottleneckAnalyzer` authority.
+
+Causal classification is allowed only when:
+
+- generic workload state is `Active`;
+- retained target is `ExactRunningProcess` and `CanCaptureProcess`;
+- typed `TelemetryFrame` is present.
+
+Eligible observations are delegated directly to `UniversalBottleneckAnalyzer.Analyze(TelemetryFrame, BottleneckAnalysisContext)`.
+
+Failed gates return explicit `BottleneckKind.Unknown` with zero confidence and no fabricated candidate/signals. `Unknown` means causal evidence unavailable/unproven, not healthy.
+
+## Authority preserved
+
+- No Guardian-specific CPU/GPU thresholds were introduced.
+- Missing telemetry is not interpreted as headroom.
+- Partial or insufficient-coverage causal metrics remain unproven.
+- Analyzer `Unknown` is never upgraded.
+- Source observation identity/state/target/frame is not rewritten.
+- No `Validated`, recommendation, winner, mutation, canary, cooldown, action budget, Profile, History, Guardian Knowledge or persistence authority is introduced.
+- Existing BlueStacks/FF Guardian path remains untouched.
+- Global Controlled Benchmark Lease and Guardian suspend/reconcile remain untouched.
+
+## TDD evidence
+
+Verifier branch:
+
+`ci/track6-universal-classifier-bridge-verify`
+
+RED:
+
+- SHA `7f0c651d55ed33e5708af49526104c6d5c753f80`
+- run `34526434062`
+- native configure/build/test: SUCCESS
+- managed build: expected FAILURE
+- exact failure: 9 `CS0246`, all because `GenericGuardianBottleneckClassifier` did not yet exist
+- warnings: 0
+- no unrelated failure
+
+GREEN:
+
+- SHA `7acc44f96f8dd8fa3e14340512a6453c518b7c6b`
+- run `34526631371`
+- native configure/build/test: SUCCESS
+- managed build: SUCCESS
+- Core self-tests: SUCCESS
+- App self-tests: SUCCESS
+- publish: SUCCESS
+
+Selective official integration excluded:
+
+`.github/workflows/track6-universal-classifier-bridge-verify.yml`
+
+## Official verification
+
+Application SHA:
+
+`c132ec22c1f38fbacaa43ce630098d44674b3565`
+
+Commit:
+
+`feat: add Track 6 universal classifier bridge`
+
+Windows CI:
+
+- #1043
+- run `34526941137`
+- conclusion: SUCCESS
+- native configure/build/test: SUCCESS
+- managed build: SUCCESS
+- Core self-tests: SUCCESS
+- App self-tests: SUCCESS
+- win-x64 publish: SUCCESS
+- artifact upload: SUCCESS
+- cleanup: SUCCESS
+
+Artifact:
+
+- name `FFPerformanceEngine-win-x64`
+- id `10172045284`
+- digest `sha256:950048cca361882a110caa413aa1d7de68f7821c13577675f0bd2971be67d51f`
+
+## Next boundary
+
+Track 6 item 2 remains active. Next Slice must compare approved Guardian classifier families with the actual typed telemetry and current `BottleneckKind` coverage, extending classification only where evidence authority is real and preserving explicit `Unknown` for unsupported/unproven causal families.
+
+Do not advance to Track 6 item 3 session optimizer actions until item 2 is capability-honest and complete for the intended current foundation.

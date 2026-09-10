@@ -26,19 +26,15 @@ Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #
 
 Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Final Track 5 closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
 
-Track 5 is the additive universal Auto Tuner/Profile foundation over proven specialized BlueStacks/Free Fire authority. It does not claim that every discovered game already has a physical tuning runtime. Universal search/correlation/provenance does not manufacture evidence, `Validated`, winner, mutation or persistence authority.
-
-Closure checkpoint:
-
-`docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`
+Track 5 is the additive universal Auto Tuner/Profile foundation over proven specialized BlueStacks/Free Fire authority. Universal search/correlation/provenance does not manufacture evidence, `Validated`, winner, mutation or persistence authority.
 
 ## Track 6 — Adaptive Guardian 2.0 — ACTIVE
 
-The macro architecture was already approved on 2026-09-06 in:
+Macro architecture authority:
 
 `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
 
-Do not reopen or redesign it merely because implementation moves to a new Slice.
+Do not reopen it merely because implementation moves to another Slice.
 
 Approved state model:
 
@@ -54,9 +50,9 @@ OFFLINE
 → POST-WORKLOAD
 ```
 
-Generic fallback is conservative while specialized adapters may expose richer states when they possess real state-detection authority. Detection may combine process, foreground/window, render activity, input, frame pattern, launcher/emulator and adapter signals, with explicit confidence.
+Generic fallback remains conservative; specialized adapters may expose richer states only with real state-detection authority.
 
-Approved classifier families remain CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
+Approved classifier families: CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
 
 Approved intervention model:
 
@@ -70,12 +66,12 @@ detect degradation
 → KEEP or ROLLBACK
 ```
 
-Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost uses only already-validated compatible actions. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and remain distinct from global Balanced/Performance/Extreme policy.
+Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost uses only already-validated compatible actions. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and are distinct from global Balanced/Performance/Extreme policy.
 
 ### Approved Track 6 implementation order
 
 1. **generic workload state machine** — GREEN;
-2. **universal classifiers** — NEXT;
+2. **universal classifiers** — IN PROGRESS;
 3. **session optimizer actions** — pending item 2;
 4. **learned action reliability** — pending item 3;
 5. **post-session queue** — pending item 4.
@@ -85,53 +81,52 @@ Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Q
 #### Slice 1 — Core lifecycle foundation — GREEN
 
 - application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`;
-- Windows CI **#1039 / run `34522642478` SUCCESS**;
+- Windows CI #1039 / run `34522642478` SUCCESS;
 - plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`;
 - checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-state-machine.complete`.
-
-Permanent behavior includes conservative `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`, categorical confidence, reuse of `TelemetryWorkloadTargetResolver`, fail-closed unknown/ambiguous targets, non-live `KnownExecutable`, fresh lifecycle on PID replacement and explicit Ending/Desktop/offline transitions.
 
 #### Slice 2 — Generic workload observation bridge — GREEN
 
 - application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`;
-- Windows CI **#1041 / run `34525442625` SUCCESS**;
+- Windows CI #1041 / run `34525442625` SUCCESS;
+- documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS;
 - plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-observation.md`;
 - checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-observation.complete`.
 
+Item 1 is complete for the current Core foundation: stable workload identity + exact runtime target + trustworthy generic observation + conservative lifecycle state.
+
+### Track 6 item 2 — Universal classifiers — IN PROGRESS
+
+#### Slice 1 — Typed bottleneck classifier bridge — GREEN
+
+- application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`;
+- Windows CI **#1043 / run `34526941137` SUCCESS**;
+- artifact `FFPerformanceEngine-win-x64`, id `10172045284`, digest `sha256:950048cca361882a110caa413aa1d7de68f7821c13577675f0bd2971be67d51f`;
+- plan `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`;
+- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`.
+
 Permanent behavior:
 
-- neutral Windows foreground PID contract, with no process/window-name identity inference;
-- unknown/ambiguous/unavailable target => no foreground/input/telemetry probe;
-- recent input is attributed only while the exact target PID is foreground;
-- typed frame capture remains on the exact resolved workload target;
-- GameId/PID/path/binding mismatch rejects the capture result;
-- render activity requires direct measured positive `frame.samples.accepted.count`;
-- exact-target typed frames are preserved for later classifiers even when that render-activity criterion is not met;
-- explicit offline invokes no external probes;
-- no baseline/classifier/action/mutation/profile/history/knowledge/startup/WPF authority was introduced;
-- existing specialized BlueStacks/FF Guardian remains unchanged.
+- Guardian does not duplicate `UniversalBottleneckAnalyzer` thresholds;
+- only `Active` + exact capturable target + typed frame can enter causal classification;
+- eligible input delegates directly to the existing typed analyzer;
+- missing/Partial/low-coverage required evidence remains explicit `Unknown`;
+- analyzer `Unknown` remains `Unknown`;
+- non-Active states, forged Active without exact target and Active without frame fail closed;
+- source observation is preserved exactly;
+- classifier remains passive/read-only and grants no validation/recommendation/action/canary/persistence authority.
 
 TDD evidence:
 
-- RED `da16472d69ba12169a7bd6a3d519cba49087ab2f`, verifier run `34524859953`, exact missing-contract failure only;
-- GREEN `7d3c3cb1e10f7bc1b40fe6ee5e6ad9d5f135530c`, verifier run `34525158496`, native/managed/Core/App/publish SUCCESS;
+- RED `7f0c651d55ed33e5708af49526104c6d5c753f80`, verifier run `34526434062`: native passed; managed failed only with 9 intentional `CS0246`, 0 warnings;
+- GREEN `7acc44f96f8dd8fa3e14340512a6453c518b7c6b`, verifier run `34526631371`: native/managed/Core/App/publish SUCCESS;
 - temporary verifier workflow excluded from official integration.
 
-Item 1 is now complete for the approved current Core foundation: stable workload identity + exact runtime target + trustworthy generic observation + conservative lifecycle state.
+#### Next Slice inside item 2
 
-### Track 6 item 2 — Universal classifiers — NEXT
+Compare the approved Guardian classifier families against the already-proven typed telemetry and `BottleneckKind` coverage. Extend only where evidence authority is real. Do not infer background load, renderer/engine stall, scheduler imbalance or input/frame-latency causality from unrelated data merely to fill the taxonomy.
 
-Begin with a bounded read-only classifier Slice over the exact-target typed `TelemetryFrame` preserved by item 1 and the current generic workload state.
-
-Requirements inherited from the approved architecture:
-
-- capability/quality/provenance honest;
-- missing or untrusted required metrics => explicit `Unknown`, never fabricated health or bottleneck;
-- classifier output is passive evidence, not `Validated` and not action authority;
-- do not key universal decisions on PID/path;
-- do not reuse the legacy global action-id Guardian Knowledge as universal reliability evidence;
-- no mutation in the first classifier Slice;
-- preserve existing Track 1/4 diagnostic/bottleneck contracts where they already provide the correct authority rather than creating a competing analyzer.
+The next Slice remains read-only and must preserve `Unknown` for unsupported/unproven families.
 
 ### Track 6 non-negotiable constraints
 
@@ -146,7 +141,7 @@ Requirements inherited from the approved architecture:
 - BlueStacks/FF Guardian behavior stays preserved during incremental universalization;
 - UI presents/requests; policy remains outside WPF.
 
-Every independent implementation Slice remains:
+Every independent Slice remains:
 
 ```text
 docs/memory/context
@@ -176,7 +171,7 @@ Environment/change detection, recommendation engine, local learning, confidence 
 
 ## Track 10 — DG UX Migration — PLANNED
 
-Analyze, Games, Cleaner and System Optimize surfaces plus the approved Home/Profiles/Guardian/Performance/Expert/History/Settings/Mini architecture.
+Analyze, Games, Cleaner and System Optimize surfaces plus approved Home/Profiles/Guardian/Performance/Expert/History/Settings/Mini architecture.
 
 ## Expanded master architecture
 
