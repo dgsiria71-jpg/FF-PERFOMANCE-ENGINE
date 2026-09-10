@@ -5,15 +5,15 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`
-- Commit: `feat: resolve current universal provenance for persisted Custom profiles`
-- Windows CI: **#1024 — SUCCESS**
-- Run: `34438271260`
+- Application HEAD: `20408ab20957afb43834b456df581bb0e417b4d0`
+- Commit: `feat: compose universal profile provenance in AppServices`
+- Windows CI: **#1026 — SUCCESS**
+- Run: `34439301451`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
 
 Track 5 checkpoint:
 
-`docs/project-memory/checkpoints/2026-09-10-track5-universal-validated-profile-provenance-resolution.complete`
+`docs/project-memory/checkpoints/2026-09-10-track5-appservices-universal-profile-provenance.complete`
 
 Any docs-only memory-sync commit after this application SHA does not replace the application checkpoint above as code authority.
 
@@ -75,59 +75,65 @@ Universalization is additive and never weakens specialized evidence/validation/p
 
 ### Slice 8 — Current persisted-Custom universal provenance resolution — GREEN
 
-- application SHA `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`
-- commit `feat: resolve current universal provenance for persisted Custom profiles`
-- Windows CI #1024 / run `34438271260` SUCCESS
-- checkpoint `2026-09-10-track5-universal-validated-profile-provenance-resolution.complete`
+`aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, Windows CI #1024 / run `34438271260` SUCCESS. `UniversalValidatedProfileProvenanceService` reloads a real persisted `Custom + Validated` profile and exact source History record, then re-proves it against the current BlueStacks candidate-space/allow-list. Equivalent Adaptive/Deep overlap is deduplicated semantically; missing capability or drift returns no universal projection.
+
+### Slice 9 — AppServices universal profile-provenance composition — GREEN
+
+- application SHA `20408ab20957afb43834b456df581bb0e417b4d0`
+- commit `feat: compose universal profile provenance in AppServices`
+- Windows CI #1026 / run `34439301451` SUCCESS
+- checkpoint `2026-09-10-track5-appservices-universal-profile-provenance.complete`
 
 Implemented:
 
-- `UniversalValidatedProfileProvenanceService` ✅
-- `ResolveCurrentAsync(profileId, currentEnvironment, currentInstance, capturedSettings)` ✅
-- real persisted happy path uses `HistoryService.SavePerformanceComparisonAsync → RequestPerformanceValidationAsync → CompletePerformanceValidationAsync` and real `ProfileService.CreateCustomFromValidatedComparisonAsync` ✅
-- exactly one requested persisted profile and exactly one source History record required ✅
-- profile remains `Custom + Validated`, FF/FFMAX, exact source id and exact current instance-name binding ✅
-- stored candidate configuration is defensively rehydrated and source environment must remain structurally compatible with current environment ✅
-- current environment must contain exactly one supplied instance binding ✅
-- real current candidate spaces are rebuilt for all existing `AutoTunerMode` values through the existing candidate bridge ✅
-- each successful mode re-runs Slice 5 validated-History and Slice 6 validated-profile bridges ✅
-- equivalent `Adaptive`/`Deep` overlap is deduplicated by semantic provenance; the service never claims an original mode ✅
-- any disagreement in profile/source/GameId/legacy game/AdapterId/universal candidate values fails closed ✅
-- missing current allow-list, wrong instance, renderer/candidate drift, wrong source id, Observed profile and generated winner role fail closed ✅
-- returns the existing `UniversalValidatedProfileProjection`; no new authority-bearing schema/type is persisted ✅
-- no validation, winner selection, recommendation, mutation or persistence authority added ✅
-
-Critical distinction: current `PerformanceUniversalConfigurationContext` does not persist the BlueStacks allow-list (`WorkloadConfiguration` is empty today). Therefore this Slice is a **current reproving** of an already-valid specialized historical origin, not a perfect reconstruction of the old candidate-space. If current capability is absent, the specialized profile remains valid but receives no current universal application projection.
-
-Generated/promoted winner profiles are outside this resolver. Slice 7 requires the exact specialized `ProfileChallengeResult`; Slice 8 does not reconstruct that authority from History JSON merely for UI convenience.
+- one shared `BlueStacksUniversalTuningCandidateBridge` exposed as `AppServices.UniversalTuningCandidates` ✅
+- one shared `UniversalValidatedProfileProvenanceService` exposed as `AppServices.UniversalValidatedProfileProvenance` ✅
+- both reuse the already-shared `AutoTuner`, `GameAdapters`, `Profiles` and `History` authorities ✅
+- construction remains side-effect free for this Track 5 seam; no candidate generation, profile provenance resolution or extra game discovery is triggered ✅
+- `ResolveCurrentUniversalValidatedProfileProvenanceAsync(profileId)` is explicit/on-demand ✅
+- method requires exactly one persisted requested profile before environment/config work ✅
+- method accepts only `Custom + Validated` with exact source and instance binding ✅
+- current environment is captured only after those persisted-profile gates ✅
+- exactly one current instance matching the persisted instance name is required ✅
+- current BlueStacks settings are captured only through the existing allow-list and must be non-empty ✅
+- AppServices delegates final provenance authority to Slice 8 rather than rebuilding validation/candidate policy itself ✅
+- supported I/O, permission, JSON, invalid-data and argument failures return `null` rather than partial provenance ✅
+- unknown profile self-test proves the application path fails closed without inventing identity or triggering unrelated discovery ✅
+- no original AutoTuner mode, validation, winner, recommendation, mutation or persistence authority added ✅
 
 TDD provenance:
 
-- verifier branch `ci/track5-universal-profile-provenance-resolution-verify`;
-- verifier workflow `23933be645374156a1ffc71cc46124c149c63df2`;
-- test contract `569036d81cfca214820324bb01c1cd59ce053522`;
-- clean RED SHA `73bc232531b22e541664eb89db4bc568ffa869a3`, verifier #3 / run `34438037547`: Core failed only because `UniversalValidatedProfileProvenanceService` was absent;
-- GREEN SHA `e510ed20ed802c9f5584f727339a50e697a7e135`, verifier #4 / run `34438142785`: Core + App + WPF SUCCESS;
-- selective integration excluded temporary verifier workflow;
-- official application SHA `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, Windows CI #1024 / run `34438271260` SUCCESS.
+- verifier branch `ci/track5-appservices-profile-provenance-verify`;
+- verifier workflow commit `40c79ca2627f3a71856d89fc2dd6bba3f9a984a9`;
+- RED contract SHA `24f8bc9b91ab5195343ed40da43b4043d6cddd17`, verifier #2 / run `34438809367`: Core passed; App failed only because the three AppServices seam members did not exist (`CS1061`);
+- first production candidate `11c53eb0e915a21e5118fa2b978ce4a6faca053f`;
+- verifier #3 / run `34439045805`: Core passed; App compile exposed only the missing `System.IO` namespace required by the fail-closed exception filters;
+- root-cause-only correction `d56979cfe400ec4f03508e24687717ce1e9b623c`;
+- GREEN verifier #4 / run `34439177062`: Core + App + WPF build SUCCESS;
+- selective integration excluded the temporary verifier workflow;
+- official application SHA `20408ab20957afb43834b456df581bb0e417b4d0`, Windows CI #1026 / run `34439301451` SUCCESS.
 
-### Track 5 authority boundary after Slice 8
+Official integration diff contains exactly two permanent files:
 
-Search declarations, exact candidate binding, result/winner projection, validated-History projection, Custom Validated projection, post-specialized-promotion projection and current persisted-Custom reproving remain correlation/provenance layers. None creates measured evidence, validation, recommendation, profile origin, challenge verdict, winner role, mutation or persistence permission.
+- `src/FFPerformanceEngine.App/AppServices.cs` modified;
+- `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
+
+### Track 5 authority boundary after Slice 9
+
+Search declarations, exact candidate binding, result/winner projection, validated-History projection, Custom Validated projection, post-specialized-promotion projection, current persisted-Custom reproving and AppServices composition remain correlation/provenance layers. None creates measured evidence, validation, recommendation, profile origin, challenge verdict, winner role, mutation or persistence permission.
 
 The specialized BlueStacks/FF chain remains compatibility authority. `PerformanceComparisonHistoryRecord.CanOriginateProfile`, `HistoryService`, `ProfileService`, `ProfileChallengeService`, challenge freshness/incumbent logic, typed PresentMon authority, Global Controlled Benchmark Lease and rollback/History are unchanged.
 
 ## Current next engineering slice
 
-Continue Track 5 with the **AppServices composition seam**, still before WPF UI.
+Continue Track 5 at the **Profiles presentation seam**.
 
-1. Compose one shared `BlueStacksUniversalTuningCandidateBridge` from existing `AutoTuner + GameAdapters`.
-2. Compose one shared `UniversalValidatedProfileProvenanceService` from existing `Profiles + History + candidate bridge`.
-3. Expose an AppServices-owned on-demand method that captures current environment, resolves exactly one bound BlueStacks instance, captures its current allow-listed settings and delegates to Slice 8.
-4. AppServices construction and `InitializeAsync()` must not resolve provenance, generate candidate spaces or trigger extra game discovery.
-5. Missing/wrong profile, missing/ambiguous instance or missing allow-list fails closed.
+1. Inspect `ProfilesPage.xaml`, `ProfilesPage.xaml.cs`, presentation helpers and relevant App/WPF tests.
+2. Define the smallest presentation-only model that consumes `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)` and exposes stable GameId, AdapterId and exact universal candidate values for the selected persisted `Custom + Validated` profile.
+3. WPF must not load History independently, rebuild candidate spaces, infer GameIdentity or original AutoTuner mode, rerun validation, select winners or persist universal metadata.
+4. `null` from AppServices means no universal provenance presentation; do not display authority-implying fabricated placeholders.
+5. Preserve all existing specialized winner roles, Profile Challenge behavior and BlueStacks/FF compatibility flows.
 6. TDD RED first on an isolated verifier; GREEN → selective integration → exact Windows CI → memory sync → documentary HEAD CI.
-7. Only after this application-policy composition is GREEN may `ProfilesPage` display GameId/AdapterId/candidate provenance presentation-only.
 
 ## Planned later tracks
 

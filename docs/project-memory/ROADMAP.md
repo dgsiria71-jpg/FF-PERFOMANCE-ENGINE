@@ -58,7 +58,13 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 
 `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, Windows CI #1024 / run `34438271260` SUCCESS.
 
-`UniversalValidatedProfileProvenanceService` reloads the real persisted `Custom + Validated` profile and its exact source History record, then re-proves it against the **current** BlueStacks candidate-space/allow-list. `Adaptive` and `Deep` overlap is accepted only when both describe the same semantic universal provenance; the original mode is never invented. Missing current capability/drift returns no universal projection without invalidating specialized historical authority. Promoted winner reconstruction remains outside this resolver.
+`UniversalValidatedProfileProvenanceService` reloads the real persisted `Custom + Validated` profile and its exact source History record, then re-proves it against the current BlueStacks candidate-space/allow-list. `Adaptive` and `Deep` overlap is accepted only when both describe the same semantic universal provenance; the original mode is never invented. Missing current capability/drift returns no universal projection without invalidating specialized historical authority. Promoted winner reconstruction remains outside this resolver.
+
+### Slice 9 — AppServices universal profile-provenance composition — GREEN
+
+`20408ab20957afb43834b456df581bb0e417b4d0`, Windows CI #1026 / run `34439301451` SUCCESS.
+
+`AppServices` now composes one shared `BlueStacksUniversalTuningCandidateBridge` from existing `AutoTuner + GameAdapters` and one shared `UniversalValidatedProfileProvenanceService` from existing `Profiles + History + candidate bridge`. `ResolveCurrentUniversalValidatedProfileProvenanceAsync(profileId)` is explicit/on-demand: it loads only the requested persisted profile, captures current environment + exactly one matching BlueStacks instance + current allow-listed settings, then delegates to the Slice 8 Core authority. Missing/ambiguous state and supported I/O/permission/JSON/data failures return no universal provenance. Construction and `InitializeAsync()` do not run the resolver or generate candidate spaces implicitly.
 
 ### Immediate sequence
 
@@ -71,15 +77,15 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 7. Universal provenance for the real specialized Custom Validated profile origin ✅
 8. Challenge/promotion provenance after already-authorized specialized verdict ✅
 9. Current persisted-Custom provenance reproving for application consumption ✅
-10. **AppServices composition seam** ← NEXT
-   - compose shared candidate bridge + persisted-Custom provenance resolver from existing services;
-   - expose one on-demand AppServices method that captures current environment/instance/allow-list and delegates to the proven Core service;
-   - construction/`InitializeAsync()` must not resolve provenance, generate candidates or trigger game discovery implicitly;
-   - missing/ambiguous instance or missing current capability fails closed;
-   - no original AutoTuner mode, validation, winner or persistence inference.
-11. **Profiles presentation** after AppServices composition is GREEN
-   - presentation-only stable GameId/AdapterId/exact candidate values;
-   - no generic persisted profile schema and no WPF-owned authority.
+10. AppServices composition seam ✅
+11. **Profiles presentation seam** ← NEXT
+   - inspect `ProfilesPage.xaml`, `ProfilesPage.xaml.cs`, presentation helpers and relevant tests;
+   - consume only `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)`;
+   - expose stable GameId, AdapterId and exact universal candidate values only when the application seam returns a real projection;
+   - WPF must not load History independently, rebuild candidate spaces, infer identity/mode, rerun validation, decide winners or persist universal metadata;
+   - `null` means no universal provenance presentation, without authority-implying fabricated placeholders;
+   - preserve existing five specialized winner roles, challenge workflow and BlueStacks/FF compatibility UI.
+12. Broader Track 5 UI refinement only after the presentation seam is GREEN.
 
 Every independent slice remains:
 
