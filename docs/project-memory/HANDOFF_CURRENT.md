@@ -16,11 +16,11 @@
 - Run: `34502895182`
 - Full gate: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
 
-Latest proven documentary precursor before Track 5 closure sync:
+Latest proven documentary HEAD after Track 5 closure sync:
 
-- HEAD `6944e0221bce44159bfa894c270e75b095f8e575`
-- Windows CI **#1035 — SUCCESS**
-- Run `34503363082`
+- HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`
+- Windows CI **#1036 — SUCCESS**
+- Run `34510474469`
 
 Track 5 closure checkpoint:
 
@@ -36,7 +36,7 @@ A docs-only closure commit does not replace `a0c9a4e3...` as application-code au
 - Track 3 — Game Discovery + Adapter Framework: **GREEN**
 - Track 4 — Universal Telemetry / Evidence: **GREEN**
 - Track 5 — Universal Auto Tuner + Profiles: **GREEN for current canonical scope**
-- Track 6 — Adaptive Guardian 2.0: **NEXT DESIGN BOUNDARY; not yet approved for implementation**
+- Track 6 — Adaptive Guardian 2.0: **MACRO-ARCHITECTURE ALREADY APPROVED; IMPLEMENTATION NEXT**
 - Track 7+ — planned per roadmap/canonical context.
 
 ## Track 5 closure result
@@ -63,6 +63,28 @@ No blocking authority gap was found in closure review. Universal layers remain c
 
 Deferred non-blocking expansion: additional game-specific physical tuning adapters/runtimes, renderer/graphics mutation only after reversible support is proven, future non-BlueStacks persisted provenance after such adapters gain real authority, and optional UI batching/polish.
 
+## Recovered Track 6 architecture authority
+
+The Track 6 macro-architecture was already approved on **2026-09-06** in:
+
+`docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
+
+Do not redesign or ask the user to re-approve this architecture merely because Track 5 has finished. The approved Guardian 2.0 architecture is **PRESERVED AND EXPANDED** from the working Guardian and includes:
+
+- universal workload state machine: `OFFLINE → DESKTOP → WORKLOAD STARTING → WORKLOAD READY → GAME STARTING → LOBBY/PREP when supported → MATCH/ACTIVE WORKLOAD → MATCH END → POST-WORKLOAD`;
+- generic fallback state model `Desktop / Starting / Active / Ending`, with richer states supplied by specialized adapters;
+- multimodal detection from process, window/foreground, render activity, input pattern, frame pattern, launcher/emulator signals and adapter-specific signals, producing state + confidence;
+- dynamic baseline relative to current machine/profile, not universal fixed thresholds;
+- universal classifier families: CPU contention, GPU saturation, memory/VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`;
+- canary flow `detect → confirm anomaly → select candidate action → micro-snapshot → apply canary → measure before/after → KEEP/ROLLBACK`, with inconclusive result rolling back;
+- cooldown + Action Budget;
+- Guardian modes Conservative / Adaptive / Aggressive / MonitorOnly, distinct from global Balanced/Performance/Extreme policy;
+- Quick Boost = already-validated compatible actions only;
+- Mid-Game Optimize = quick diagnosis + workload/context-appropriate `LIVE_SAFE` action + canary + keep/rollback;
+- implementation decomposition already recorded as: **generic workload state machine → universal classifiers → session optimizer actions → learned action reliability → post-session queue**.
+
+A larger historical 89-page Track 0–19 master architecture was reported but its raw file is not currently mounted. Do not fabricate its exact text/numbering. Its recovered approved domains are consolidated in `CANONICAL_CONTEXT.md`, `DECISIONS_LOG.md`, `ROADMAP.md`, `CHAT_CONTEXT_RECONSTRUCTION.md` and the unified architecture spec above.
+
 ## Non-negotiable authority
 
 - `Observed != Validated`.
@@ -74,8 +96,16 @@ Deferred non-blocking expansion: additional game-specific physical tuning adapte
 - Global Controlled Benchmark Lease, Guardian suspension/reconciliation, fingerprint/freshness, rollback and History remain intact.
 - Game discovery and Track 5 provenance resolution remain explicit/on-demand; they are not added to `InitializeAsync()`.
 - UI never owns validation, winner, mutation or persistence policy.
+- Guardian does not own deep Auto Tuner exploration; gameplay intervention requires workload-appropriate `LIVE_SAFE` authority.
+- Controlled evidence outranks passive Guardian observation; passive evidence may request revalidation but cannot silently overwrite stronger validated truth.
 - No anti-cheat/integrity bypass.
 
 ## Exact next action
 
-Do **not** start Track 6 production yet. First inspect the existing Guardian state/session/canary/knowledge architecture and propose the smallest additive **Track 6 — Adaptive Guardian 2.0** bounded design. Because this is a new behavioral architecture boundary, obtain explicit design approval before the first Track 6 TDD RED.
+Continue **Track 6 — Adaptive Guardian 2.0** from the already-approved architecture; do not reopen the macro design.
+
+First implementation objective is Track 6 item 1: **generic workload state machine**. Before production, inspect/reuse the already-GREEN Track 3/4 identity and exact-running-process seams plus the existing Guardian supervisor/live-session/host behavior, then derive the smallest additive bounded Slice needed to realize that approved state-machine item. Any binding/resolution helper is an implementation detail of this approved item, not a new architecture decision.
+
+Then follow the canonical gate without asking for a second architecture approval unless a genuine conflict with the approved specification is discovered:
+
+`docs/memory/context → bounded Slice design → TDD RED → exact intended RED → minimal production → verifier GREEN → selective official integration → exact Windows CI → memory/checkpoint sync → exact documentary-head CI → next Slice`.
