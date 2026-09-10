@@ -13,6 +13,11 @@ Require(services.UniversalValidatedProfileProvenance is not null,
 var missingProfileProvenance = await services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(Guid.NewGuid());
 Require(missingProfileProvenance is null,
     "AppServices on-demand universal profile provenance must fail closed for an unknown persisted profile without inventing identity or triggering unrelated discovery.");
+Require(services.UniversalPersistedPromotedProfileProvenance is not null,
+    "AppServices must compose one shared persisted promoted-winner provenance resolver from the same profile/history/current-Custom authorities.");
+var missingPromotedProfileProvenance = await services.ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync(Guid.NewGuid());
+Require(missingPromotedProfileProvenance is null,
+    "AppServices on-demand promoted-winner universal provenance must fail closed for an unknown persisted profile before environment/config work or unrelated discovery.");
 
 var hiddenProvenance = UniversalProfileProvenancePresentation.FromProjection(null);
 Require(!hiddenProvenance.IsVisible
