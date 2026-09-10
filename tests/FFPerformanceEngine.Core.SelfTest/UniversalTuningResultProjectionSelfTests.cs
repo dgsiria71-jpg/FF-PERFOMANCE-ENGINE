@@ -9,36 +9,16 @@ internal static class UniversalTuningResultProjectionSelfTests
         ProjectsExistingEvidenceAndFiveWinnerRolesOneToOne();
         RejectsCrossWorkloadResultProjection();
         RejectsAdapterAuthorityMismatch();
+        RejectsMissingOrAmbiguousCandidateBinding();
+        RejectsWinnerWithoutExactSourceEvidence();
+        PreservesObservedEvidenceWithoutInventingWinners();
 
         Console.WriteLine("PASS Track 5 universal tuning result/profile projection preserves specialized authority");
     }
 
     private static void ProjectsExistingEvidenceAndFiveWinnerRolesOneToOne()
     {
-        var environment = new EnvironmentSnapshot
-        {
-            LogicalProcessors = 8,
-            MemoryTotalGb = 16
-        };
-        var instance = new BlueStacksInstance
-        {
-            Name = "Pie64",
-            CpuCores = 4,
-            RamMb = 4096,
-            Renderer = "Vulkan",
-            Fps = 90,
-            Resolution = "1920x1080"
-        };
-        var captured = FullCapturedSettings(instance.Name);
-        var engine = new AutoTunerEngine();
-        var resolver = CreateResolver();
-        var candidateSpace = new BlueStacksUniversalTuningCandidateBridge(engine, resolver).Build(
-            environment,
-            instance,
-            GameKind.FreeFire,
-            AutoTunerMode.Deep,
-            captured);
-
+        var (engine, candidateSpace) = CreateFixture();
         Require(candidateSpace.Bindings.Count >= 3,
             "The projection fixture requires at least three exact applicable BlueStacks bindings.");
         var selected = candidateSpace.Bindings.Take(3).ToArray();
@@ -108,27 +88,7 @@ internal static class UniversalTuningResultProjectionSelfTests
 
     private static void RejectsCrossWorkloadResultProjection()
     {
-        var environment = new EnvironmentSnapshot
-        {
-            LogicalProcessors = 8,
-            MemoryTotalGb = 16
-        };
-        var instance = new BlueStacksInstance
-        {
-            Name = "Pie64",
-            CpuCores = 4,
-            RamMb = 4096,
-            Renderer = "Vulkan",
-            Fps = 90,
-            Resolution = "1920x1080"
-        };
-        var engine = new AutoTunerEngine();
-        var candidateSpace = new BlueStacksUniversalTuningCandidateBridge(engine, CreateResolver()).Build(
-            environment,
-            instance,
-            GameKind.FreeFire,
-            AutoTunerMode.Deep,
-            FullCapturedSettings(instance.Name));
+        var (engine, candidateSpace) = CreateFixture();
         Require(candidateSpace.Bindings.Count >= 3,
             "Cross-workload projection fixture requires at least three exact bindings.");
 
@@ -144,6 +104,115 @@ internal static class UniversalTuningResultProjectionSelfTests
     }
 
     private static void RejectsAdapterAuthorityMismatch()
+    {
+        var (engine, candidateSpace) = CreateFixture();
+        Require(candidateSpace.Bindings.Count >= 3,
+            "Adapter mismatch fixture requires at least three exact bindings.");
+
+        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
+        var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
+
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(
+                result,
+                candidateSpace with { AdapterId = "tampered-adapter" }),
+            "Universal result projection must reject a candidate space whose adapter authority no longer matches the stable GameIdentity adapter authority.");
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(
+                result,
+                candidateSpace with { AdapterId = "   " }),
+            "Universal result projection must reject a candidate space with blank adapter authority.");
+    }
+
+    private static void RejectsMissingOrAmbiguousCandidateBinding()
+    {
+        var (engine, candidateSpace) = CreateFixture();
+        Require(candidateSpace.Bindings.Count >= 3,
+            "Binding mismatch fixture requires at least three exact bindings.");
+        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
+        var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
+        var firstCandidate = evidence[0].Candidate;
+
+        var missingBindingSpace = candidateSpace with
+        {
+            Bindings = candidateSpace.Bindings
+                .Where(binding => binding.SpecializedCandidate != firstCandidate)
+                .ToArray()
+        };
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(result, missingBindingSpace),
+            "Projection must fail closed when result evidence has no exact Slice 3 candidate binding.");
+
+        var duplicateBinding = candidateSpace.Bindings.Single(binding => binding.SpecializedCandidate == firstCandidate);
+        var ambiguousBindingSpace = candidateSpace with
+        {
+            Bindings = candidateSpace.Bindings.Concat([duplicateBinding]).ToArray()
+        };
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(result, ambiguousBindingSpace),
+            "Projection must fail closed when result evidence maps to more than one Slice 3 candidate binding.");
+    }
+
+    private static void RejectsWinnerWithoutExactSourceEvidence()
+    {
+        var (engine, candidateSpace) = CreateFixture();
+        Require(candidateSpace.Bindings.Count >= 3,
+            "Winner source fixture requires at least three exact bindings.");
+        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
+        var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
+        Require(result.Winners.Count == 5,
+            "Winner source fixture requires the existing five generated winners.");
+
+        var alteredWinner = result.Winners[0] with
+        {
+            FpsTarget = result.Winners[0].FpsTarget + 1
+        };
+        var tamperedResult = result with
+        {
+            Winners = new[] { alteredWinner }.Concat(result.Winners.Skip(1)).ToArray()
+        };
+
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(tamperedResult, candidateSpace),
+            "Projection must fail closed when a winner profile cannot be traced to exactly one source evidence configuration.");
+    }
+
+    private static void PreservesObservedEvidenceWithoutInventingWinners()
+    {
+        var (engine, candidateSpace) = CreateFixture();
+        Require(candidateSpace.Bindings.Count > 0,
+            "Observed-only fixture requires at least one exact candidate binding.");
+        var observed = new CandidateEvidence
+        {
+            Candidate = candidateSpace.Bindings[0].SpecializedCandidate,
+            Evidence = EvidenceLevel.Observed,
+            Confidence = 0.99,
+            Sample = new TelemetrySample
+            {
+                Fps = 144,
+                OnePercentLow = 130,
+                LatencyMs = 7,
+                FrameTimeMs = 6.9
+            }
+        };
+        var result = engine.SelectWinners(
+            GameKind.FreeFire,
+            AutoTunerMode.Deep,
+            [observed]);
+        Require(result.Winners.Count == 0,
+            "Existing AutoTunerEngine must not create winners from Observed-only evidence.");
+
+        var projected = BlueStacksUniversalTuningResultBridge.Project(result, candidateSpace);
+
+        Require(projected.Winners.Count == 0,
+            "Universal correlation metadata must not invent a winner when specialized authority emitted none.");
+        Require(projected.Evidence.Count == 1
+                && ReferenceEquals(projected.Evidence[0].SpecializedEvidence, observed)
+                && projected.Evidence[0].SpecializedEvidence.Evidence == EvidenceLevel.Observed,
+            "Universal projection must preserve Observed evidence exactly and never upgrade it to Validated.");
+    }
+
+    private static (AutoTunerEngine Engine, BlueStacksUniversalTuningCandidateSpace CandidateSpace) CreateFixture()
     {
         var environment = new EnvironmentSnapshot
         {
@@ -166,16 +235,7 @@ internal static class UniversalTuningResultProjectionSelfTests
             GameKind.FreeFire,
             AutoTunerMode.Deep,
             FullCapturedSettings(instance.Name));
-        Require(candidateSpace.Bindings.Count >= 3,
-            "Adapter mismatch fixture requires at least three exact bindings.");
-
-        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
-        var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
-        var tamperedSpace = candidateSpace with { AdapterId = "tampered-adapter" };
-
-        RequireThrows<InvalidOperationException>(
-            () => BlueStacksUniversalTuningResultBridge.Project(result, tamperedSpace),
-            "Universal result projection must reject a candidate space whose adapter authority no longer matches the stable GameIdentity adapter authority.");
+        return (engine, candidateSpace);
     }
 
     private static GameAdapterResolver CreateResolver()
