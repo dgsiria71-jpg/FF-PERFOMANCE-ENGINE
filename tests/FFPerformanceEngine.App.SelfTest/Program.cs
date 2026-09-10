@@ -5,6 +5,14 @@ using FFPerformanceEngine.Core.Workloads;
 
 await using var services = new AppServices();
 
+Require(services.UniversalTuningCandidates is not null,
+    "AppServices must compose one shared universal BlueStacks candidate bridge without running it during construction.");
+Require(services.UniversalValidatedProfileProvenance is not null,
+    "AppServices must compose one shared persisted-Custom universal provenance resolver from existing profile/history authorities.");
+var missingProfileProvenance = await services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(Guid.NewGuid());
+Require(missingProfileProvenance is null,
+    "AppServices on-demand universal profile provenance must fail closed for an unknown persisted profile without inventing identity or triggering unrelated discovery.");
+
 Require(services.PerformanceWorkloadContext.SelectedGameId is null,
     "AppServices construction must not discover or select a performance workload implicitly.");
 var initialTarget = services.ResolveSelectedPerformanceCaptureTarget();
