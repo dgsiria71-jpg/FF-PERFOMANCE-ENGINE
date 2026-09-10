@@ -160,6 +160,7 @@ try
     UniversalTuningResultProjectionSelfTests.Run();
     UniversalValidatedPerformanceProjectionSelfTests.Run();
     await UniversalValidatedProfileProjectionSelfTests.RunAsync();
+    await UniversalPromotedProfileProjectionSelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
