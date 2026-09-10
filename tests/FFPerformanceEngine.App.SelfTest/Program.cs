@@ -1,4 +1,5 @@
 using FFPerformanceEngine.App;
+using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
@@ -12,6 +13,57 @@ Require(services.UniversalValidatedProfileProvenance is not null,
 var missingProfileProvenance = await services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(Guid.NewGuid());
 Require(missingProfileProvenance is null,
     "AppServices on-demand universal profile provenance must fail closed for an unknown persisted profile without inventing identity or triggering unrelated discovery.");
+
+var hiddenProvenance = UniversalProfileProvenancePresentation.FromProjection(null);
+Require(!hiddenProvenance.IsVisible
+        && hiddenProvenance.GameId.Length == 0
+        && hiddenProvenance.AdapterId.Length == 0
+        && hiddenProvenance.CandidateLines.Count == 0,
+    "Profiles presentation must remain completely hidden when AppServices supplies no universal provenance; UI must not fabricate identifiers or candidate values.");
+
+var profileIdentity = LegacyGameIdentityBridge.FromGameKind(GameKind.FreeFire)
+    ?? throw new InvalidOperationException("Profiles presentation fixture requires the stable Free Fire identity bridge.");
+var profileCandidate = new UniversalTuningCandidate
+{
+    Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [$"workload.{profileIdentity.AdapterId}.ram-mb"] = "4096",
+        [$"workload.{profileIdentity.AdapterId}.cpu-cores"] = "2",
+        [$"workload.{profileIdentity.AdapterId}.fps-target"] = "90"
+    }
+};
+var profileProjection = new UniversalValidatedProfileProjection
+{
+    SpecializedProfile = new PerformanceProfile
+    {
+        Name = "Custom validado",
+        Kind = ProfileKind.Custom,
+        Game = GameKind.FreeFire,
+        InstanceName = "Pie64",
+        Evidence = EvidenceLevel.Validated,
+        SourceComparisonId = Guid.NewGuid(),
+        EnvironmentFingerprint = "profiles-presentation-fixture"
+    },
+    SourceValidation = new UniversalValidatedPerformanceProjection
+    {
+        SpecializedRecord = null!,
+        UniversalCandidate = profileCandidate
+    },
+    UniversalCandidate = profileCandidate,
+    Identity = profileIdentity,
+    AdapterId = profileIdentity.AdapterId
+};
+var visibleProvenance = UniversalProfileProvenancePresentation.FromProjection(profileProjection);
+var expectedCandidateLines = profileCandidate.Values
+    .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+    .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+    .Select(pair => $"{pair.Key} = {pair.Value}")
+    .ToArray();
+Require(visibleProvenance.IsVisible
+        && string.Equals(visibleProvenance.GameId, profileIdentity.GameId, StringComparison.Ordinal)
+        && string.Equals(visibleProvenance.AdapterId, profileIdentity.AdapterId, StringComparison.Ordinal)
+        && visibleProvenance.CandidateLines.SequenceEqual(expectedCandidateLines, StringComparer.Ordinal),
+    "Profiles presentation must copy the already-proven GameId, AdapterId and exact universal candidate key/value pairs deterministically without renaming or inferring them.");
 
 Require(services.PerformanceWorkloadContext.SelectedGameId is null,
     "AppServices construction must not discover or select a performance workload implicitly.");
