@@ -24,7 +24,7 @@ Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #
 
 ## Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
 
-Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Latest Slice 13 documentary precursor `6944e0221bce44159bfa894c270e75b095f8e575`, Windows CI #1035 / run `34503363082` SUCCESS.
+Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Track 5 closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
 
 Canonical objective was achieved: generalize the proven specialized Auto Tuner/Profile system additively while preserving evidence, validation, freshness, winner and persistence authority.
 
@@ -70,22 +70,73 @@ docs/memory/context
 → next increment
 ```
 
-## Track 6 — Adaptive Guardian 2.0 — NEXT DESIGN BOUNDARY
+## Track 6 — Adaptive Guardian 2.0 — ARCHITECTURE APPROVED / IMPLEMENTATION NEXT
 
-Planned scope: generic workload state machine, universal classifiers, session optimizer actions, learned action reliability and post-session queue.
+The macro-architecture is **not a new design boundary**. It was already approved on 2026-09-06 in `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md` and preserved in `CANONICAL_CONTEXT.md` / `DECISIONS_LOG.md`.
 
-Do not begin production yet. First inspect the current Guardian engine/supervisor/live-session/canary/knowledge/binding/presentation/host paths and classify which behavior already exists versus what must be generalized. Then propose the smallest additive bounded design. Because Track 6 introduces a new behavioral architecture boundary, explicit design approval is required before the first Track 6 TDD RED.
+Guardian 2.0 is an expansion of the working Guardian, not a replacement. Its approved mission is to keep an active workload inside the expected performance region of the current profile using contextual, measured and reversible interventions.
 
-Non-negotiable Track 6 constraints inherited from existing architecture:
+Approved state model:
+
+```text
+OFFLINE
+→ DESKTOP
+→ WORKLOAD STARTING
+→ WORKLOAD READY
+→ GAME STARTING
+→ LOBBY / PREP when adapter supports it
+→ MATCH / ACTIVE WORKLOAD
+→ MATCH END
+→ POST-WORKLOAD
+```
+
+Specialized adapters may expose richer states. The generic fallback works conservatively with `Desktop / Starting / Active / Ending`; it must not manufacture unsupported lobby/match semantics.
+
+Approved detection is multimodal and may combine process, window/foreground, render activity, input pattern, frame pattern, launcher/emulator signals and adapter-specific signals. State output carries confidence; missing signals remain absent/Unknown.
+
+Approved classifier families are CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
+
+Approved intervention model:
+
+```text
+detect degradation
+→ confirm anomaly
+→ select workload/state-appropriate LIVE_SAFE candidate
+→ micro-snapshot
+→ apply canary
+→ measure before/after
+→ KEEP or ROLLBACK
+```
+
+Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost applies only already-validated compatible actions. Mid-Game Optimize performs quick diagnosis and one contextual Live-Safe canary path. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and are distinct from global Balanced/Performance/Extreme policy.
+
+### Approved Track 6 implementation order
+
+1. **generic workload state machine**;
+2. **universal classifiers**;
+3. **session optimizer actions**;
+4. **learned action reliability**;
+5. **post-session queue**.
+
+This sequence is already decided at architecture level. Each item may still be decomposed into small TDD Slices after inspecting current code, but that decomposition must implement the approved architecture rather than reopen or replace it. Helper contracts such as exact workload binding are implementation details of the relevant approved item, not new product architecture.
+
+### Non-negotiable Track 6 constraints inherited from existing architecture
 
 - Guardian does not own deep Auto Tuner exploration;
 - gameplay interventions require workload-appropriate `LIVE_SAFE` authority;
 - controlled evidence outranks passive observation;
+- passive evidence may reduce confidence/request revalidation after drift but cannot silently overwrite stronger validated evidence;
 - Global Controlled Benchmark Lease/ownership prevents Guardian from contaminating controlled work;
 - interventions must be measurable and reversible or explicitly non-mutating;
 - missing telemetry/capability remains Unknown/absent;
 - stable workload identity remains distinct from transient process evidence;
+- `KnownExecutable` never authorizes a live process binding/capture;
+- existing BlueStacks/FF Guardian behavior is preserved through compatibility while universal contracts are introduced incrementally;
 - UI presents state and requests; policy remains outside WPF.
+
+### Exact next implementation boundary
+
+Begin item 1, **generic workload state machine**, by reusing the already-GREEN Track 3/4 stable `GameIdentity`, bound `RunningProcess` evidence and exact workload target resolution plus the current Guardian supervisor/live-session/host lifecycle. Derive the smallest additive implementation Slice, write its TDD RED first, observe the exact RED, then implement only enough production for GREEN. Do not request another approval of the already-closed macro architecture unless a real contradiction with the canonical specification is discovered.
 
 ## Track 7 — Hardware Performance Engine — PLANNED
 
