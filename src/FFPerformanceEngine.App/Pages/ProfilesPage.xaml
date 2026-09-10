@@ -1,6 +1,7 @@
 <UserControl x:Class="FFPerformanceEngine.App.Pages.ProfilesPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pages="clr-namespace:FFPerformanceEngine.App.Pages">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="4">
             <TextBlock Text="Perfis" FontSize="30" FontWeight="SemiBold" />
@@ -148,6 +149,22 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,4,0,14">
+                <StackPanel>
+                    <TextBlock Text="Proveniência universal dos vencedores" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="Somente vencedores promovidos cuja proveniência especializada persistida ainda pode ser correlacionada com a capacidade universal atual aparecem aqui. Ausência de prova atual não altera o vencedor especializado."
+                               Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" />
+                    <ItemsControl Margin="0,6,0,0"
+                                  ItemsSource="{Binding ElementName=ProfilesList, Path=ItemsSource}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <pages:PromotedWinnerProvenanceView />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
