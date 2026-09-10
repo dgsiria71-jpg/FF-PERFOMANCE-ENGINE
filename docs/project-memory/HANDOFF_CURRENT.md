@@ -10,16 +10,16 @@
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `07b4264e438a5052ddca45d8b5eda111d74f4270`
-- Commit: `feat: present universal Custom profile provenance in Profiles`
-- Windows CI: **#1028 — SUCCESS**
-- CI run id: `34441106814`
+- Application HEAD: `b755064b72c0c4f91f864bae665cd327d8cc1488`
+- Commit: `feat: persist promoted winner universal provenance across restart`
+- Windows CI: **#1030 — SUCCESS**
+- CI run id: `34498927985`
 
-The exact #1028 job passed checkout/setup, native configure/build/test, managed build, Core self-tests, App self-tests, `win-x64` publish, artifact upload and cleanup.
+The exact #1030 job passed checkout/setup, native configure/build/test, managed build, Core self-tests, App self-tests, `win-x64` publish, artifact upload and cleanup.
 
 Checkpoint record:
 
-`docs/project-memory/checkpoints/2026-09-10-track5-profiles-universal-provenance-presentation.complete`
+`docs/project-memory/checkpoints/2026-09-10-track5-persisted-promoted-winner-provenance.complete`
 
 Any later docs-only memory-sync commit containing this handoff does not replace the application SHA above as code authority.
 
@@ -41,6 +41,7 @@ Any later docs-only memory-sync commit containing this handoff does not replace 
   - Slice 8 — current reproving of persisted Custom universal provenance for application consumption: **GREEN**
   - Slice 9 — AppServices composition of the proven universal profile-provenance path: **GREEN**
   - Slice 10 — Profiles presentation of current proven Custom universal provenance: **GREEN**
+  - Slice 11 — persisted promoted-winner provenance across restart from durable specialized receipt: **GREEN**
 - Track 6+ — planned; follow `ROADMAP.md` and `CANONICAL_CONTEXT.md`.
 
 ## Non-negotiable authority inherited from Tracks 2–5
@@ -53,6 +54,7 @@ Any later docs-only memory-sync commit containing this handoff does not replace 
 - Global Controlled Benchmark Lease, Guardian suspension/reconciliation, exact fingerprint/freshness, durable validation authority, rollback and History remain intact.
 - Candidate/search support is exploration only, never recommendation/validation/winner/persistence authority.
 - Universal metadata is additive correlation/provenance only. It can narrow an already-authorized specialized path but can never manufacture `Validated`, a winner, profile origin, recommendation, mutation or persistence permission.
+- A persisted promotion receipt is evidence that the specialized promotion path recorded a promotion; it is not a substitute for `ProfileChallengeResult` and must never be used to re-run or recreate challenge authority.
 - Game discovery remains explicit/on-demand; never add it to `AppServices.InitializeAsync()`.
 - WPF consumes application/Core authority; it must not rebuild provenance, validation, identity or winner logic.
 - No anti-cheat/integrity bypass.
@@ -69,70 +71,100 @@ Any later docs-only memory-sync commit containing this handoff does not replace 
 - Slice 8: `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c` — Windows CI #1024 / run `34438271260` SUCCESS.
 - Slice 9: `20408ab20957afb43834b456df581bb0e417b4d0` — Windows CI #1026 / run `34439301451` SUCCESS.
 - Slice 10: `07b4264e438a5052ddca45d8b5eda111d74f4270` — Windows CI #1028 / run `34441106814` SUCCESS.
+- Slice 11: `b755064b72c0c4f91f864bae665cd327d8cc1488` — Windows CI #1030 / run `34498927985` SUCCESS.
 
-## Track 5 Slice 10 — Profiles universal provenance presentation — GREEN
+## Track 5 Slice 11 — persisted promoted-winner provenance across restart — GREEN
 
 ### Purpose
 
-Expose the already-proven current universal provenance of the selected persisted `Custom + Validated` challenger in the real Profiles UI without moving any provenance, validation, identity, winner or persistence authority into WPF.
+Recover current universal provenance for a generated winner that was already promoted by `ProfileChallengeService`, after application restart, using only durable specialized records plus the already-proven current Custom provenance path.
 
-### Permanent presentation contract
+The Slice deliberately does **not** persist or reconstruct `ProfileChallengeResult`, does not re-evaluate whether two challenge rounds won, and does not create new promotion/winner authority.
 
-Added `UniversalProfileProvenancePresentation`, a pure presentation-only projection with:
+### Durable specialized receipt
 
-- `IsVisible`;
-- exact `GameId`;
-- exact `AdapterId`;
-- deterministic exact `key = value` lines from the existing `UniversalTuningCandidate.Values`.
+`ProfileChallengeService` already appends a `HistoryEvent` only after the specialized winner replacement succeeds. Its durable `DetailsJson` records:
 
-`FromProjection(null)` returns a hidden/empty presentation. A non-null already-proven `UniversalValidatedProfileProjection` is copied verbatim for identity/adapter/candidate values; no dimension names or values are translated into inferred semantics.
+- `challengerProfileId`;
+- `previousWinnerId`;
+- `promotedProfileId`;
+- `revalidationComparisonId`;
+- `targetKind`.
 
-### ProfilesPage consumption
+Slice 11 treats that event only as a promotion receipt/correlation record. A receipt cannot make an arbitrary generated profile a winner and cannot replace the specialized challenge result that existed at promotion time.
 
-`ProfilesPage` now contains a `UniversalProvenanceCard` inside the existing challenge card. It is `Collapsed` by default and contains no authority-implying placeholder values.
+### Permanent Core contract
 
-The page:
+Added `UniversalPersistedPromotedProfileProvenanceService` plus read-only records `UniversalPersistedPromotionReceipt` and `UniversalPersistedPromotedProfileProjection`.
 
-1. refreshes universal provenance only for the selected Custom challenger;
-2. calls only `App.Services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(selectedCustom.Id)`;
-3. does not load History for universal provenance, rebuild candidate spaces, infer GameIdentity, infer Auto Tuner mode, rerun validation, decide winners or persist universal metadata;
-4. hides and clears the card whenever application provenance is absent;
-5. uses a monotonically increasing revision token so a slower result for a previous selection cannot overwrite the current selected profile's presentation;
-6. preserves the existing Profile Challenge, A/B, historical validation, profile application and five winner-role flows.
+`ResolveCurrentAsync(...)` requires, fail-closed:
+
+1. exactly one persisted requested profile;
+2. a generated winner role (`Recommended`, `MaximumFps`, `LowestLatency`, `Stability` or `Quality`) with `Validated` evidence, exact `SourceComparisonId`, FF/FFMAX game, instance binding and environment fingerprint;
+3. exactly one parseable `HistoryEvent` receipt claiming that exact promoted profile;
+4. receipt target role and revalidation id exactly matching the current winner;
+5. non-empty/distinct challenger, prior-winner, promoted-winner and revalidation identifiers;
+6. exactly one persisted Custom challenger, `Custom + Validated`, same game/instance as the promoted winner;
+7. exactly one persisted revalidation comparison identified by the receipt/winner source id;
+8. revalidation baseline and candidate both `Measured`, with structurally equivalent environments;
+9. revalidation candidate configuration matching both the preserved Custom and promoted winner exactly across game/instance/CPU/RAM/renderer/FPS target/resolution/DPI;
+10. winner and Custom fingerprints matching the revalidation candidate environment;
+11. winner FPS, 1% low, frame time and latency matching the exact measured revalidation candidate;
+12. current environment remaining structurally compatible;
+13. the preserved Custom successfully re-proving its current universal provenance through `UniversalValidatedProfileProvenanceService` using the current candidate-space/allow-list.
+
+Only after those gates does the projection carry the exact current `UniversalCandidate`, stable `GameIdentity` and `AdapterId` already proven for the Custom source.
+
+Missing current capability, receipt ambiguity, missing History, wrong ids, winner/config/fingerprint/metric drift, phantom generated profiles or cross-workload state produce `null`. Specialized historical winner state is not rewritten or invalidated by absence of current universal provenance.
+
+### Restart test
+
+The permanent self-test performs a real specialized path:
+
+- persists a separately validated Custom source;
+- persists an incumbent generated winner;
+- records two real measured challenge comparisons;
+- calls real `ProfileChallengeService.AssessAndPromoteLatestAsync(...)` and requires actual promotion;
+- reloads profiles and History using fresh service instances to simulate restart;
+- resolves the promoted winner only after that restart boundary;
+- verifies exact receipt, challenger, revalidation, candidate, stable identity and adapter;
+- verifies fail-closed behavior for empty current capability, tampered winner metrics, a phantom generated profile without receipt and duplicate receipts.
 
 ### TDD provenance
 
-Temporary verifier branch: `ci/track5-profiles-universal-provenance-presentation-verify`.
+Temporary verifier branch: `ci/track5-persisted-promoted-profile-provenance-verify`.
 
-- verifier workflow commit: `bed44063e059d98d56f0e4beb837c83adb9458f3`;
-- RED contract commit: `489eb1e868a573c9fe395164d9192cd43e05079c`;
-- clean RED verifier #2 / run `34440671279`: Core passed; App failed only with `CS0103` because `UniversalProfileProvenancePresentation` did not exist;
-- minimal production GREEN SHA: `cadf10b7f8f45e52e20d0b53a080c3b085550945`;
-- GREEN verifier #3 / run `34440919128`: Core self-tests + App self-tests + WPF build SUCCESS;
+- verifier workflow commit: `27eb2c7c65acdc5e09d23f11231758a53b9df82a`;
+- initial RED contract commit: `360e7be55def12ccf791c9c356a2aa07ac7424f3`;
+- verifier #2 / run `34441789494`: exposed the intended missing service plus one fixture-only nullable-overload error (`CS8604`); no production code was written;
+- fixture-only correction: `f3002e2635aae989780ed17fde171d81c64c8dc3`;
+- clean RED verifier #3 / run `34441912295`: failed only with `CS0246` because `UniversalPersistedPromotedProfileProvenanceService` did not exist;
+- minimal production GREEN SHA: `c107afd396f95775d1be22dd17b3f415f386c74c`;
+- GREEN verifier #4 / run `34498595576`: Core self-tests + App self-tests + WPF build SUCCESS;
 - selective official integration excluded the temporary verifier workflow;
-- official application SHA `07b4264e438a5052ddca45d8b5eda111d74f4270` passed Windows CI #1028 / run `34441106814` completely.
+- official application SHA `b755064b72c0c4f91f864bae665cd327d8cc1488` passed Windows CI #1030 / run `34498927985` completely.
 
-Official integration diff from the Slice 9 documentary head contains exactly four permanent files:
+Official integration diff from the Slice 10 documentary head contains exactly three permanent files:
 
-- `src/FFPerformanceEngine.App/UniversalProfileProvenancePresentation.cs` added;
-- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml` modified;
-- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml.cs` modified;
-- `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
+- `src/FFPerformanceEngine.Core/Services/UniversalPersistedPromotedProfileProvenanceService.cs` added;
+- `tests/FFPerformanceEngine.Core.SelfTest/PersistedPromotedProfileProvenanceSelfTests.cs` added;
+- `tests/FFPerformanceEngine.Core.SelfTest/Program.cs` modified.
 
-## Canonical documents not changed by Slice 10
+## Canonical documents not changed by Slice 11
 
-`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` remain authoritative and unchanged because Slice 10 implements the already-approved presentation-only boundary. It creates no new architecture, validation, winner, mutation or persistence authority.
+`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` remain authoritative and unchanged. Slice 11 fills an already-identified read-only provenance gap using existing specialized durable records; it creates no new validation, challenge, winner, mutation or persistence authority.
 
 ## Exact next action
 
-Continue **Track 5** by inspecting the remaining durable Profiles provenance gap before starting another implementation.
+Continue **Track 5** at the bounded **AppServices promoted-winner provenance composition seam**.
 
 Required sequence:
 
-1. inspect `HistoryEvent`/promotion event fields, `ProfileChallengeService` persistence and the Slice 7 `UniversalPromotedProfileProjection` contract;
-2. determine whether an already-persisted promoted winner can be re-proven after application restart using only durable specialized authority, without reconstructing or inventing a `ProfileChallengeResult` that was never persisted exactly;
-3. if durable evidence is sufficient, define the smallest read-only persisted-promoted-winner provenance resolver with fail-closed TDD RED first;
-4. if durable evidence is insufficient, do not synthesize missing challenge state; record the boundary and choose the next UI/Profile refinement that does not weaken authority;
-5. do not generalize the persisted profile schema merely for convenience;
-6. preserve all five winner roles and the specialized BlueStacks/FF compatibility path;
-7. verifier GREEN → selective official integration → exact Windows CI → memory sync → documentary HEAD CI.
+1. inspect current `AppServices` composition around `UniversalTuningCandidates`, `UniversalValidatedProfileProvenance` and `ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)`;
+2. compose one shared `UniversalPersistedPromotedProfileProvenanceService` from the same existing `Profiles`, `History` and current Custom resolver;
+3. expose an explicit/on-demand application method for one persisted generated winner;
+4. construction and `InitializeAsync()` must remain side-effect free for this path — no implicit History/provenance resolution, candidate generation or game discovery;
+5. application code may resolve the exact current BlueStacks instance and capture the existing allow-listed settings, but must delegate receipt/revalidation/provenance authority to the Slice 11 Core service;
+6. unknown/non-winner/missing-instance/current-capability failures must return no projection rather than infer state;
+7. TDD RED first on a new isolated verifier; GREEN verifier → selective official integration → exact Windows CI → memory sync → documentary HEAD CI;
+8. only after that application seam is GREEN may Profiles UI presentation for promoted winners be considered.
