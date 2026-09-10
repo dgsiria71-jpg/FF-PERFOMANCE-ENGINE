@@ -5,17 +5,14 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `2ea74c72f6373bc139a38da72fa257662ae8b965`
-- Commit: `feat: compose persisted promoted winner provenance in AppServices`
-- Windows CI: **#1032 — SUCCESS**
-- Run: `34500776106`
+- Application HEAD: `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`
+- Commit: `feat: present promoted winner universal provenance in Profiles`
+- Windows CI: **#1034 — SUCCESS**
+- Run: `34502895182`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
+- Checkpoint: `2026-09-10-track5-profiles-promoted-winner-provenance-presentation.complete`
 
-Track 5 checkpoint:
-
-`docs/project-memory/checkpoints/2026-09-10-track5-appservices-promoted-winner-provenance.complete`
-
-Any docs-only memory-sync commit after this application SHA does not replace the application checkpoint above as code authority.
+Any docs-only sync after this SHA does not replace the application checkpoint above as code authority.
 
 ## Product foundation
 
@@ -27,79 +24,73 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 - Track 1 — Universal Diagnostic Foundation — GREEN
 - Track 2 — System Optimizer / evidence authority — GREEN through current branch
 - Track 3 — Game Discovery + Adapter Framework — GREEN
-- Track 4 — Universal Telemetry / Evidence — GREEN; closing app `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 / run `34407420906`
-- Track 5 — Universal Auto Tuner + Profiles — ACTIVE
+- Track 4 — Universal Telemetry / Evidence — GREEN
+- Track 5 — Universal Auto Tuner + Profiles — ACTIVE; closure review next
 
 ## Track 5 verified Slice chain
 
-- Slice 1 — universal search-space + system dimensions: `797c8c7766adea3369948d9cb330bb7ba9a69d52`, CI #1000.
-- Slice 2 — adapter-owned workload dimensions: `8dac70fdb2c693533ae481aaadd846ab84fde228`, CI #1007.
-- Slice 3 — dynamic BlueStacks/FF candidate bridge: `39246089fb28f510287e79639356a4e16d1b6b02`, CI #1014.
-- Slice 4 — universal result/winner projection: `f24c8c25612182db3c12351185fa54be227a8252`, CI #1016.
-- Slice 5 — validated-History projection: `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4`, CI #1018 / run `34433407760`.
-- Slice 6 — real Custom Validated provenance: `4563ef6ab36d5dfdc29375b7156df9b357fa652d`, CI #1020.
-- Slice 7 — post-specialized-promotion provenance: `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`, CI #1022.
-- Slice 8 — current persisted-Custom reproving: `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, CI #1024 / run `34438271260`.
-- Slice 9 — AppServices Custom provenance composition: `20408ab20957afb43834b456df581bb0e417b4d0`, CI #1026 / run `34439301451`.
-- Slice 10 — Profiles Custom provenance presentation: `07b4264e438a5052ddca45d8b5eda111d74f4270`, CI #1028 / run `34441106814`.
-- Slice 11 — persisted promoted-winner provenance across restart: `b755064b72c0c4f91f864bae665cd327d8cc1488`, CI #1030 / run `34498927985`.
-- Slice 12 — AppServices promoted-winner provenance composition: `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032 / run `34500776106`.
+1. Universal search-space + system dimensions — `797c8c7766adea3369948d9cb330bb7ba9a69d52`, CI #1000 GREEN.
+2. Adapter-owned workload dimensions — `8dac70fdb2c693533ae481aaadd846ab84fde228`, CI #1007 GREEN.
+3. Dynamic BlueStacks/FF universal candidate bridge — `39246089fb28f510287e79639356a4e16d1b6b02`, CI #1014 GREEN.
+4. Universal result/winner projection — `f24c8c25612182db3c12351185fa54be227a8252`, CI #1016 GREEN.
+5. Validated-History universal projection — `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4`, CI #1018 GREEN.
+6. Real Custom Validated universal provenance — `4563ef6ab36d5dfdc29375b7156df9b357fa652d`, CI #1020 GREEN.
+7. Post-specialized-promotion universal projection — `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`, CI #1022 GREEN.
+8. Current persisted-Custom reproving — `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, CI #1024 GREEN.
+9. AppServices Custom provenance composition — `20408ab20957afb43834b456df581bb0e417b4d0`, CI #1026 GREEN.
+10. Profiles Custom provenance presentation — `07b4264e438a5052ddca45d8b5eda111d74f4270`, CI #1028 GREEN.
+11. Persisted promoted-winner provenance after restart — `b755064b72c0c4f91f864bae665cd327d8cc1488`, CI #1030 GREEN.
+12. AppServices promoted-winner provenance composition — `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032 GREEN.
+13. Profiles promoted-winner provenance presentation — `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, CI #1034 GREEN.
 
-## Slice 11 — persisted promoted-winner provenance across restart — GREEN
+## Current Track 5 capability
 
-`UniversalPersistedPromotedProfileProvenanceService` treats the durable Profile `HistoryEvent` as a receipt only, correlating exact winner + preserved Custom + exact measured revalidation + current Custom universal provenance. It never reconstructs `ProfileChallengeResult`, never re-evaluates challenge verdicts, and fails closed on receipt ambiguity, missing History/current capability or exact config/fingerprint/metric drift.
+The universal Auto Tuner/Profile layer is additive over the specialized BlueStacks/FF authority:
 
-## Slice 12 — AppServices promoted-winner provenance composition — GREEN
+- generic universal candidate/search-space declarations exist without recommendation authority;
+- adapters truthfully declare supported workload dimensions;
+- current BlueStacks/FF configuration can bind to an exact universal candidate only when the current allow-list proves it;
+- measured specialized result/winner state can be correlated to stable GameId/AdapterId without changing the specialized verdict;
+- validated History and explicit Custom profile origin can be projected universally without granting new validation authority;
+- persisted Custom profiles can be re-proven after restart against the current candidate space;
+- specialized promotions can be correlated after restart through an exact durable receipt + winner + preserved Custom + measured revalidation, without reconstructing a challenge result;
+- both persisted Custom and promoted-winner provenance have explicit/on-demand AppServices entry points;
+- both have presentation-only Profiles UI paths that remain hidden when current universal provenance is absent.
+
+## Slice 13 — Profiles promoted-winner provenance presentation — GREEN
 
 Implemented:
 
-- shared `AppServices.UniversalPersistedPromotedProfileProvenance` service composed from existing `Profiles`, `History` and `UniversalValidatedProfileProvenance` ✅
-- explicit `ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync(profileId)` application method ✅
-- unknown persisted ID fails before environment/config work ✅
-- exactly one requested profile required before environment work ✅
-- `Custom`, missing source comparison and missing instance are rejected at application routing boundary ✅
-- no duplicate five-winner-role decision in App; Core remains authoritative for actual winner eligibility ✅
-- current environment is captured only on explicit request after profile routing gates ✅
-- exactly one current instance matching the persisted binding required ✅
-- current settings come only from existing BlueStacks allow-list and must be non-empty ✅
-- durable receipt/revalidation/current-Custom universal provenance delegated to Slice 11 Core resolver ✅
-- supported I/O/permission/JSON/invalid-data failures return `null` ✅
-- construction composes objects only; no provenance resolution/candidate generation/game discovery ✅
-- `InitializeAsync()` unchanged for Track 5 provenance ✅
+- pure `UniversalPromotedProfileProvenancePresentation` ✅
+- null projection => hidden/empty presentation ✅
+- exact promoted profile ID/name/kind copied only from a real Core projection ✅
+- stable GameId, exact AdapterId and deterministic exact candidate key/value lines copied without inference ✅
+- separate read-only `Proveniência universal dos vencedores` section in Profiles ✅
+- `PromotedWinnerProvenanceView` calls only the AppServices promoted-winner resolver ✅
+- stale async completion rejected by revision token plus current DataContext ID ✅
+- missing current universal provenance remains collapsed and does not alter the specialized winner ✅
+- existing profile list/apply, Custom provenance, challenge progress, automated A/B and promotion flows preserved ✅
+- `ProfilesPage.xaml.cs` unchanged ✅
 
-TDD provenance:
+TDD evidence:
 
-- verifier branch `ci/track5-appservices-promoted-profile-provenance-verify`;
-- workflow commit `ab59d822598b2401ecb66165930f76bfcfbb6fb7`;
-- RED contract `d3f499aad06bc4c90b9f21dfd8d4c50560b9fbcc`;
-- clean RED verifier #2 / run `34499988921`: Core passed; App failed only because the promoted resolver property/method did not exist (`CS1061`);
-- minimal production GREEN `64930f07c36c446b26fc7f1c36b9ca3dc8c49c7c`;
-- GREEN verifier #3 / run `34500552262`: Core + App + WPF build SUCCESS;
-- selective official integration excluded temporary verifier workflow;
-- official application `2ea74c72f6373bc139a38da72fa257662ae8b965`, Windows CI #1032 / run `34500776106` SUCCESS.
+- verifier branch `ci/track5-profiles-promoted-winner-provenance-presentation-verify`
+- workflow `55660dd62d228f080be8313a4e3ed3b7c9181a6a`
+- RED `8680831ae72667d56474206e47bff747944bab96`
+- clean RED verifier #2 / run `34502406855`: Core GREEN; App failed only with missing presenter `CS0103`
+- GREEN candidate `1697bb87394c13fb02d3964ef4a551fafdb1ba22`
+- GREEN verifier #3 / run `34502713828`: Core + App + WPF build SUCCESS
+- official application `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS
 
-Official integration diff contains exactly two permanent files:
+## Authority boundary
 
-- `src/FFPerformanceEngine.App/AppServices.cs` modified;
-- `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
+Universal search/candidate/result/History/profile/promotion/current-resolution/application/presentation layers remain correlation/provenance only. They do not create measured evidence, change validation status, decide specialized winners, authorize mutation or grant persistence permission. Missing current capability remains absent. `HistoryService`, `ProfileService`, `ProfileChallengeService`, typed measurement authority, freshness/fingerprint checks, global controlled benchmark coordination and rollback remain intact.
 
-### Track 5 authority boundary after Slice 12
+`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` were not changed by Slice 13.
 
-All universal candidate/result/History/profile/promotion/current-resolution/application-composition/presentation layers remain read-only provenance/correlation. They do not create measured evidence, validation, recommendation, profile origin, challenge verdict, winner, mutation or persistence permission.
+## Current next engineering action
 
-`PerformanceComparisonHistoryRecord.CanOriginateProfile`, `HistoryService`, `ProfileService`, `ProfileChallengeService`, challenge freshness/incumbent logic, typed PresentMon authority, Global Controlled Benchmark Lease and rollback remain specialized authority.
-
-## Current next engineering slice
-
-Continue Track 5 at the **Profiles promoted-winner provenance presentation seam**.
-
-1. Inspect the existing pure Custom provenance presenter and `ProfilesPage` profile list/challenge UI.
-2. Present promoted-winner provenance only from `AppServices.ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync`.
-3. Stable GameId/AdapterId/exact universal candidate values may be copied; WPF must not parse receipts, revalidation History or reconstruct challenge state.
-4. `null` means no promoted-winner provenance UI.
-5. Preserve current Custom challenge card and five winner-role/apply flows.
-6. TDD RED first; GREEN verifier → selective integration → exact Windows CI → memory sync → documentary CI.
-7. Then perform a bounded Track 5 closure review before moving to later tracks.
+Perform a bounded Track 5 closure review. Audit Slices 1–13, identify any blocking gap versus deferred refinement, and if no blocker remains create an exact Track 5 closure checkpoint and documentary Windows CI before beginning Track 6.
 
 ## Planned later tracks
 
@@ -109,4 +100,4 @@ Continue Track 5 at the **Profiles promoted-winner provenance presentation seam*
 - Track 9 — Auto Optimize
 - Track 10 — DG UX Migration
 
-Approved future architecture retains Memory/Working Set, Storage/I/O, GPU/VRAM, WDDM/Display, Network/Latency, Input Responsiveness, Process/Services/Tasks Director, Resource Director, Privileged Broker, crash/reboot recovery, DG Graphics Runtime, Scene Complexity, native low-overhead HUD, Low-End Recovery, Adaptive Performance Governor, Scene-Aware Cost Model, controlled/passive/live micro-A/B learning, Data Architecture v2, update/adapter lifecycle and hardware-in-the-loop testing. Exact historical Track 11–19 numbering remains non-authoritative until its original source is recovered.
+Approved future domains remain recorded in `CANONICAL_CONTEXT.md` and older checkpoints; exact historical Track 11–19 numbering remains non-authoritative until its original source is recovered.
