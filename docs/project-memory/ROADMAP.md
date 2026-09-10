@@ -39,12 +39,13 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 9. AppServices current Custom provenance composition — GREEN — `20408ab20957afb43834b456df581bb0e417b4d0`, CI #1026.
 10. Profiles current Custom provenance presentation — GREEN — `07b4264e438a5052ddca45d8b5eda111d74f4270`, CI #1028.
 11. Persisted promoted-winner provenance across restart — GREEN — `b755064b72c0c4f91f864bae665cd327d8cc1488`, CI #1030 / run `34498927985`.
+12. AppServices persisted promoted-winner provenance composition — GREEN — `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032 / run `34500776106`.
 
-### Slice 11 durable winner boundary
+### Current promoted-winner chain
 
-The durable boundary is now proven without adding a new persistence schema. `ProfileChallengeService` already emits a Profile `HistoryEvent` after successful specialized promotion with challenger, previous winner, promoted winner, revalidation comparison and target role ids. `UniversalPersistedPromotedProfileProvenanceService` uses that record only as a receipt and correlates it with the current persisted winner, preserved Custom, exact measured revalidation and the Slice 8 current Custom provenance resolver.
+Slice 11 proves restart-safe read-only correlation from the specialized persisted promotion receipt + exact winner + preserved Custom + measured revalidation + current Custom candidate-space provenance, without recreating `ProfileChallengeResult`.
 
-It does not reconstruct `ProfileChallengeResult`, does not re-evaluate challenge verdicts, and does not treat the receipt as promotion authority. Receipt absence/ambiguity, missing revalidation, current capability loss or any exact config/fingerprint/metric mismatch returns no universal projection.
+Slice 12 composes that resolver into `AppServices` explicitly/on-demand. Application construction and `InitializeAsync()` remain free of promoted-winner provenance scans, candidate generation and game discovery. The app resolves only current environment, exact persisted instance and existing allow-listed BlueStacks settings before delegating authority to Core.
 
 ### Immediate sequence
 
@@ -60,16 +61,15 @@ It does not reconstruct `ProfileChallengeResult`, does not re-evaluate challenge
 10. AppServices Custom provenance composition ✅
 11. Profiles Custom provenance presentation ✅
 12. Durable promoted-winner provenance across restart ✅
-13. **AppServices persisted promoted-winner provenance composition** ← NEXT
-   - compose `UniversalPersistedPromotedProfileProvenanceService` from existing `Profiles`, `History` and current Custom resolver;
-   - expose an explicit/on-demand application method for one persisted generated winner;
-   - keep construction and `InitializeAsync()` side-effect free;
-   - use current environment + exact instance + existing BlueStacks allow-list only on explicit request;
-   - delegate receipt/revalidation/provenance authority to Core;
-   - unknown/non-winner/missing-instance/missing-capability failures return no projection;
-   - TDD RED first, then GREEN verifier → selective integration → exact Windows CI → memory sync → documentary CI.
-14. Profiles presentation for promoted-winner provenance only after the AppServices seam is GREEN.
-15. Broader Track 5 UI refinement / closure review only after both current Custom and promoted-winner paths are application-consumable without authority leakage.
+13. AppServices persisted promoted-winner provenance composition ✅
+14. **Profiles promoted-winner provenance presentation** ← NEXT
+   - consume only `AppServices.ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync(...)`;
+   - copy stable GameId, AdapterId and exact universal candidate values only from a real projection;
+   - never parse promotion receipts or revalidation History in WPF;
+   - `null` means no promoted-winner provenance presentation;
+   - preserve current Custom challenge provenance card and five winner-role/challenge/apply flows;
+   - TDD RED first → GREEN verifier → selective integration → exact Windows CI → memory sync → documentary CI.
+15. Bounded Track 5 closure review after both Custom and promoted-winner provenance are safely application-visible.
 
 Every independent slice remains:
 
