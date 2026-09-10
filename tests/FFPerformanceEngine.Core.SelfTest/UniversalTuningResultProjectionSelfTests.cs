@@ -7,6 +7,7 @@ internal static class UniversalTuningResultProjectionSelfTests
     internal static void Run()
     {
         ProjectsExistingEvidenceAndFiveWinnerRolesOneToOne();
+        RejectsCrossWorkloadResultProjection();
 
         Console.WriteLine("PASS Track 5 universal tuning result/profile projection preserves specialized authority");
     }
@@ -29,12 +30,7 @@ internal static class UniversalTuningResultProjectionSelfTests
         };
         var captured = FullCapturedSettings(instance.Name);
         var engine = new AutoTunerEngine();
-        var resolver = new GameAdapterResolver(
-        [
-            new GenericGameAdapter(),
-            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
-            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
-        ]);
+        var resolver = CreateResolver();
         var candidateSpace = new BlueStacksUniversalTuningCandidateBridge(engine, resolver).Build(
             environment,
             instance,
@@ -45,54 +41,7 @@ internal static class UniversalTuningResultProjectionSelfTests
         Require(candidateSpace.Bindings.Count >= 3,
             "The projection fixture requires at least three exact applicable BlueStacks bindings.");
         var selected = candidateSpace.Bindings.Take(3).ToArray();
-        var evidence = new CandidateEvidence[]
-        {
-            new()
-            {
-                Candidate = selected[0].SpecializedCandidate,
-                Evidence = EvidenceLevel.Validated,
-                Confidence = 0.94,
-                Sample = new TelemetrySample
-                {
-                    Fps = 100,
-                    OnePercentLow = 88,
-                    LatencyMs = 12,
-                    FrameTimeMs = 10,
-                    StutterPercent = 1.5,
-                    GpuTemperatureC = 60
-                }
-            },
-            new()
-            {
-                Candidate = selected[1].SpecializedCandidate,
-                Evidence = EvidenceLevel.Validated,
-                Confidence = 0.96,
-                Sample = new TelemetrySample
-                {
-                    Fps = 112,
-                    OnePercentLow = 91,
-                    LatencyMs = 10,
-                    FrameTimeMs = 8.9,
-                    StutterPercent = 1.2,
-                    GpuTemperatureC = 63
-                }
-            },
-            new()
-            {
-                Candidate = selected[2].SpecializedCandidate,
-                Evidence = EvidenceLevel.Validated,
-                Confidence = 0.98,
-                Sample = new TelemetrySample
-                {
-                    Fps = 106,
-                    OnePercentLow = 101,
-                    LatencyMs = 8,
-                    FrameTimeMs = 9.4,
-                    StutterPercent = 0.5,
-                    GpuTemperatureC = 61
-                }
-            }
-        };
+        var evidence = CreateValidatedEvidence(selected);
         var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
         Require(result.Winners.Count == 5,
             "Existing AutoTunerEngine must remain the authority that creates the five generated winner roles for this fixture.");
@@ -156,6 +105,102 @@ internal static class UniversalTuningResultProjectionSelfTests
         }
     }
 
+    private static void RejectsCrossWorkloadResultProjection()
+    {
+        var environment = new EnvironmentSnapshot
+        {
+            LogicalProcessors = 8,
+            MemoryTotalGb = 16
+        };
+        var instance = new BlueStacksInstance
+        {
+            Name = "Pie64",
+            CpuCores = 4,
+            RamMb = 4096,
+            Renderer = "Vulkan",
+            Fps = 90,
+            Resolution = "1920x1080"
+        };
+        var engine = new AutoTunerEngine();
+        var candidateSpace = new BlueStacksUniversalTuningCandidateBridge(engine, CreateResolver()).Build(
+            environment,
+            instance,
+            GameKind.FreeFire,
+            AutoTunerMode.Deep,
+            FullCapturedSettings(instance.Name));
+        Require(candidateSpace.Bindings.Count >= 3,
+            "Cross-workload projection fixture requires at least three exact bindings.");
+
+        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
+        var wrongWorkloadResult = engine.SelectWinners(
+            GameKind.FreeFireMax,
+            AutoTunerMode.Deep,
+            evidence);
+
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(wrongWorkloadResult, candidateSpace),
+            "A Free Fire MAX result must not be projected onto a Free Fire candidate space even when specialized candidate values happen to match.");
+    }
+
+    private static GameAdapterResolver CreateResolver()
+        => new(
+        [
+            new GenericGameAdapter(),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
+        ]);
+
+    private static CandidateEvidence[] CreateValidatedEvidence(
+        IReadOnlyList<BlueStacksUniversalTuningCandidateBinding> selected)
+        =>
+        [
+            new()
+            {
+                Candidate = selected[0].SpecializedCandidate,
+                Evidence = EvidenceLevel.Validated,
+                Confidence = 0.94,
+                Sample = new TelemetrySample
+                {
+                    Fps = 100,
+                    OnePercentLow = 88,
+                    LatencyMs = 12,
+                    FrameTimeMs = 10,
+                    StutterPercent = 1.5,
+                    GpuTemperatureC = 60
+                }
+            },
+            new()
+            {
+                Candidate = selected[1].SpecializedCandidate,
+                Evidence = EvidenceLevel.Validated,
+                Confidence = 0.96,
+                Sample = new TelemetrySample
+                {
+                    Fps = 112,
+                    OnePercentLow = 91,
+                    LatencyMs = 10,
+                    FrameTimeMs = 8.9,
+                    StutterPercent = 1.2,
+                    GpuTemperatureC = 63
+                }
+            },
+            new()
+            {
+                Candidate = selected[2].SpecializedCandidate,
+                Evidence = EvidenceLevel.Validated,
+                Confidence = 0.98,
+                Sample = new TelemetrySample
+                {
+                    Fps = 106,
+                    OnePercentLow = 101,
+                    LatencyMs = 8,
+                    FrameTimeMs = 9.4,
+                    StutterPercent = 0.5,
+                    GpuTemperatureC = 61
+                }
+            }
+        ];
+
     private static Dictionary<string, string> FullCapturedSettings(string instanceName)
         => new(StringComparer.OrdinalIgnoreCase)
         {
@@ -174,6 +219,21 @@ internal static class UniversalTuningResultProjectionSelfTests
            && profile.FpsTarget == candidate.FpsTarget
            && string.Equals(profile.Renderer, candidate.Renderer, StringComparison.Ordinal)
            && string.Equals(profile.Resolution, candidate.Resolution, StringComparison.Ordinal);
+
+    private static void RequireThrows<TException>(Action action, string message)
+        where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(message);
+    }
 
     private static void Require(bool condition, string message)
     {
