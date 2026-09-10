@@ -5,19 +5,19 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `725065a90cef2ebd04a9d4d19e703ba46756bcb1`
-- Commit: `feat: add Track 6 generic workload state machine`
-- Windows CI: **#1039 — SUCCESS**
-- Run: `34522642478`
+- Application HEAD: `6bb501eab866ee1fb17c546a02b5016ef97cad58`
+- Commit: `feat: add Track 6 generic workload observation bridge`
+- Windows CI: **#1041 — SUCCESS**
+- Run: `34525442625`
 - Full official gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
-- Track 6.1 Slice 1 checkpoint: `2026-09-10-track6-generic-workload-state-machine.complete`.
+- Track 6.1 Slice 2 checkpoint: `2026-09-10-track6-generic-workload-observation.complete`.
 
 Previous verified documentary checkpoint:
 
-- Documentary HEAD: `7a54d1e19f5abb13cf40c7b967895400f3bea170`
-- Windows CI: **#1038 — SUCCESS**
-- Run: `34520178481`
-- It recovered and made operational the already-approved 2026-09-06 Track 6 macro architecture.
+- Documentary HEAD: `7af89b838bf2300819e33b30fa9c5ab7879f32a1`
+- Windows CI: **#1040 — SUCCESS**
+- Run: `34523528901`
+- It synchronized Track 6.1 Slice 1 and made the already-approved Track 6 architecture operational in project memory.
 
 ## Product foundation
 
@@ -31,7 +31,7 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 - Track 3 — Game Discovery + Adapter Framework — GREEN
 - Track 4 — Universal Telemetry / Evidence — GREEN
 - Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
-- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; approved macro architecture; item 1 generic workload state machine in progress; Slice 1 GREEN**
+- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; item 1 generic workload state machine GREEN; item 2 universal classifiers NEXT**
 - Track 7 — Hardware Performance Engine — PLANNED
 - Track 8 — Deep Cleaner — PLANNED
 - Track 9 — Auto Optimize — PLANNED
@@ -39,9 +39,9 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 
 ## Track 5 closure authority
 
-Track 5 remains closed GREEN for its approved additive universal foundation scope. Closing application SHA is `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182`. Final Track 5 closure docs HEAD `0d7886b6ff19898bcba38585ca6369728bff4145` passed Windows CI #1036 / run `34510474469`.
+Track 5 remains closed GREEN for its approved additive universal foundation scope. Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182`; closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469`.
 
-Track 5 does not claim that every discovered game already has a physical tuning runtime. Universal search/correlation/provenance layers do not create evidence, `Validated`, winners, mutation or persistence authority.
+Track 5 does not claim that every discovered game has a physical tuning runtime. Universal search/correlation/provenance does not manufacture evidence, `Validated`, winner, mutation or persistence authority.
 
 ## Track 6 macro architecture — already approved
 
@@ -49,60 +49,58 @@ Authority:
 
 `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
 
-Do not reopen this architecture unless a real conflict is discovered. Approved implementation sequence:
+Do not reopen this architecture unless a real contradiction is discovered. Approved implementation sequence:
 
-1. generic workload state machine;
-2. universal classifiers;
+1. generic workload state machine — GREEN;
+2. universal classifiers — NEXT;
 3. session optimizer actions;
 4. learned action reliability;
 5. post-session queue.
 
-Approved Guardian semantics remain: state detection → real degradation confirmation → likely-cause classification → workload/state-appropriate `LIVE_SAFE` candidate → micro-snapshot/canary → measured keep or rollback. Inconclusive results roll back. Cooldown and Action Budget prevent thrashing. Quick Boost uses already-validated compatible actions only. Controlled evidence remains stronger than passive Guardian observation.
+Approved Guardian semantics remain: state detection → real degradation confirmation → likely-cause classification → workload/state-appropriate `LIVE_SAFE` candidate → micro-snapshot/canary → measured keep or rollback. Inconclusive results roll back. Cooldown and Action Budget prevent thrashing. Controlled evidence remains stronger than passive Guardian observation.
 
-## Track 6.1 Slice 1 — Generic workload state machine — GREEN
+## Track 6 item 1 — Generic workload state machine — GREEN
 
-Implementation plan:
+### Slice 1 — Generic lifecycle foundation
 
-`docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`
+Plan: `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`.
 
-Permanent Core production:
+Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadStateMachine.cs`.
 
-`src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadStateMachine.cs`
+Provides stable generic states `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`, categorical confidence, exact canonical identity/adapter preservation, fail-closed unknown/ambiguous behavior, `KnownExecutable` non-authority, PID restart semantics, conservative Ending/Desktop and explicit offline behavior.
 
-Added contracts:
+Verification: application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS.
 
-- `GuardianWorkloadState`: `Unresolved`, `Offline`, `Desktop`, `Starting`, `Ready`, `Active`, `Ending`;
-- `GuardianWorkloadStateConfidence`: categorical `Unknown`, `Low`, `Medium`, `High`;
-- `GenericGuardianWorkloadSignals`: explicit system-online, foreground, render-activity and recent-input inputs;
-- `GuardianWorkloadStateSnapshot`: state/confidence + already-resolved `GameIdentity`, exact adapter and `TelemetryWorkloadTarget`;
-- `GenericGuardianWorkloadStateMachine.Observe(...)` + `Reset()`.
+### Slice 2 — Generic workload observation bridge
 
-Behavior and authority:
+Plan: `docs/superpowers/plans/2026-09-10-track6-generic-workload-observation.md`.
 
-- reuses `TelemetryWorkloadTargetResolver`; it does not create another PID/path resolver;
-- requires exact stable selected `GameId` context before exposing identity/adapter;
-- unknown/duplicate identity => fail closed `Unresolved`;
-- ambiguous RunningProcess => `Unresolved`, never actionable;
-- `KnownExecutable`-only => never live;
-- new exact workload/PID => `Starting`;
-- same exact process without sufficient activity => `Ready`;
-- same exact process with render activity plus foreground or recent input => `Active`;
-- process loss after live lifecycle => one `Ending`, then `Desktop`;
-- explicit offline => `Offline` and no active-process authorization;
-- Reset clears transition memory;
-- catalog/evidence remain read-only;
-- exact canonical identity/adapter references are preserved when proven.
+Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadObservationService.cs`.
 
-This Slice intentionally contains no discovery, process enumeration, telemetry capture, universal classifiers, dynamic baseline, mutation, canary, Profile/History/Knowledge persistence, AppServices composition or WPF integration. Existing BlueStacks/FF Guardian implementation is unchanged.
+Permanent contracts/behavior:
 
-## Track 6.1 Slice 1 TDD / verification
+- `IForegroundProcessProbe.GetForegroundProcessId()` and `WindowsForegroundProcessProbe` provide neutral foreground PID only;
+- `GenericGuardianWorkloadObservation` carries state snapshot, explicit generic signals and the exact-target typed frame when available;
+- `GenericGuardianWorkloadObservationService` reuses `TelemetryWorkloadTargetResolver` and accepts the existing exact typed workload capture seam;
+- unknown/ambiguous/unavailable targets perform no foreground/input/telemetry probe;
+- foreground is exact PID equality, never process/window-name identity;
+- global recent input is consulted only for the exact foreground workload PID;
+- capture results with mismatched GameId/PID/path/binding are rejected;
+- render activity requires direct + measured + positive `frame.samples.accepted.count`;
+- exact-target typed frames remain available to later classifiers even if that render-authority test fails;
+- explicit offline performs no external probes and yields the state-machine Offline result;
+- constructor is side-effect free.
 
-- verifier branch: `ci/track6-generic-workload-state-machine-verify`;
-- RED SHA `5a8ca66ab2adf1bf9962bc922f2eeeda274b6679`, verifier run `34521933778`: native passed; managed build failed only on absent new production contracts (`CS0246` / `CS0103`);
-- GREEN SHA `0db8de367e4424b375ecfa9d4eb97cfdf1ede575`, verifier run `34522187740`: native + managed + Core + App + publish SUCCESS;
+This Slice contains no discovery/startup, baseline, universal classification, mutation, canary, Profile/History/Knowledge persistence, AppServices or WPF changes. Existing specialized BlueStacks/FF Guardian behavior remains untouched.
+
+## Track 6.1 Slice 2 TDD / verification
+
+- verifier branch: `ci/track6-generic-workload-observation-verify`;
+- RED SHA `da16472d69ba12169a7bd6a3d519cba49087ab2f`, verifier run `34524859953`: native passed; managed build failed only on the intentionally absent observation contracts, exactly 3 `CS0246`, 0 warnings;
+- GREEN SHA `7d3c3cb1e10f7bc1b40fe6ee5e6ad9d5f135530c`, verifier run `34525158496`: native + managed + Core + App + publish SUCCESS;
 - temporary verifier workflow excluded from official branch;
-- official application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`;
-- Windows CI #1039 / run `34522642478` SUCCESS including artifact upload.
+- official application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`;
+- Windows CI #1041 / run `34525442625` SUCCESS including artifact upload.
 
 ## Non-negotiable authority
 
@@ -120,8 +118,8 @@ This Slice intentionally contains no discovery, process enumeration, telemetry c
 
 ## Exact next engineering action
 
-Continue **Track 6 item 1**, not universal classifiers yet. Inspect current exact foreground/window, render/process telemetry and recent-input sources and build the next bounded Slice around an explicit/on-demand generic Guardian observation bridge feeding the already-GREEN state machine for an already-selected stable workload.
+Begin Track 6 item 2 — **universal classifiers** — using the already-preserved exact-target typed `TelemetryFrame` and generic workload state.
 
-The next bridge must reuse existing typed/Track 3–4 authority, fail closed on unavailable/ambiguous targets, perform no discovery at startup and grant no mutation/baseline/profile authority.
+Inspect the current typed diagnostic/bottleneck analyzer contracts and current Guardian decision seams first. The first bounded classifier Slice must be pure/read-only, capability-honest and fail to explicit `Unknown` when required metrics are absent or untrusted. It must not create action, validation, profile, winner or persistence authority and must not promote the existing global action-id Guardian Knowledge into universal evidence.
 
-Then repeat the canonical TDD/CI/memory cycle before another Slice.
+Repeat the canonical TDD/CI/memory cycle before another Slice.

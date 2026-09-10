@@ -1,0 +1,74 @@
+# Track 6.1 Slice 2 — Generic workload observation bridge — COMPLETE
+
+Date: 2026-09-10
+Branch: `build/initial-product`
+
+## Result
+
+Track 6 item 1 now has a trustworthy generic observation → state path for one already-selected stable workload. This is an additive Core foundation; the existing specialized BlueStacks/Free Fire Guardian remains unchanged.
+
+Permanent implementation:
+
+- `docs/superpowers/plans/2026-09-10-track6-generic-workload-observation.md`
+- `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadObservationService.cs`
+- `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWorkloadObservationSelfTests.cs`
+- Core self-test registration in `tests/FFPerformanceEngine.Core.SelfTest/Program.cs`
+
+## Closed behavior
+
+- `IForegroundProcessProbe` reports only foreground PID; it does not infer game identity from window/process names.
+- `WindowsForegroundProcessProbe` uses the Windows foreground-window PID as a neutral signal.
+- Runtime authority remains `TelemetryWorkloadTargetResolver`; no second PID/path resolver exists.
+- Unknown, ambiguous or unavailable workload targets invoke no foreground/input/telemetry probes.
+- `KnownExecutable` remains non-live and grants no capture/action authority.
+- Global recent input is consulted only when the exact resolved workload PID is foreground; background input cannot be attributed to the workload.
+- Typed workload capture is injected through the existing exact-target capture seam and is accepted only when returned GameId/PID/path/binding match the requested exact target.
+- Render activity is true only when the exact-target typed frame contains `frame.samples.accepted.count > 0` with `TelemetryMetricQuality.Measured` and `TelemetryMetricOrigin.Direct`.
+- Exact-target typed frames remain available to later classifiers even when their accepted-frame metric is not authoritative enough to declare render activity.
+- Explicit system offline performs no external probes and flows directly to `Offline` through the existing generic state machine.
+- Observation construction has no side effects.
+- The observation bridge creates no discovery, baseline, classifier, mutation, canary, profile, History, Guardian Knowledge, startup or WPF authority.
+
+## TDD evidence
+
+Temporary verifier branch: `ci/track6-generic-workload-observation-verify`.
+
+RED:
+
+- SHA `da16472d69ba12169a7bd6a3d519cba49087ab2f`
+- verifier run `34524859953`
+- native configure/build/test passed;
+- managed build failed with exactly three `CS0246` errors for the intentionally missing new observation contracts (`IForegroundProcessProbe` / `GenericGuardianWorkloadObservationService`);
+- zero warnings and no unrelated failures.
+
+GREEN:
+
+- SHA `7d3c3cb1e10f7bc1b40fe6ee5e6ad9d5f135530c`
+- verifier run `34525158496`
+- native configure/build/test, managed build, Core self-tests, App self-tests and publish all SUCCESS.
+
+Selective integration:
+
+- temporary verifier workflow excluded from official branch;
+- official application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`;
+- Windows CI **#1041 / run `34525442625` SUCCESS**;
+- full official gate passed including artifact upload.
+
+## Track boundary after closure
+
+Track 6 item 1 — **generic workload state machine** — is GREEN for its current approved Core foundation: stable identity + exact runtime binding + conservative observation + generic lifecycle state.
+
+Next approved item is Track 6 item 2 — **universal classifiers**. Begin with a bounded read-only classifier contract over the already-preserved exact-target `TelemetryFrame` and current generic state. Missing/unsupported metrics must remain Unknown; passive classification grants no mutation, validation or profile authority.
+
+## Durable rules carried forward
+
+- Current code/tests + fresh exact-commit Windows CI outrank stale chat/docs.
+- `Observed != Validated`.
+- Stable GameId is separate from transient PID/path/process evidence.
+- Missing telemetry/capability stays absent/Unknown.
+- Global Controlled Benchmark Lease and Guardian suspension/reconciliation remain intact.
+- Controlled evidence outranks passive Guardian evidence.
+- Guardian does not own deep Auto Tuner exploration.
+- Gameplay mutation later requires explicit workload/state-appropriate `LIVE_SAFE` authority and measurable rollback-capable execution.
+- Discovery remains explicit/on-demand and is not added to `InitializeAsync()`.
+- No anti-cheat/integrity bypass.

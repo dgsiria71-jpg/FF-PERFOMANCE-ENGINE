@@ -54,7 +54,7 @@ OFFLINE
 → POST-WORKLOAD
 ```
 
-Generic fallback is conservative (`Desktop / Starting / Active / Ending`) while specialized adapters may expose richer states when they possess real state-detection authority. Detection may combine process, foreground/window, render activity, input, frame pattern, launcher/emulator and adapter signals, with explicit confidence.
+Generic fallback is conservative while specialized adapters may expose richer states when they possess real state-detection authority. Detection may combine process, foreground/window, render activity, input, frame pattern, launcher/emulator and adapter signals, with explicit confidence.
 
 Approved classifier families remain CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
 
@@ -74,13 +74,13 @@ Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Q
 
 ### Approved Track 6 implementation order
 
-1. **generic workload state machine** — IN PROGRESS;
-2. **universal classifiers** — pending item 1;
+1. **generic workload state machine** — GREEN;
+2. **universal classifiers** — NEXT;
 3. **session optimizer actions** — pending item 2;
 4. **learned action reliability** — pending item 3;
 5. **post-session queue** — pending item 4.
 
-### Track 6 item 1 — Generic workload state machine
+### Track 6 item 1 — Generic workload state machine — GREEN
 
 #### Slice 1 — Core lifecycle foundation — GREEN
 
@@ -89,32 +89,49 @@ Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Q
 - plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`;
 - checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-state-machine.complete`.
 
+Permanent behavior includes conservative `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`, categorical confidence, reuse of `TelemetryWorkloadTargetResolver`, fail-closed unknown/ambiguous targets, non-live `KnownExecutable`, fresh lifecycle on PID replacement and explicit Ending/Desktop/offline transitions.
+
+#### Slice 2 — Generic workload observation bridge — GREEN
+
+- application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`;
+- Windows CI **#1041 / run `34525442625` SUCCESS**;
+- plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-observation.md`;
+- checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-observation.complete`.
+
 Permanent behavior:
 
-- generic states `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`;
-- categorical state confidence `Unknown / Low / Medium / High`;
-- reuse of `TelemetryWorkloadTargetResolver` for exact runtime authority;
-- unknown/duplicate/ambiguous targets fail closed;
-- `KnownExecutable` never becomes live;
-- new exact process/PID enters `Starting`;
-- stable process without active evidence becomes `Ready`;
-- generic `Active` requires render activity plus foreground or recent input;
-- exact process loss yields one `Ending`, then `Desktop`;
-- explicit offline suppresses live-process authorization;
-- no discovery, telemetry capture, baseline, classifier, mutation, canary, persistence, AppServices or WPF integration in this Slice;
+- neutral Windows foreground PID contract, with no process/window-name identity inference;
+- unknown/ambiguous/unavailable target => no foreground/input/telemetry probe;
+- recent input is attributed only while the exact target PID is foreground;
+- typed frame capture remains on the exact resolved workload target;
+- GameId/PID/path/binding mismatch rejects the capture result;
+- render activity requires direct measured positive `frame.samples.accepted.count`;
+- exact-target typed frames are preserved for later classifiers even when that render-activity criterion is not met;
+- explicit offline invokes no external probes;
+- no baseline/classifier/action/mutation/profile/history/knowledge/startup/WPF authority was introduced;
 - existing specialized BlueStacks/FF Guardian remains unchanged.
 
-TDD verifier:
+TDD evidence:
 
-- RED `5a8ca66ab2adf1bf9962bc922f2eeeda274b6679`, run `34521933778`, clean missing-contract failure only;
-- GREEN `0db8de367e4424b375ecfa9d4eb97cfdf1ede575`, run `34522187740`, native/managed/Core/App/publish SUCCESS;
-- temporary workflow excluded from official integration.
+- RED `da16472d69ba12169a7bd6a3d519cba49087ab2f`, verifier run `34524859953`, exact missing-contract failure only;
+- GREEN `7d3c3cb1e10f7bc1b40fe6ee5e6ad9d5f135530c`, verifier run `34525158496`, native/managed/Core/App/publish SUCCESS;
+- temporary verifier workflow excluded from official integration.
 
-#### Next Slice inside item 1
+Item 1 is now complete for the approved current Core foundation: stable workload identity + exact runtime target + trustworthy generic observation + conservative lifecycle state.
 
-Inspect the current exact Windows/typed seams for foreground/window ownership, render/process telemetry and recent input. Then add the smallest explicit/on-demand observation bridge that produces `GenericGuardianWorkloadSignals` for an already-selected stable `GameId` and exact resolved process.
+### Track 6 item 2 — Universal classifiers — NEXT
 
-This next Slice must reuse Track 3/4 authority, fail closed on unavailable/ambiguous runtime identity, add no startup discovery and grant no action/baseline/profile authority. Do not advance to universal classifiers until item 1 has a complete trustworthy observation/state path.
+Begin with a bounded read-only classifier Slice over the exact-target typed `TelemetryFrame` preserved by item 1 and the current generic workload state.
+
+Requirements inherited from the approved architecture:
+
+- capability/quality/provenance honest;
+- missing or untrusted required metrics => explicit `Unknown`, never fabricated health or bottleneck;
+- classifier output is passive evidence, not `Validated` and not action authority;
+- do not key universal decisions on PID/path;
+- do not reuse the legacy global action-id Guardian Knowledge as universal reliability evidence;
+- no mutation in the first classifier Slice;
+- preserve existing Track 1/4 diagnostic/bottleneck contracts where they already provide the correct authority rather than creating a competing analyzer.
 
 ### Track 6 non-negotiable constraints
 
