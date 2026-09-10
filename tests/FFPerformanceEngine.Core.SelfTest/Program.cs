@@ -106,6 +106,7 @@ try
     await GuardianSessionHostSelfTests.RunAsync();
     GuardianStartupPolicySelfTests.Run();
     GuardianPresentationSelfTests.Run();
+    GenericGuardianWorkloadStateMachineSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
