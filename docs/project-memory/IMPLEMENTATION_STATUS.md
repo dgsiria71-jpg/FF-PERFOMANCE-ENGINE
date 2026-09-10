@@ -5,15 +5,15 @@ This ledger records verified engineering milestones. Current branch code/tests +
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `8dac70fdb2c693533ae481aaadd846ab84fde228`
-- Commit: `feat: add capability-honest game adapter tuning dimensions`
-- Windows CI: **#1007 — SUCCESS**
-- Run: `34416726382`
+- Application HEAD: `39246089fb28f510287e79639356a4e16d1b6b02`
+- Commit: `feat: bridge dynamic BlueStacks candidates into universal tuning space`
+- Windows CI: **#1014 — SUCCESS**
+- Run: `34422254555`
 - Full gate passed: checkout/setup, native configure/build/tests, managed build, Core self-tests, permanent App self-tests, win-x64 publish, artifact upload and cleanup.
 
 Track 5 slice checkpoint:
 
-`docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`
+`docs/project-memory/checkpoints/2026-09-09-track5-bluestacks-universal-candidate-bridge.complete`
 
 Memory-sync commits after this application SHA are docs-only; the application checkpoint above remains the exact verified code authority until the next implementation slice.
 
@@ -55,7 +55,7 @@ Implemented and verified:
 
 Stable identity comes only from launcher/source-native keys. PID/path/executable observations remain runtime evidence and never manufacture GameId.
 
-Track 5 now extends the adapter layer additively with optional tuning-dimension declarations; this does not change Track 3 resolver identity rules or make generic adapters claim game-specific powers.
+Track 5 extends this adapter layer additively; it does not weaken Track 3 identity authority.
 
 ## Track 4 — Universal Telemetry / Evidence — GREEN
 
@@ -82,70 +82,72 @@ Canonical scope:
 
 ### Slice 1 — Universal search-space + system-dimension bridge — GREEN
 
-Checkpoint:
-
 - application SHA: `797c8c7766adea3369948d9cb330bb7ba9a69d52`;
-- commit: `feat: add capability-honest universal tuning search space`;
-- Windows CI #1000 SUCCESS / run `34411645032`;
-- durable record: `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
+- Windows CI #1000 / run `34411645032` SUCCESS;
+- checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
 
-Implemented neutral `UniversalTuningDimensionScope`, `UniversalTuningDimension`, `UniversalTuningCandidate`, `UniversalTuningSearchSpacePolicy`, `UniversalTuningSearchSpacePlanner` and `UniversalTuningSystemDimensionFactory`.
-
-Rules: explicit id/authority/values; blank/duplicate declarations fail closed; zero dimensions produce zero candidates; deterministic bounded Cartesian enumeration; no hidden/default axis; no evidence/confidence/recommendation authority; Windows system dimensions reuse Track 2 `WindowsCapabilityCandidatePlan` and only `CanExplore == true` enters the search space.
-
-Existing specialized BlueStacks/FF `TuningCandidate`, `AutoTunerEngine.GenerateCandidates(...)`, runtime/session path and winner/profile flows remained unchanged.
+Implemented neutral System/Workload dimensions, neutral candidates, deterministic bounded Cartesian planning, fail-closed declaration validation and a Windows system bridge that reuses Track 2 `WindowsCapabilityCandidatePlan` with `CanExplore == true` only.
 
 ### Slice 2 — Capability-honest game-adapter workload dimensions — GREEN
 
+- application SHA: `8dac70fdb2c693533ae481aaadd846ab84fde228`;
+- Windows CI #1007 / run `34416726382` SUCCESS;
+- checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`.
+
+Implemented optional `GameAdapterTuningDimensionDeclaration`, optional `IGameTuningDimensionProvider`, pure `UniversalTuningWorkloadDimensionFactory`, exact resolved-adapter authority and deterministic namespaced workload dimensions. Generic/unregistered/no-provider/incomplete reversible-lifecycle adapters expose zero dimensions. Adapter-declared support remains exploration only.
+
+### Slice 3 — Dynamic BlueStacks/FF universal candidate bridge — GREEN
+
 Checkpoint:
 
-- application SHA: `8dac70fdb2c693533ae481aaadd846ab84fde228`;
-- commit: `feat: add capability-honest game adapter tuning dimensions`;
-- Windows CI #1007 SUCCESS / run `34416726382`;
-- durable record: `docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`.
+- application SHA: `39246089fb28f510287e79639356a4e16d1b6b02`;
+- commit: `feat: bridge dynamic BlueStacks candidates into universal tuning space`;
+- Windows CI #1014 SUCCESS / run `34422254555`;
+- durable record: `docs/project-memory/checkpoints/2026-09-09-track5-bluestacks-universal-candidate-bridge.complete`.
 
 Implemented:
 
-- optional `GameAdapterTuningDimensionDeclaration`;
-- optional `IGameTuningDimensionProvider` while leaving `IGameAdapter` unchanged/source-compatible;
-- pure `UniversalTuningWorkloadDimensionFactory`;
-- exact resolved-adapter authority through `GameAdapterResolver`;
-- Generic/unregistered/no-provider adapters expose zero workload dimensions;
-- provider invocation requires `ConfigDiscovery + ConfigSnapshot + ConfigMutation + Rollback`;
-- exact stable `GameIdentity` is passed to provider;
-- workload IDs are namespaced as `workload.<normalized-adapter-id>.<normalized-local-id>`;
-- `AuthorityId` comes from the resolved adapter;
-- candidate values preserve provider text and order exactly;
-- null/blank/empty/duplicate declarations fail closed;
-- returned workload dimensions are deterministically ordered;
-- existing `UniversalTuningSearchSpacePlanner` directly composes System + Workload dimensions, so no second compositor or hidden game axis was added.
-
-Compatibility preserved:
-
-- Generic adapter does not claim tuning dimensions;
-- current `BlueStacksFreeFireGameAdapter` deliberately remains without a static provider in this slice;
-- existing dynamic BlueStacks/FF candidate generation remains authoritative and unchanged;
-- no startup discovery/tuning side effect;
-- no mutation/benchmark/recommendation logic added to the factory.
-
-Authority boundary:
-
-**Adapter-declared dimension support is exploration only.** Candidate existence grants no measured evidence, confidence, winner role, recommendation, persistence permission or mutation permission. Existing typed evidence, repeatability, fingerprint/freshness, validation, ValidatedEvidence, Global Controlled Benchmark Lease, rollback and History remain authoritative.
+- `BlueStacksUniversalTuningCandidateBinding` ✅
+- `BlueStacksUniversalTuningCandidateSpace` ✅
+- pure/read-only `BlueStacksUniversalTuningCandidateBridge` ✅
+- stable identity from `LegacyGameIdentityBridge` + exact `GameAdapterResolver` result ✅
+- only matching `BlueStacksFreeFireGameAdapter` for FF/FF MAX authorizes specialized projection ✅
+- existing `AutoTunerEngine.GenerateCandidates(...)` remains the sole dynamic candidate generator ✅
+- existing generator order and Adaptive/Deep bounds are preserved ✅
+- applicability reuses `BlueStacksAutoTunerRuntime.BuildCandidatePlan(...)` against captured allow-listed settings ✅
+- filtering can remove unsupported candidates but cannot add/reorder/regenerate candidates ✅
+- exact one-to-one universal↔specialized candidate binding ✅
+- five namespaced workload dimensions are descriptive marginals of surviving bindings ✅
+- no Cartesian regeneration from marginals; exact bindings are the runnable set ✅
+- missing/mismatched instance snapshot state fails closed ✅
+- captured renderer drift fails closed when non-`Auto` candidate renderer cannot be safely mutated ✅
+- no renderer mutation added ✅
+- FF MAX adapter identity and incomplete installed-build support covered by permanent tests ✅
+- no changes to coordinator/session/profile/winner path ✅
+- no evidence/confidence/recommendation/persistence authority added ✅
+- no startup side effect ✅
 
 #### TDD provenance
 
-Temporary verifier branch: `ci/track5-game-adapter-dimensions-verify`.
+Temporary verifier branch: `ci/track5-bluestacks-universal-candidate-bridge-verify`.
 
-- Task 1 RED: verifier #1 / run `34412460197` failed only for missing `IGameTuningDimensionProvider` and `GameAdapterTuningDimensionDeclaration`;
-- Task 1 GREEN: verifier #3 / run `34412615403` on `997fc7d3c9c73923a15ea3a9d4975d82b8e1b4fa` passed Core + App.SelfTest + WPF;
-- Task 2 RED: verifier #4 / run `34412791339` failed only for missing `UniversalTuningWorkloadDimensionFactory`;
-- Task 2/3 GREEN: verifier #5 / run `34412911108` on `56bfd6c0ef05c70e6148ad5a411313c627be7dbd` passed Core + App.SelfTest + WPF including System + Workload composition;
+- initial RED: verifier #1 / run `34417641306` — missing bridge/binding contracts;
+- intermediate assertion correction narrowed `GameIdentity` equality to stable fields without production change;
+- Task 1 GREEN: verifier #4 / run `34417996142` on `e434f8e2a83f466408d91ab6e90a980b9de3d7e7` — Core + App.SelfTest + WPF SUCCESS;
+- Task 2 RED: verifier #5 / run `34418189031` on `888cd58d59fe845304e428a79653989499d39c64` — captured renderer drift was admitted despite no verified renderer mutation;
+- Task 2 GREEN: verifier #6 / run `34418407183` on `07180bd58fc5ff0b01ef3b9038056fe2693d30bb` — Core + App.SelfTest + WPF SUCCESS;
 - selective official integration excluded the temporary verifier workflow;
-- official Windows CI #1007 passed the exact integrated application SHA.
+- exact Windows CI #1014 passed the integrated application SHA.
+
+### Track 5 authority boundary after Slice 3
+
+**Search declarations and exact candidate bindings remain exploration/correlation metadata only.** They do not grant measured evidence, confidence, `Observed`, `Validated`, mutation permission, persistence permission, winner role or recommendation authority.
+
+The current evidence chain remains direct typed measurement → repeatability/evaluation → exact configuration/workload correlation → fingerprint/freshness → existing validation/promotion authority.
 
 ## Recent exact checkpoints
 
-- `32e46b71d48ffcdb0550351896c6c46e1a54e42e` — integrated typed diagnostics/benchmark pipeline — Windows CI #983 SUCCESS
+- `32e46b71d48ffcdb0550351896c6c46e1a54e42e` — typed diagnostics/benchmark pipeline — Windows CI #983 SUCCESS
 - `eb6855a38a0a838af9c5f529831f520803750a2f` — exact accepted-frame count — Windows CI #984 SUCCESS
 - `1d4cb81c514dd8848754526a6b8c5a51b081a637` — Auto Tuner typed authority — Windows CI #985 SUCCESS
 - `db39145d35bd83370b2d39ad3ffe239d4e9ffdf6` — Profile Challenge typed authority — Windows CI #986 SUCCESS
@@ -155,17 +157,19 @@ Temporary verifier branch: `ci/track5-game-adapter-dimensions-verify`.
 - `71991379e01518adf2e1c539491a9c0339a56735` — universal Performance capture + WPF route — Windows CI #993 SUCCESS
 - `797c8c7766adea3369948d9cb330bb7ba9a69d52` — universal tuning search-space foundation — Windows CI #1000 SUCCESS
 - `8dac70fdb2c693533ae481aaadd846ab84fde228` — game-adapter workload tuning dimensions — Windows CI #1007 SUCCESS
+- `39246089fb28f510287e79639356a4e16d1b6b02` — dynamic BlueStacks/FF universal candidate bridge — Windows CI #1014 SUCCESS
 
 ## Exact next engineering slice
 
-Continue Track 5 with the **specialized BlueStacks/FF candidate-space bridge into the universal abstraction**.
+Continue Track 5 with the **evidence-backed winner/profile output generalization boundary**.
 
 Required sequence:
 
-1. read current `TuningCandidate`, `AutoTunerEngine.GenerateCandidates(...)`, BlueStacks environment/instance inputs, runtime/session and config mutation/snapshot paths;
-2. identify why the current BlueStacks candidate space is machine/instance-dependent rather than static adapter metadata;
-3. reuse the existing generator as the source of truth; do not build a duplicate renderer/FPS/resolution/CPU/RAM option catalog;
-4. design the smallest additive mapping/provider seam that can expose neutral dimensions/candidates while preserving correlation to the legacy specialized candidate;
-5. preserve the existing BlueStacks/FF runtime/session and five winner roles until later migration slices explicitly replace them;
-6. prove reversibility/identity and deterministic mapping fail closed;
-7. TDD RED → isolated verifier GREEN → selective official integration → fresh Windows CI → memory synchronization.
+1. read current `CandidateEvidence`, `TuningResult`, `PerformanceProfile`, `AutoTunerEngine.SelectWinners(...)`, `AutoTunerSessionService`, Profile persistence and Custom Validated challenge/promotion contracts;
+2. preserve the existing five BlueStacks/FF winner roles exactly;
+3. preserve Custom Validated incumbent/freshness/validation authority;
+4. design the smallest additive neutral result/profile context carrying stable workload identity and exact universal candidate/config correlation;
+5. do not treat Slice 1–3 search/binding metadata as measured or validated evidence;
+6. preserve direct typed PresentMon evidence, repeatability, fingerprint/freshness, rollback and Global Controlled Benchmark Lease;
+7. prove the new seam TDD RED first in an isolated verifier;
+8. verifier GREEN → selective official integration → fresh exact Windows CI → full relevant-memory sync → validate documentary HEAD before the following increment.

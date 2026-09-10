@@ -4,7 +4,7 @@
 
 The project began as **FF Performance Engine**, a Windows-native adaptive optimizer centered on BlueStacks + Free Fire / Free Fire MAX. It was deliberately universal across compatible Windows PCs rather than hard-coded to one machine.
 
-The product then expanded into **DG Performance Engine**. This is not a rewrite. The original system is the first specialized implementation of a larger performance-control architecture.
+The product expanded into **DG Performance Engine**. This is not a rewrite. The original system is the first specialized implementation of the larger performance-control architecture.
 
 ```text
 FF PERFORMANCE ENGINE
@@ -15,7 +15,7 @@ DG PERFORMANCE ENGINE
 Windows + Hardware + Games + Graphics Runtime + Cleaner + Learning
 ```
 
-The physical namespaces `FFPerformanceEngine.*` remain for now. Rename/migration is gradual and must not invalidate Git history, CI or verified behavior.
+Physical namespaces `FFPerformanceEngine.*` remain for now. Rename/migration is gradual and must not invalidate Git history, CI or verified behavior.
 
 ## 2. Product philosophy
 
@@ -30,15 +30,30 @@ MACHINE + WINDOWS + DRIVER + WORKLOAD + MODE + STATE + CONFIG + EVIDENCE
 Rules:
 
 - no preset is good merely because it is popular;
-- baseline and prior state must be known before mutation;
-- meaningful mutations require rollback;
+- baseline/prior state must be known before mutation;
+- meaningful mutation requires rollback;
 - contaminated benchmarks are discarded;
 - isolated observations do not become causal proof;
 - evidence quality/confidence/freshness are first-class;
-- the application measures its own overhead;
-- missing data remains missing.
+- application overhead is itself a performance concern;
+- missing data remains missing/Unknown rather than receiving invented values.
 
-## 3. User-facing operating modes
+## 3. Engineering continuation protocol
+
+For every meaningful increment:
+
+```text
+docs/memory/context
+→ TDD RED/GREEN
+→ exact application CI
+→ synchronize all relevant project memory
+→ exact documentary-HEAD CI
+→ next increment
+```
+
+Current Git/code/tests + fresh exact Windows CI outrank stale chat or stale memory. Do not roll working code backward because an older document says something different; update the document after the checkpoint is proven.
+
+## 4. User-facing operating modes
 
 ### Equilibrado
 
@@ -46,15 +61,15 @@ Prioritizes stability, efficiency, thermal behavior and performance gains withou
 
 ### Desempenho — default
 
-Primary mode. Pursues measurable performance where it matters, without blindly enabling every aggressive setting.
+Primary mode. Pursues measurable performance where it matters without blindly enabling every aggressive setting.
 
 ### Extremo
 
 Uses the strongest supported Windows/hardware/game strategies when evidence shows value. It may accept higher power, sustained clocks, fan activity and reduced background work, but “extreme” never means keeping a regression.
 
-Safety Envelope is optional in Expert, risk warnings remain visible, and critical real instability can trigger emergency rollback. The system does not bypass firmware/driver protections or remove hardware safety mechanisms that are not normally exposed.
+Safety Envelope is optional in Expert, warnings remain visible, and critical real instability can trigger emergency rollback. The engine does not bypass firmware/driver protections or remove hardware safety mechanisms not normally exposed.
 
-## 4. High-level architecture
+## 5. High-level architecture
 
 ```text
 DG PERFORMANCE ENGINE
@@ -111,7 +126,7 @@ DG PERFORMANCE ENGINE
     └── crash/reboot recovery
 ```
 
-## 5. Platform split
+## 6. Platform split
 
 ### C#/.NET 8 + WPF
 
@@ -119,32 +134,25 @@ Owns presentation, application orchestration, profiles, history, policies, high-
 
 ### C++20 / Win32
 
-Owns low-latency/native/platform functions where native execution materially helps: precise timing, process/affinity/priority control, selected telemetry/sensor/vendor integrations, and low-overhead services.
+Owns low-latency/native/platform functions where native execution materially helps: precise timing, process/affinity/priority control, selected telemetry/sensor/vendor integrations and low-overhead services.
 
 Interop remains narrow and contractual. UI never directly owns native mutation policy.
 
-## 6. Diagnostic model
+## 7. Diagnostic model
 
 The original Hardware/System Scan is generalized, not duplicated.
 
-- CPU: topology, cores/threads, P/E classes when available, CCD/CCX/cache/NUMA/groups where available, clocks/boost, utilization, power, thermals/throttling signals.
-- GPU: model/vendor, VRAM, clocks, utilization, power, thermals, supported driver controls.
-- RAM: capacity, commit, pressure, working sets.
-- Storage/I/O: media/type where provable, free space, latency/queue/activity.
-- Windows: build, drivers, power, processes, services, tasks, startup, scheduling state.
-- workload/game context and monitor/display state.
+Relevant domains include CPU topology/clocks/utilization/power/thermal signals; GPU model/VRAM/clocks/utilization/power/thermal/provider controls where available; RAM capacity/pressure; storage/I/O where provable; Windows build/drivers/power/process/services/tasks/startup/scheduling; workload/game context and display state.
 
-The Bottleneck Analyzer can classify CPU/main-thread, GPU, VRAM, RAM, I/O, thermal, power, background contention, frame pacing, renderer/engine limit, network or Unknown.
+The Bottleneck Analyzer may classify CPU/main-thread, GPU, VRAM, RAM, I/O, thermal, power, background contention, frame pacing, renderer/engine limit, network or Unknown. Unsupported channels stay Unknown.
 
-A diagnostic score may be displayed, but optimization decisions use the underlying measurements and capabilities, not a decorative global score.
-
-## 7. Windows Performance Capability model
+## 8. Windows Performance Capability model
 
 Windows optimization is modeled as capabilities, never loose scripts.
 
 Each capability has identity, current state, candidate space, applicability/dependencies, behavior (`LIVE_SAFE`, session/persistent/restart/reboot), safety/conflicts, read/validate/snapshot/apply/verify/rollback and evidence.
 
-The transaction model is:
+Transaction model:
 
 ```text
 resolve graph → validate all → snapshot all → durable restore point
@@ -152,13 +160,11 @@ resolve graph → validate all → snapshot all → durable restore point
 failure anywhere → reverse rollback → verify restoration
 ```
 
-Current real examples include active power policy, CPU boost policy and CPU core parking policy. Recommendation does not equal “maximum setting”; it must be backed by diagnosis/evidence.
+Current real examples include active power policy, CPU boost policy and CPU core parking policy. Recommendation does not mean “maximum setting”; it must be backed by diagnosis/evidence.
 
-## 8. Experimental integrity / evidence ladder
+## 9. Experimental integrity / evidence ladder
 
 Global controlled measurements share one machine-wide benchmark lease. Guardian is suspended/reconciled around controlled measurements as required.
-
-Evidence progression for Windows capability experiments is intentionally strict:
 
 ```text
 Supported
@@ -180,7 +186,7 @@ Supported
 
 Freshness is bound to machine fingerprint, workload, baseline/candidate tuple and relevant environment state.
 
-## 9. Profiles and winner frontier
+## 10. Profiles and winner frontier
 
 The engine does not search for one universal “best” profile. It maintains objective-specific winners:
 
@@ -190,9 +196,9 @@ The engine does not search for one universal “best” profile. It maintains ob
 - Stability
 - Quality
 - Custom Validated
-- Low-End Recovery (expanded DG strategy)
+- Low-End Recovery as an expanded DG strategy
 
-The same candidate may win more than one role when the evidence supports it.
+The same candidate may win more than one role when evidence supports it.
 
 Profiles evolve toward:
 
@@ -200,50 +206,37 @@ Profiles evolve toward:
 Machine → Workload/Game → Objective/Profile → Evidence
 ```
 
-A Custom Validated profile can challenge incumbents through controlled A/B. Promotion requires compatible fresh evidence; it is never automatic merely because the custom profile exists.
+A Custom Validated profile can challenge incumbents only through compatible fresh controlled evidence; existence alone never authorizes promotion.
 
-## 10. Guardian
+## 11. Guardian
 
-Guardian is an adaptive session supervisor, not an “always tweak” daemon.
-
-Core loop:
+Guardian is an adaptive session supervisor, not an always-tweak daemon.
 
 ```text
 detect state → detect real degradation → identify likely cause
 → choose LIVE_SAFE intervention → canary/A-B → keep or rollback
 ```
 
-Game/session state started with BlueStacks/FF and generalizes toward workload state. During active gameplay, only minimal/live-safe actions are eligible; larger changes wait for lobby/post-session or restart boundaries.
+Game/session state started with BlueStacks/FF and generalizes toward workload state. During active gameplay, only minimal/live-safe actions are eligible; larger changes wait for safer boundaries.
 
-Guardian supports passive learning and may eventually run tightly budgeted live micro-experiments. Recovery performance always has priority over learning speed.
+## 12. Adaptive Performance Governor
 
-## 11. Adaptive Performance Governor
+Governor is continuous control inside already-known safe policy ranges and is distinct from Guardian experiments and Auto Tuner exploration.
 
-The Governor is continuous control inside already-known safe policy ranges. It is distinct from Guardian experiments and Auto Tuner exploration.
+Strategies include Fixed FPS, Minimum FPS, Maximum Quality within FPS floor and Minimum Latency. Hysteresis, cooldown, step limits and `LIVE_SAFE` classification are required to avoid oscillation.
 
-Strategies:
+## 13. Performance Cost Model / learning
 
-- Fixed FPS
-- Minimum FPS
-- Maximum Quality within FPS floor
-- Minimum Latency
+Evidence strength order:
 
-It uses hysteresis, cooldown, step limits and `LIVE_SAFE` capability classification to avoid oscillation.
+1. repeated controlled Auto Tuner A/B;
+2. controlled live micro-experiments;
+3. repeated passive Guardian observations;
+4. isolated passive observations.
 
-## 12. Performance Cost Model / learning
+Passive evidence can reduce confidence/request revalidation after drift, but cannot silently overwrite stronger controlled evidence.
 
-DG learns a cost/response model per machine + workload/game + environment + profile, later scene/load-aware.
-
-Evidence sources have different strength:
-
-1. repeated controlled Auto Tuner A/B — strongest;
-2. controlled live micro-experiments — intermediate;
-3. repeated passive Guardian observations — contextual support;
-4. isolated passive observations — low confidence.
-
-Passive data can reduce confidence and request revalidation after game/driver/environment drift; it cannot silently overwrite strong controlled evidence.
-
-## 13. Graphics / Game Performance Engine
+## 14. Graphics / Game Performance Engine
 
 Optimization strength is layered:
 
@@ -252,80 +245,47 @@ Optimization strength is layered:
 3. compatible graphics runtime controls;
 4. engine/game-specific adapter controls.
 
-The architecture must never assume every game has universal “shadow low” semantics. Generic optimization is limited to what can be proven generically; deep controls require engine/game knowledge.
+Never assume every game has universal shadow/quality/renderer semantics. Generic optimization is limited to what can be proven generically; deep controls require engine/game knowledge and reversible paths.
 
-For compatible workloads, DG may support internal render resolution below the menu minimum, upscaling/sharpening, and an extended graphics range (`DG Low`, `DG Ultra Low`, `Low-End Recovery`). These are candidates to measure, not guarantees.
+For anti-cheat/integrity-protected games, use supported configuration, Windows, driver, hardware and external paths only. No bypass architecture.
 
-For anti-cheat/integrity-protected games, DG remains conservative: supported configuration, Windows, driver, hardware and external paths only. No bypass design.
+## 15. Hardware Performance Engine
 
-## 14. Hardware Performance Engine
+Approved future scope includes CPU topology/scheduler, CPU power/boost, GPU/VRAM vendor capabilities, memory/working set, storage/I/O, WDDM/display, network/latency and input responsiveness. Higher clocks/power are not inherently better; tuning remains capability-aware and evidence-based.
 
-Approved future scope includes:
+## 16. Deep Cleaner
 
-- CPU Topology & Scheduler Engine;
-- CPU Power & Boost Engine;
-- GPU/VRAM vendor capability adapters;
-- memory/working-set and storage/I/O engines;
-- WDDM/display, network/latency and input responsiveness domains.
+Cleaner may have Safe, Game/System Deep and Extreme policies, but user-created/personal data is a hard boundary. Extreme may remove healthy regenerable caches after warning; never automatically treat saves, mods, screenshots, recordings, presets, personal configs or documents as disposable.
 
-Hardware tuning is capability-aware and evidence-based. Higher clocks/power are not inherently better.
+## 17. System Optimizer session vs persistent state
 
-## 15. Deep Cleaner
+Two scopes remain distinct:
 
-Cleaner has Safe, Game/System Deep and Extreme policies, but personal/user-created data is a hard boundary.
+- persistent PC optimization: Analyze → Preview → revalidate → apply/verify → History → Restore;
+- temporary workload session optimization: snapshot → apply → monitor → restore when workload ends.
 
-Extreme Cleanup may remove healthy *regenerable* caches after clear warning. It never automatically treats saves, mods, screenshots, recordings, presets, personal configs, documents or other user-created content as disposable.
+## 18. Recovery and risk
 
-## 16. System Optimizer session vs persistent state
+Rollback infrastructure is not optional even when Expert Safety Envelope is disabled. Critical real instability can force emergency rollback. Normal optimization does not include BIOS flashing, firmware modification, arbitrary voltage or forcing unsupported driver/hardware limits.
 
-Two distinct scopes:
+## 19. UX identity
 
-- persistent PC optimization (“Otimizar este PC”): startup/system policies/storage/etc. with explicit preview/history/restore;
-- temporary game-session optimization: snapshot → apply → monitor → restore when the workload ends.
-
-In Extreme mode, nonessential background processes/tasks/services may be contained temporarily when dependencies prove that doing so is safe for the workload and Windows.
-
-## 17. Recovery and risk
-
-Safety Envelope is optional in Expert, but rollback infrastructure is not optional.
-
-- Critical real instability can force emergency rollback.
-- High-risk events are policy configurable.
-- Moderate/low events are logged/alerted.
-- No BIOS flashing, firmware modification, arbitrary voltage, bypass of thermal protections or forcing unsupported driver/hardware limits as normal DG optimization.
-
-## 18. UX identity
-
-Primary surfaces:
-
-- Home
-- Optimize
-- Profiles
-- Guardian
-- Performance
-- Expert
-- History
-- Settings
-- Mini Mode
+Primary surfaces: Home, Optimize, Profiles, Guardian, Performance, Expert, History, Settings, Mini Mode.
 
 Visual identity:
 
-- Clean: light-blue/ice/frosted Liquid Glass, no red theme dominance.
-- Dark: smoked graphite/black glass with ruby-red accent.
-- Mini Mode: separate native HUD, Compact/Mini/Micro, subtle ARGB border in both themes.
-- Liquid Glass quality must adapt to machine performance; the optimizer must not materially hurt gameplay because its UI is expensive.
+- Clean: light-blue/ice/frosted Liquid Glass, no red dominance;
+- Dark: smoked graphite/black glass with ruby-red accent;
+- Mini Mode: Compact/Mini/Micro, subtle ARGB border in both themes;
+- UI quality/overhead adapts so the optimizer does not materially hurt gameplay.
 
-## 19. History / memory inside the product
+## 20. History / memory inside the product
 
-History is not just logs. It answers what changed, when, why, by whom/which engine, measured impact, whether kept/reverted, and which state is Last Known Good.
+History records what changed, when, why, by which engine, measured impact, whether kept/reverted and which state is Last Known Good. Snapshots are tuning/system recovery points; backups are internal product data backups. Raw telemetry may compact into bounded aggregates/events/long-term summaries.
 
-Snapshots are system/tuning recovery points. Backups are internal DG data backups. They are separate concepts.
+## 21. Universal telemetry / workload capture authority — Track 4 GREEN
 
-Raw telemetry can be compacted into session aggregates/events/long-term summaries to avoid unbounded storage.
-
-## 20. Universal telemetry / workload capture authority — Track 4 closed 2026-09-09
-
-Track 4 is the canonical typed measurement/evidence foundation for every later engine. Its completed model is:
+Track 4 is the canonical typed measurement/evidence foundation for later engines.
 
 ```text
 stable workload identity
@@ -343,45 +303,17 @@ bounded aggregation / typed diagnostics / A-B evidence
 existing validation, freshness, fingerprint and recommendation authority
 ```
 
-### Stable identity versus runtime targeting
+Stable workload identity remains separate from runtime target evidence. Exact process targeting uses bound `RunningProcess` evidence; duplicate evidence for the same PID is equivalent, zero valid targets is unavailable, more than one distinct target is ambiguous, and `KnownExecutable` never authorizes live capture.
 
-Stable workload identity remains a Track 3 concern and comes from source-native GameId contracts. Runtime process targeting is separate transient evidence.
+An explicitly selected stable universal workload has Performance capture-route precedence. Unavailable/ambiguous explicit selection blocks capture rather than silently falling back to an unrelated Guardian workload. No universal selection preserves the legacy Guardian/BlueStacks typed compatibility route.
 
-For process-specific universal Performance capture:
+Track 4 closing application SHA: `71991379e01518adf2e1c539491a9c0339a56735`; Windows CI #993 / run `34407420906` SUCCESS.
 
-1. an application workflow explicitly selects a stable GameId from a resolved Track 3 catalog;
-2. only bound evidence for that selected GameId is retained for capture targeting;
-3. only `RunningProcess` observations with positive PID and fully qualified path are candidates;
-4. duplicate evidence for the same PID is equivalent, not ambiguity;
-5. exactly one distinct valid PID resolves `ExactRunningProcess`;
-6. zero valid running PIDs resolves unavailable with the proven GameId but no PID/path;
-7. more than one distinct valid PID resolves ambiguous with no guessed PID/path;
-8. `KnownExecutable`/App Paths never authorizes a live process capture;
-9. blank/unknown GameId is never promoted;
-10. PID/path/process/display name never manufactures stable GameId.
+## 22. Universal Auto Tuner search-space and adapter authority — Track 5 Slices 1–2 GREEN
 
-### Application capture-route precedence
+Track 5 generalizes existing Auto Tuner/Profiles additively. Specialized FF/BlueStacks working code is not replaced merely to obtain universal type names.
 
-When a universal stable GameId is explicitly selected, that selection owns Performance capture routing.
-
-- exact target → direct typed process capture is allowed;
-- unavailable/ambiguous target → capture is blocked;
-- while that selection exists, the app must **not** silently fall back to an unrelated Guardian/BlueStacks workload;
-- when no universal selection exists, the legacy Guardian/BlueStacks typed route remains the compatibility path.
-
-### Track 4 completion checkpoint
-
-Closing application SHA: `71991379e01518adf2e1c539491a9c0339a56735`.
-
-Windows CI #993 / run `34407420906` — SUCCESS.
-
-Track 4 is **GREEN for its current canonical scope**.
-
-## 21. Universal Auto Tuner search-space authority — Track 5 Slice 1 GREEN 2026-09-09
-
-Track 5 generalizes the existing Auto Tuner and Profiles additively. The specialized FF/BlueStacks tuner remains working code and is not replaced merely to obtain universal type names.
-
-The first universal tuning layer deliberately separates three concepts:
+### Slice 1 — neutral search-space model
 
 ```text
 PROVEN SUPPORT / DECLARED OPTION
@@ -397,258 +329,177 @@ PROVEN SUPPORT / DECLARED OPTION
  WINNER / RECOMMENDATION AUTHORITY
 ```
 
-An item appearing in the search space proves only that an explicit authority exposed it as an explorable candidate. It does **not** prove that the setting is beneficial, recommended, validated, safe to persist, or entitled to a profile winner role.
+A universal dimension contains stable `Id`, `Scope` (`System` or `Workload`), explicit `AuthorityId` and exact `CandidateValues`. `UniversalTuningCandidate` is only dimension id → selected value and intentionally carries no evidence/confidence/recommendation/winner/persistence flag.
 
-### Neutral dimension model
+Blank/duplicate/empty declarations fail closed. Zero dimensions produce zero candidates. `UniversalTuningSearchSpacePlanner` validates, deterministically orders dimensions, preserves producer value order, builds a bounded Cartesian prefix and performs no discovery/mutation/evidence/recommendation work.
 
-A universal tuning dimension has:
+Windows system dimensions reuse Track 2 `WindowsCapabilityCandidatePlan`; only `CanExplore == true` enters the universal search space.
 
-- `Id`: stable dimension identity;
-- `Scope`: `System` or `Workload`;
-- `AuthorityId`: the authority that explicitly supplied the candidate space;
-- `CandidateValues`: exact declared options.
+Slice 1 application SHA `797c8c7766adea3369948d9cb330bb7ba9a69d52`; Windows CI #1000 / run `34411645032` SUCCESS.
 
-The neutral `UniversalTuningCandidate` contains only a mapping of dimension id → selected value. It intentionally has no confidence, evidence level, recommendation, winner role or persistence flag.
+### Slice 2 — adapter-owned workload dimensions
 
-### Fail-closed declaration rules
+`IGameAdapter` remains unchanged. Optional `GameAdapterTuningDimensionDeclaration` / `IGameTuningDimensionProvider` may expose workload search support only when resolved adapter proves reversible configuration capability (`ConfigDiscovery + ConfigSnapshot + ConfigMutation + Rollback`).
 
-Universal tuning rejects rather than repairs/invents:
+Authority comes from the adapter resolved for stable selected `GameIdentity`, never PID/path/process/display name or an unregistered requested adapter string. Generic/unregistered/no-provider/incomplete reversible-lifecycle cases contribute zero workload dimensions.
 
-- blank dimension id;
-- blank authority id;
-- an empty candidate list;
-- blank candidate values;
-- duplicate dimension ids case-insensitively;
-- duplicate candidate values.
-
-Zero dimensions produce zero candidates. There is no implicit “default candidate”.
-
-### Deterministic bounded exploration
-
-`UniversalTuningSearchSpacePlanner`:
-
-1. validates all declarations before returning candidates;
-2. orders dimensions deterministically by id;
-3. preserves each authority's declared candidate-value order exactly;
-4. forms the Cartesian product;
-5. varies the last sorted dimension fastest;
-6. stops at `MaxCandidates` as a deterministic prefix;
-7. never randomizes candidate order;
-8. never creates hidden axes or default values;
-9. performs no machine mutation and grants no evidence/recommendation authority.
-
-This bounded product is a planning primitive, not an instruction to benchmark every possible combination blindly. Later Track 5 search strategy can prune/adapt exploration while preserving the declared-authority boundary.
-
-### System dimensions reuse Track 2 authority
-
-Windows/system tuning dimensions do not recreate capability discovery.
-
-The bridge consumes the existing `WindowsCapabilityCandidatePlan` produced by the Track 2 capability candidate planner.
-
-Only `CanExplore == true` enters the universal search space.
-
-Therefore:
-
-- `Unavailable` stays absent;
-- `MissingCurrentState` stays absent;
-- `NoCandidateSpace` stays absent;
-- `Ready` with zero candidates stays absent.
-
-For accepted plans:
-
-- normalized CapabilityId is both dimension identity and authority identity;
-- TargetValue strings remain exact;
-- ExplorationRank determines target order;
-- duplicate target values fail closed.
-
-The bridge does not inspect the registry, infer availability, generate schema points, mutate Windows, consult recommendation confidence/value or publish a recommendation.
-
-### Specialized compatibility
-
-The existing FF/BlueStacks path remains unchanged and source-compatible:
-
-- `TuningCandidate`;
-- `AutoTunerEngine.GenerateCandidates(...)`;
-- `AutoTunerSessionService`;
-- `BlueStacksAutoTunerRuntime`;
-- existing five winner roles;
-- Custom Validated challenge/promotion mechanisms.
-
-Future migration of that specialized search space into the neutral universal model receives its own TDD slice. Do not force a destructive conversion merely because universal contracts now exist.
-
-### Workload/game authority requirement
-
-The next universal dimensions must come from existing or deliberately extended Game Adapter authority.
-
-Do not assume these names/semantics are universal:
-
-- renderer;
-- graphics quality;
-- resolution;
-- FPS target;
-- internal render scale;
-- game engine toggles.
-
-A generic adapter may expose only what it can prove. A specialized adapter may expose deeper dimensions only when it understands the workload/configuration semantics and can support reversible application/verification as later orchestration requires.
-
-Do not create a second independent catalog of game options inside Auto Tuner.
-
-### Verification checkpoint
-
-Application SHA:
-
-`797c8c7766adea3369948d9cb330bb7ba9a69d52`
-
-Windows CI:
-
-`#1000` / run `34411645032` — SUCCESS.
-
-Durable checkpoint:
-
-`docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`
-
-Track 5 remains **ACTIVE**. Slice 1 is GREEN; next is capability-honest workload/game-adapter dimensions.
-
-## 22. Adapter-owned workload tuning authority — Track 5 Slice 2 GREEN 2026-09-09
-
-Track 5 now has an additive seam for game/workload-specific candidate dimensions without turning any game-specific setting into a universal semantic.
-
-The authoritative flow is:
+Accepted workload identities are namespaced as:
 
 ```text
-stable GameIdentity
-       ↓
+workload.<normalized-adapter-id>.<normalized-local-id>
+```
+
+Candidate value text/order remains exact. Null/blank/empty/duplicate declarations fail closed. System + Workload dimensions reuse the same universal planner.
+
+The current BlueStacks/FF adapter deliberately did not receive static declarations in Slice 2 because its real candidate set is machine/instance-dependent.
+
+Slice 2 application SHA `8dac70fdb2c693533ae481aaadd846ab84fde228`; Windows CI #1007 / run `34416726382` SUCCESS.
+
+## 23. Dynamic BlueStacks/FF universal candidate bridge — Track 5 Slice 3 GREEN 2026-09-09
+
+### Problem closed
+
+The existing BlueStacks/FF Auto Tuner already generates candidates dynamically from `EnvironmentSnapshot`, `BlueStacksInstance` and tuning mode. It also applies an existing bounded source order (`Adaptive <= 12`, `Deep <= 96`) and separately checks installed BlueStacks allow-listed config before mutation.
+
+A universal layer that recreated independent CPU/RAM/FPS/resolution/renderer option lists and Cartesian-expanded them would be a second candidate generator and could manufacture combinations that the specialized engine never emitted.
+
+### Canonical bridge
+
+Slice 3 adds:
+
+- `BlueStacksUniversalTuningCandidateBinding`;
+- `BlueStacksUniversalTuningCandidateSpace`;
+- `BlueStacksUniversalTuningCandidateBridge`.
+
+The canonical flow is:
+
+```text
+GameKind FreeFire / FreeFireMax
+        ↓
+LegacyGameIdentityBridge
+        ↓
 GameAdapterResolver
-       ↓
-resolved specialized adapter
-       ↓
-reversible config lifecycle capability gate
-       ↓
-optional IGameTuningDimensionProvider
-       ↓
-explicit workload dimensions
-       ↓
-UniversalTuningSearchSpacePlanner
+        ↓
+exact matching BlueStacksFreeFireGameAdapter
+        ↓
+AutoTunerEngine.GenerateCandidates(environment, instance, mode)
+        ↓
+for each generated candidate in source order
+        ↓
+BlueStacksAutoTunerRuntime.BuildCandidatePlan(candidate, instance, capturedSettings)
+        ↓
+only CanApply candidates survive
+        ↓
+1:1 UniversalTuningCandidate ↔ specialized TuningCandidate binding
 ```
 
-### Optional provider, unchanged adapter base contract
+### Single source of truth
 
-`IGameAdapter` remains unchanged and source-compatible.
+`AutoTunerEngine.GenerateCandidates(...)` remains the only source of the specialized BlueStacks candidate set. The universal bridge:
 
-A specialized adapter may opt in through:
+- may filter generated candidates;
+- must preserve surviving order;
+- must preserve the generator's existing candidate budget;
+- must never independently regenerate or expand the specialized candidate set.
 
-- `GameAdapterTuningDimensionDeclaration`;
-- `IGameTuningDimensionProvider`.
+`BlueStacksAutoTunerRuntime.BuildCandidatePlan(...)` remains installed-build applicability authority for the captured allow-listed configuration surface.
 
-Generic adapters and existing adapters that do not opt in continue working normally and contribute zero game-specific tuning dimensions.
+### Exact bindings vs descriptive dimensions
 
-The current `BlueStacksFreeFireGameAdapter` deliberately does not expose static declarations yet. Its existing candidate space depends on real machine + BlueStacks instance state and remains owned by the existing specialized generator until a dedicated bridge slice proves the mapping.
+Each surviving specialized candidate is mapped losslessly to a neutral candidate carrying exactly the five current specialized fields:
 
-### Resolved authority, never process-derived authority
+- CPU cores;
+- RAM MB;
+- renderer;
+- FPS target;
+- resolution.
 
-`UniversalTuningWorkloadDimensionFactory` accepts a stable `GameIdentity` and resolves the adapter through `GameAdapterResolver`.
+Ids are under `workload.<resolved-adapter-id>.*` and `AuthorityId` is the resolved specialized adapter id.
 
-Authority comes from the **resolved adapter**. It never comes from:
+The per-axis dimension values are **descriptive marginals of the surviving binding set**. They are useful for neutral introspection/search metadata but are not the runnable candidate authority. The exact binding list is authoritative for this specialized bridge.
 
-- PID;
-- executable path;
-- process name;
-- display name;
-- an unregistered raw `GameIdentity.AdapterId` string.
+Therefore the marginals must not be passed through a Cartesian expansion to invent candidate combinations that were not emitted by `AutoTunerEngine.GenerateCandidates(...)`.
 
-If the requested specialization is not registered, the resolver falls back to Generic and the result is zero workload dimensions.
+### Stable identity / adapter authority
 
-### Reversible configuration capability gate
+Stable identity comes only from `LegacyGameIdentityBridge.FromGameKind(...)`. The bridge requires the resolver to return the exact matching `BlueStacksFreeFireGameAdapter` for the same `GameKind`; wrong/generic/unavailable specialization fails closed.
 
-Before provider metadata is consulted, the resolved adapter must prove all of:
+No PID, executable path, process name or display name creates workload tuning authority.
 
-- `ConfigDiscovery`;
-- `ConfigSnapshot`;
-- `ConfigMutation`;
-- `Rollback`.
+### Installed-config fail-closed behavior
 
-If any one is absent, the provider is not invoked and the adapter contributes zero workload dimensions.
+The caller supplies captured allow-listed settings for the named BlueStacks instance. If the snapshot does not contain that instance namespace, the specialized universal candidate space is empty.
 
-`BenchmarkPreparation` is intentionally not required merely to **declare** an explorable dimension. Actual controlled benchmark execution remains separate orchestration and must continue to use the existing benchmark lease/evidence authority.
+Generated candidates that `BuildCandidatePlan(...)` cannot represent are absent.
 
-### Namespace and declaration integrity
+A TDD-discovered special case is renderer correlation:
 
-Accepted dimensions are projected as:
+- BlueStacks currently captures `graphics_renderer` / `graphics_engine` as installed-state evidence;
+- current runtime intentionally does not automatically mutate renderer because mutation semantics are version-dependent/unverified;
+- therefore a generated non-`Auto` candidate whose renderer conflicts with the known captured renderer is excluded from the universal binding set;
+- this prevents benchmark evidence from being attributed to a renderer that the runtime did not actually apply;
+- Slice 3 does **not** add renderer mutation.
 
-```text
-Id          = workload.<normalized-adapter-id>.<normalized-local-id>
-Scope       = Workload
-AuthorityId = <normalized resolved adapter id>
-Values      = exact provider-declared candidate strings/order
-```
+### Authority boundary
 
-Normalization applies only to identity (`Trim().ToLowerInvariant()`). Candidate value text is preserved exactly.
+An exact universal↔specialized binding proves only:
 
-The factory validates the complete provider declaration set and fails closed for:
+- stable workload/adapter correlation;
+- the specialized generator emitted that candidate;
+- the current installed-build planner can represent it under the captured snapshot.
 
-- null provider result;
-- null declaration;
-- blank local id;
-- empty candidate-value list;
-- blank candidate value;
-- duplicate local ids case-insensitively;
-- duplicate exact candidate values.
-
-Returned workload dimensions are deterministically ordered by final dimension id.
-
-### Composition remains single-source
-
-No new Cartesian/composition engine was added.
-
-The existing `UniversalTuningSearchSpacePlanner` composes explicit System + Workload dimensions directly. This preserves one deterministic search-space authority and prevents a parallel game-specific planner from manufacturing hidden/default axes.
-
-### Critical authority separation
-
-**Adapter-declared dimension support proves only that the resolved adapter exposes an explorable configuration space.**
-
-It does not grant:
+It does **not** grant:
 
 - measured evidence;
 - confidence;
 - `Observed`;
 - `Validated`;
-- permission to mutate;
-- permission to persist;
-- profile winner status;
-- recommendation authority.
+- winner status;
+- recommendation authority;
+- persistence permission;
+- any new mutation authority.
 
-The required downstream chain remains:
+Existing direct typed PresentMon evidence, repeatability, exact configuration correlation, machine fingerprint/freshness, validation challenges, Custom Validated promotion, Global Controlled Benchmark Lease, rollback and History remain authoritative.
 
-```text
-explicit support/search space
-→ controlled measurement
-→ typed evidence
-→ repeatability/evaluation
-→ fingerprint/freshness
-→ validation challenge where applicable
-→ ValidatedEvidence
-→ winner/recommendation authority
-```
+### Compatibility preserved
 
-### Verification checkpoint
+Slice 3 intentionally does not change:
 
-Application SHA:
+- `AutoTunerRunCoordinator`;
+- `AutoTunerSessionService`;
+- specialized runtime execution semantics;
+- existing five winner roles;
+- Profile persistence;
+- Profile Challenge / incumbent freshness;
+- Track 4 typed benchmark authority.
 
-`8dac70fdb2c693533ae481aaadd846ab84fde228`
+### TDD / verification checkpoint
 
-Windows CI:
+Temporary verifier branch: `ci/track5-bluestacks-universal-candidate-bridge-verify`.
 
-`#1007` / run `34416726382` — SUCCESS.
+- initial RED: run `34417641306` — bridge/binding contracts absent;
+- Task 1 GREEN: verifier #4 / run `34417996142`, SHA `e434f8e2a83f466408d91ab6e90a980b9de3d7e7`;
+- Task 2 RED: verifier #5 / run `34418189031`, SHA `888cd58d59fe845304e428a79653989499d39c64` — renderer drift incorrectly survived;
+- final verifier GREEN: #6 / run `34418407183`, SHA `07180bd58fc5ff0b01ef3b9038056fe2693d30bb`;
+- selective integration excluded the temporary verifier workflow;
+- official application SHA: `39246089fb28f510287e79639356a4e16d1b6b02`;
+- Windows CI #1014 / run `34422254555` — SUCCESS;
+- durable checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-bluestacks-universal-candidate-bridge.complete`.
 
-TDD verifier evidence:
+Track 5 remains **ACTIVE**. The next additive slice is the evidence-backed winner/profile output boundary: carry stable workload + exact universal candidate/config correlation without weakening the existing five BlueStacks/FF winner roles, Custom Validated promotion or typed evidence/freshness/validation authority.
 
-- RED `34412460197` → optional provider contracts absent;
-- GREEN `34412615403` → provider contract/source compatibility passed;
-- RED `34412791339` → workload dimension factory absent;
-- GREEN `34412911108` → factory + fail-closed rules + System/Workload composition passed.
+## 24. Canonical track state
 
-Durable checkpoint:
+- Track 0 Foundation Hardening — GREEN
+- Track 1 Universal Diagnostic Foundation — GREEN
+- Track 2 System Optimizer — GREEN through current branch
+- Track 3 Game Discovery + Adapter Framework — GREEN
+- Track 4 Universal Telemetry / Evidence — GREEN for current canonical scope
+- Track 5 Universal Auto Tuner + Profiles — ACTIVE; Slices 1–3 GREEN
+- Track 6 Adaptive Guardian 2.0 — planned
+- Track 7 Hardware Performance Engine — planned
+- Track 8 Deep Cleaner — planned
+- Track 9 Auto Optimize — planned
+- Track 10 DG UX Migration — planned
 
-`docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`
-
-Track 5 remains **ACTIVE**. The next slice must bridge the existing dynamic BlueStacks/FF candidate generator into the neutral universal abstraction without creating a duplicate static option catalog or breaking the specialized runtime/profile path.
+The historical larger architecture reportedly extends beyond Track 10, but the exact raw Track 11–19 numbering is not currently authoritative and must not be invented. Preserve the approved future domains recorded in `ROADMAP.md` until the original source is recovered.
