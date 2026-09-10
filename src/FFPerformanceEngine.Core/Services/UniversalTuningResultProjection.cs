@@ -42,6 +42,9 @@ public static class BlueStacksUniversalTuningResultBridge
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(candidateSpace);
 
+        if (candidateSpace.Identity.LegacyGameKind != result.Game)
+            throw new InvalidOperationException("The specialized tuning result targets a different workload than the universal candidate space.");
+
         var evidence = result.Evidence
             .Select(item =>
             {
