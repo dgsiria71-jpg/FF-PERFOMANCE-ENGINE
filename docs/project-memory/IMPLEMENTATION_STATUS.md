@@ -10,9 +10,15 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 - Windows CI: **#1034 — SUCCESS**
 - Run: `34502895182`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
-- Checkpoint: `2026-09-10-track5-profiles-promoted-winner-provenance-presentation.complete`
+- Slice 13 checkpoint: `2026-09-10-track5-profiles-promoted-winner-provenance-presentation.complete`
 
-Any docs-only sync after this SHA does not replace the application checkpoint above as code authority.
+Latest verified documentary precursor before the Track 5 closure sync:
+
+- Documentary HEAD: `6944e0221bce44159bfa894c270e75b095f8e575`
+- Windows CI: **#1035 — SUCCESS**
+- Run: `34503363082`
+
+A docs-only closure commit does not replace `a0c9a4e3...` as application-code authority.
 
 ## Product foundation
 
@@ -25,7 +31,8 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 - Track 2 — System Optimizer / evidence authority — GREEN through current branch
 - Track 3 — Game Discovery + Adapter Framework — GREEN
 - Track 4 — Universal Telemetry / Evidence — GREEN
-- Track 5 — Universal Auto Tuner + Profiles — ACTIVE; closure review next
+- Track 5 — Universal Auto Tuner + Profiles — **GREEN for current canonical scope**
+- Track 6 — Adaptive Guardian 2.0 — **NEXT DESIGN BOUNDARY; implementation not yet approved**
 
 ## Track 5 verified Slice chain
 
@@ -41,56 +48,59 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 10. Profiles Custom provenance presentation — `07b4264e438a5052ddca45d8b5eda111d74f4270`, CI #1028 GREEN.
 11. Persisted promoted-winner provenance after restart — `b755064b72c0c4f91f864bae665cd327d8cc1488`, CI #1030 GREEN.
 12. AppServices promoted-winner provenance composition — `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032 GREEN.
-13. Profiles promoted-winner provenance presentation — `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, CI #1034 GREEN.
+13. Profiles promoted-winner provenance presentation — `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, CI #1034 / run `34502895182` GREEN.
 
-## Current Track 5 capability
+## Track 5 closure audit
 
-The universal Auto Tuner/Profile layer is additive over the specialized BlueStacks/FF authority:
+Closure review found no blocking gap against the approved Track 5 objective.
 
-- generic universal candidate/search-space declarations exist without recommendation authority;
-- adapters truthfully declare supported workload dimensions;
-- current BlueStacks/FF configuration can bind to an exact universal candidate only when the current allow-list proves it;
-- measured specialized result/winner state can be correlated to stable GameId/AdapterId without changing the specialized verdict;
-- validated History and explicit Custom profile origin can be projected universally without granting new validation authority;
-- persisted Custom profiles can be re-proven after restart against the current candidate space;
-- specialized promotions can be correlated after restart through an exact durable receipt + winner + preserved Custom + measured revalidation, without reconstructing a challenge result;
-- both persisted Custom and promoted-winner provenance have explicit/on-demand AppServices entry points;
-- both have presentation-only Profiles UI paths that remain hidden when current universal provenance is absent.
+The approved scope is an **additive universal Auto Tuner/Profile foundation** over the proven specialized BlueStacks/Free Fire path. It is not a claim that every discovered game already has a physical tuning runtime.
 
-## Slice 13 — Profiles promoted-winner provenance presentation — GREEN
+Verified authority boundaries:
 
-Implemented:
+- universal search-space candidates carry explicit dimensions/authorities/values only and no evidence, validation, recommendation, winner or persistence state;
+- Windows system dimensions enter only through existing explorable Track 2 plans;
+- workload dimensions require exact adapter authority and capability-honest reversible lifecycle declarations;
+- dynamic BlueStacks/FF candidate mapping remains one-to-one over the existing specialized generator/runtime and current allow-listed settings;
+- universal result/winner projections retain exact specialized evidence/profile objects and do not score, validate, select or persist winners;
+- validated-History projection begins with existing `CanOriginateProfile` and requires separately measured later validation plus exact configuration/universal-context/candidate correlation;
+- Custom Validated provenance requires existing specialized Custom origin and exact source/configuration/fingerprint/metrics;
+- persisted Custom provenance after restart is re-proven against current capability and fails closed to null on missing/ambiguous/drifted state;
+- persisted promoted-winner provenance requires an exact specialized promotion receipt, current persisted winner, preserved Custom, measured revalidation and current Custom reproving, and never reconstructs `ProfileChallengeResult`;
+- AppServices exposes both provenance paths only through explicit/on-demand methods and adds no Track 5 discovery/provenance work to `InitializeAsync()`;
+- Profiles UI consumes only already-resolved application/Core projections and remains presentation-only/hidden when provenance is absent.
 
-- pure `UniversalPromotedProfileProvenancePresentation` ✅
-- null projection => hidden/empty presentation ✅
-- exact promoted profile ID/name/kind copied only from a real Core projection ✅
-- stable GameId, exact AdapterId and deterministic exact candidate key/value lines copied without inference ✅
-- separate read-only `Proveniência universal dos vencedores` section in Profiles ✅
-- `PromotedWinnerProvenanceView` calls only the AppServices promoted-winner resolver ✅
-- stale async completion rejected by revision token plus current DataContext ID ✅
-- missing current universal provenance remains collapsed and does not alter the specialized winner ✅
-- existing profile list/apply, Custom provenance, challenge progress, automated A/B and promotion flows preserved ✅
-- `ProfilesPage.xaml.cs` unchanged ✅
+No Track 5 universal seam grants machine mutation, validation, profile-origin, winner-selection or persistence permission.
 
-TDD evidence:
+## Deferred non-blocking Track 5 expansions
 
-- verifier branch `ci/track5-profiles-promoted-winner-provenance-presentation-verify`
-- workflow `55660dd62d228f080be8313a4e3ed3b7c9181a6a`
-- RED `8680831ae72667d56474206e47bff747944bab96`
-- clean RED verifier #2 / run `34502406855`: Core GREEN; App failed only with missing presenter `CS0103`
-- GREEN candidate `1697bb87394c13fb02d3964ef4a551fafdb1ba22`
-- GREEN verifier #3 / run `34502713828`: Core + App + WPF build SUCCESS
-- official application `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS
+These are deliberate future refinements and do not reopen Track 5 by default:
 
-## Authority boundary
+- additional game-specific physical tuning adapters/runtimes beyond current proven BlueStacks/FF support;
+- renderer/graphics-option mutation only after a verified reversible lifecycle exists for the exact adapter;
+- generalized persisted provenance for future non-BlueStacks adapters after those adapters possess real measurement/mutation/profile authority;
+- optional batching/caching/polish for current per-profile provenance presentation while preserving freshness semantics;
+- broader DG visual migration in the later UX track.
 
-Universal search/candidate/result/History/profile/promotion/current-resolution/application/presentation layers remain correlation/provenance only. They do not create measured evidence, change validation status, decide specialized winners, authorize mutation or grant persistence permission. Missing current capability remains absent. `HistoryService`, `ProfileService`, `ProfileChallengeService`, typed measurement authority, freshness/fingerprint checks, global controlled benchmark coordination and rollback remain intact.
+The project does **not** claim that every discovered game is physically tunable today. Unsupported adapters remain capability-honest and expose no fabricated tuning authority.
 
-`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` were not changed by Slice 13.
+## Non-negotiable authority at Track 5 closure
 
-## Current next engineering action
+- `Observed != Validated`.
+- Missing data/capability/provenance remains absent/Unknown.
+- Stable GameId remains separate from transient PID/path/process evidence.
+- `KnownExecutable` never authorizes live capture.
+- Candidate/search-space support is exploration only.
+- Existing typed measurement, `HistoryService` validation, `ProfileService` origin, `AutoTunerEngine` winner selection and `ProfileChallengeService` promotion remain specialized authorities.
+- Universal layers are correlation/provenance and can only narrow already-authorized specialized state.
+- Global Controlled Benchmark Lease, Guardian suspension/reconciliation, fingerprint/freshness, rollback and History remain intact.
+- Game discovery and Track 5 provenance resolution remain explicit/on-demand and are not added to startup.
+- WPF remains presentation/request only.
+- No anti-cheat/integrity bypass.
 
-Perform a bounded Track 5 closure review. Audit Slices 1–13, identify any blocking gap versus deferred refinement, and if no blocker remains create an exact Track 5 closure checkpoint and documentary Windows CI before beginning Track 6.
+## Exact next engineering action
+
+Do **not** start Track 6 production immediately. First inspect the existing Guardian state/session/canary/knowledge paths and define the smallest additive **Track 6 — Adaptive Guardian 2.0** bounded design. Because this is a new behavioral architecture boundary, obtain explicit design approval before the first Track 6 TDD RED.
 
 ## Planned later tracks
 
@@ -100,4 +110,4 @@ Perform a bounded Track 5 closure review. Audit Slices 1–13, identify any bloc
 - Track 9 — Auto Optimize
 - Track 10 — DG UX Migration
 
-Approved future domains remain recorded in `CANONICAL_CONTEXT.md` and older checkpoints; exact historical Track 11–19 numbering remains non-authoritative until its original source is recovered.
+Approved future domains remain recorded in `CANONICAL_CONTEXT.md` and earlier checkpoints; exact historical Track 11–19 numbering remains non-authoritative until its original source is recovered.

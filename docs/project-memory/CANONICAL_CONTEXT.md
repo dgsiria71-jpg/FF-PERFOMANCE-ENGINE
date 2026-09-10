@@ -396,7 +396,7 @@ Temporary verifier: `ci/track5-universal-validation-projection-verify`.
 - Windows CI #1018 / run `34433407760` SUCCESS;
 - checkpoint `docs/project-memory/checkpoints/2026-09-10-track5-universal-validated-performance-projection.complete`.
 
-Track 5 remains ACTIVE. The next boundary is validated profile origin/challenge provenance. Before touching Profile Challenge round capture, first prove whether that path already possesses a valid universal context. Missing context must remain missing; no context may be fabricated merely to satisfy the universal type.
+Track 5 later slices extend the same authority model through real Custom profile origin, promotion, restart-safe current provenance, AppServices composition and Profiles presentation. Exact evidence for Slices 6–13 is recorded in their checkpoints and the Track 5 closure checkpoint.
 
 ## 26. Canonical track state
 
@@ -405,11 +405,23 @@ Track 5 remains ACTIVE. The next boundary is validated profile origin/challenge 
 - Track 2 System Optimizer — GREEN through current branch
 - Track 3 Game Discovery + Adapter Framework — GREEN
 - Track 4 Universal Telemetry / Evidence — GREEN for current canonical scope
-- Track 5 Universal Auto Tuner + Profiles — ACTIVE; Slices 1–5 GREEN
-- Track 6 Adaptive Guardian 2.0 — planned
+- Track 5 Universal Auto Tuner + Profiles — **GREEN for current canonical scope**; Slices 1–13 verified through application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS
+- Track 6 Adaptive Guardian 2.0 — planned; next design boundary
 - Track 7 Hardware Performance Engine — planned
 - Track 8 Deep Cleaner — planned
 - Track 9 Auto Optimize — planned
 - Track 10 DG UX Migration — planned
 
 The historical larger architecture extends beyond Track 10, but exact raw Track 11–19 numbering is not currently authoritative and must not be invented. Preserve approved future domains recorded in `ROADMAP.md` until the original source is recovered.
+
+## 27. Track 5 closure boundary — 2026-09-10
+
+Track 5 is closed GREEN for the approved **additive universal foundation** scope. It does not claim a generic physical tuning runtime for every discovered game. Unsupported adapters remain capability-honest and receive no fabricated search dimensions, mutation authority, evidence, validation or profile authority.
+
+At closure the permanent chain covers universal search-space contracts, system and adapter-owned workload dimensions, exact BlueStacks/FF candidate correlation, result/winner correlation, validated-History correlation, real Custom Validated profile provenance, already-authorized promotion provenance, restart-safe persisted Custom and promoted-winner reproving, explicit AppServices seams and presentation-only Profiles UI.
+
+Universal layers can only narrow/correlate already-authorized specialized state. `AutoTunerEngine`, typed measurement, `HistoryService`, `ProfileService`, `ProfileChallengeService`, freshness/fingerprint gates, Global Controlled Benchmark Lease, Guardian coordination, rollback and History retain their existing authority.
+
+Deferred non-blocking expansion includes new game-specific physical tuning adapters/runtimes, renderer/graphics mutation only after verified reversible lifecycle support, future non-BlueStacks persisted provenance once such adapters own real measurement/mutation/profile authority, and optional provenance UI batching/polish. These items do not reopen Track 5 by default.
+
+Closure checkpoint: `docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`.

@@ -22,9 +22,11 @@ Stable GameIdentity/catalog, generic + specialized FF/FFMAX adapters, major laun
 
 Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 / run `34407420906` SUCCESS. Typed telemetry/evidence, direct PresentMon, CPU/memory/power/WDDM GPU, bounded aggregation, diagnostics and explicit selected-workload capture routing remain proven. Unsupported channels stay Unknown.
 
-## Track 5 — Universal Auto Tuner + Profiles — ACTIVE; closure review next
+## Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
 
-Canonical objective: generalize the proven specialized Auto Tuner/Profile system additively while preserving evidence, validation, freshness, winner and persistence authority.
+Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Latest Slice 13 documentary precursor `6944e0221bce44159bfa894c270e75b095f8e575`, Windows CI #1035 / run `34503363082` SUCCESS.
+
+Canonical objective was achieved: generalize the proven specialized Auto Tuner/Profile system additively while preserving evidence, validation, freshness, winner and persistence authority.
 
 ### Verified Slices
 
@@ -42,22 +44,15 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 12. AppServices persisted promoted-winner provenance composition — GREEN — `2ea74c72f6373bc139a38da72fa257662ae8b965`, CI #1032.
 13. Profiles persisted promoted-winner provenance presentation — GREEN — `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, CI #1034 / run `34502895182`.
 
-### Current end-to-end Track 5 chain
+### Closure boundary
 
-Universal search-space declarations remain candidate exploration only. Specialized adapters declare workload dimensions truthfully. BlueStacks/FF current settings bind to an exact universal candidate only when present in the current allow-list. Specialized measured results, validated History, explicit Custom profile origin and already-authorized winner promotions can then acquire read-only universal correlation without changing their specialized authority.
+Track 5 is the **universal foundation**, not a promise that every discovered game already has a physical tuning runtime. The working specialized BlueStacks/Free Fire path remains authoritative while universal contracts provide stable, capability-honest search/correlation/provenance seams.
 
-Persisted Custom provenance is re-proven after restart against current capability and exposed through an explicit AppServices seam plus a presentation-only Custom card. Persisted promoted winners are correlated after restart through the durable promotion receipt, exact current winner, preserved Custom and measured revalidation; that path also has an explicit AppServices seam plus a separate presentation-only winner section. Missing current capability/provenance stays absent and never removes or relabels the specialized winner.
+Universal search-space metadata never grants evidence or recommendation authority. Universal result/profile/promotion projections never create `Validated`, a winner or persistence state. Persisted provenance is re-proven against current capability and exact specialized source state and fails closed to null when it cannot be proven. AppServices paths are explicit/on-demand; WPF remains presentation-only.
 
-### Immediate sequence
+Deferred non-blocking refinements include additional game-specific physical tuning adapters/runtimes, reversible renderer/graphics-option mutation when actually proven, future non-BlueStacks persisted provenance after those adapters gain real authority, and optional provenance UI batching/polish.
 
-- Slices 1–13 implementation and exact application CI: complete.
-- **Track 5 closure review** ← NEXT
-  - audit all Slices against the canonical Track 5 objective;
-  - verify universalization remains additive/read-only with no new validation/winner/mutation/persistence authority;
-  - verify restart-safe persisted Custom and promoted-winner application/presentation paths;
-  - identify remaining items as blocking vs deferred refinements;
-  - if there is no blocker, record Track 5 GREEN in a closure checkpoint and run exact documentary Windows CI.
-- Only after Track 5 is formally closed, classify and design the first Track 6 increment.
+Closure checkpoint: `docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`.
 
 Every independent implementation slice remains:
 
@@ -75,9 +70,22 @@ docs/memory/context
 → next increment
 ```
 
-## Track 6 — Adaptive Guardian 2.0 — PLANNED
+## Track 6 — Adaptive Guardian 2.0 — NEXT DESIGN BOUNDARY
 
-Generic workload state machine, universal classifiers, session optimizer actions, learned action reliability and post-session queue. Do not begin implementation until Track 5 closure is recorded and the first Track 6 change is separately classified/designed.
+Planned scope: generic workload state machine, universal classifiers, session optimizer actions, learned action reliability and post-session queue.
+
+Do not begin production yet. First inspect the current Guardian engine/supervisor/live-session/canary/knowledge/binding/presentation/host paths and classify which behavior already exists versus what must be generalized. Then propose the smallest additive bounded design. Because Track 6 introduces a new behavioral architecture boundary, explicit design approval is required before the first Track 6 TDD RED.
+
+Non-negotiable Track 6 constraints inherited from existing architecture:
+
+- Guardian does not own deep Auto Tuner exploration;
+- gameplay interventions require workload-appropriate `LIVE_SAFE` authority;
+- controlled evidence outranks passive observation;
+- Global Controlled Benchmark Lease/ownership prevents Guardian from contaminating controlled work;
+- interventions must be measurable and reversible or explicitly non-mutating;
+- missing telemetry/capability remains Unknown/absent;
+- stable workload identity remains distinct from transient process evidence;
+- UI presents state and requests; policy remains outside WPF.
 
 ## Track 7 — Hardware Performance Engine — PLANNED
 

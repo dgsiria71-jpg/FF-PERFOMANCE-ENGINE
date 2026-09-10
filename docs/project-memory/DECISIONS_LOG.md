@@ -191,6 +191,22 @@ TDD / verification:
 - Windows CI #1016 / run `34425901211` SUCCESS;
 - checkpoint `docs/project-memory/checkpoints/2026-09-09-track5-universal-winner-profile-projection.complete`.
 
+## Track 5 closure — closed 2026-09-10
+
+- Track 5 — Universal Auto Tuner + Profiles — is GREEN for the approved current canonical scope.
+- The approved scope is an additive universal foundation over the proven specialized BlueStacks/Free Fire Auto Tuner/Profile system; it does not claim a generic physical tuning runtime for every discovered game.
+- Universal candidate/search-space metadata never became evidence, validation, recommendation, winner, mutation or persistence authority.
+- `AutoTunerEngine`, typed measurement, `HistoryService`, `ProfileService` and `ProfileChallengeService` retain specialized authority.
+- Persisted Custom provenance can be re-proven after restart only against current capability and exact source/configuration/fingerprint/metrics; failure remains null without invalidating specialized history.
+- Persisted promoted-winner provenance requires the durable specialized promotion receipt, exact current winner, preserved Custom, measured revalidation and current Custom reproving; it never reconstructs `ProfileChallengeResult`.
+- AppServices composition is explicit/on-demand and adds no Track 5 discovery/provenance work to `InitializeAsync()`.
+- Profiles UI consumes only application/Core provenance results and remains hidden when current provenance is absent.
+- Future game-specific physical tuning adapters/runtimes, reversible renderer/graphics mutation, future non-BlueStacks persisted provenance and UI batching/polish are non-blocking expansions and do not reopen Track 5 by default.
+- Closing application authority: `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`; Windows CI #1034 / run `34502895182` SUCCESS.
+- Slice 13 documentary precursor: `6944e0221bce44159bfa894c270e75b095f8e575`; Windows CI #1035 / run `34503363082` SUCCESS.
+- Closure checkpoint: `docs/project-memory/checkpoints/2026-09-10-track5-universal-auto-tuner-profiles.complete`.
+- Track 6 — Adaptive Guardian 2.0 — becomes the next design boundary, but requires a separately approved bounded design before implementation.
+
 ## Graphics/runtime
 
 - Optimization layers: official config → external driver/API → compatible runtime → engine/game adapter.
