@@ -35,79 +35,75 @@ Macro architecture authority:
 Approved implementation order:
 
 1. **generic workload state machine** — GREEN;
-2. **universal classifiers** — IN PROGRESS;
-3. **session optimizer actions** — pending item 2;
+2. **universal classifiers** — GREEN for current capability-honest foundation;
+3. **session optimizer actions** — NEXT;
 4. **learned action reliability** — pending item 3;
 5. **post-session queue** — pending item 4.
 
-Approved Guardian classifier families remain CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
-
-Approved intervention model remains detect degradation → confirm anomaly → select state/workload-appropriate LIVE_SAFE candidate → micro-snapshot → canary → measure → KEEP/ROLLBACK. Inconclusive rolls back; cooldown and Action Budget prevent thrashing.
+Approved intervention model remains detect degradation → confirm anomaly → select state/workload-appropriate `LIVE_SAFE` candidate → micro-snapshot → canary → measure → KEEP/ROLLBACK. Inconclusive rolls back; cooldown and Action Budget prevent thrashing.
 
 ### Track 6 item 1 — Generic workload state machine — GREEN
 
-#### Slice 1 — Core lifecycle foundation — GREEN
+- lifecycle foundation application `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS;
+- observation bridge application `6bb501eab866ee1fb17c546a02b5016ef97cad58`, Windows CI #1041 / run `34525442625` SUCCESS;
+- documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS.
 
-- application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`;
-- Windows CI #1039 / run `34522642478` SUCCESS;
-- plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-state-machine.md`;
-- checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-state-machine.complete`.
+Item 1 provides stable workload identity, exact runtime target, trustworthy generic observation and conservative lifecycle state.
 
-#### Slice 2 — Generic workload observation bridge — GREEN
+### Track 6 item 2 — Universal classifiers — GREEN
 
-- application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`;
-- Windows CI #1041 / run `34525442625` SUCCESS;
-- documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS;
-- plan `docs/superpowers/plans/2026-09-10-track6-generic-workload-observation.md`;
-- checkpoint `docs/project-memory/checkpoints/2026-09-10-track6-generic-workload-observation.complete`.
+#### Slice 1 — Typed bottleneck classifier bridge
 
-Item 1 is complete for the current Core foundation: stable workload identity + exact runtime target + trustworthy generic observation + conservative lifecycle state.
-
-### Track 6 item 2 — Universal classifiers — IN PROGRESS
-
-#### Slice 1 — Typed bottleneck classifier bridge — GREEN
-
-- application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`;
+- application `c132ec22c1f38fbacaa43ce630098d44674b3565`;
 - Windows CI #1043 / run `34526941137` SUCCESS;
-- documentary checkpoint `32c3bdf28dfaedf78b89904e2cfe4a276c0909bd`, Windows CI #1044 / run `34527558404` SUCCESS;
 - plan `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`.
 
-Only `Active` + exact target + typed frame can enter causal analysis, which delegates to the existing Track 4 analyzer. Missing/incomplete evidence remains `Unknown`.
+#### Slice 2 — Guardian classifier taxonomy projection
 
-#### Slice 2 — Guardian classifier taxonomy projection — GREEN
-
-- application SHA `5fd88d86abb9b00c4fb846486b7bb06026986962`;
-- Windows CI **#1045 / run `34528667164` SUCCESS**;
-- artifact `FFPerformanceEngine-win-x64`, id `10172642667`, digest `sha256:c60a2f4f2d21450a3a0dc89593248bd48727e4112b9b15c900ecc9fdc22dcd19`;
+- application `5fd88d86abb9b00c4fb846486b7bb06026986962`;
+- Windows CI #1045 / run `34528667164` SUCCESS;
+- documentary checkpoint `72f4aba95c752fd694327190978affdbaab401de`, Windows CI #1046 / run `34529109781` SUCCESS;
 - plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`.
 
-Permanent taxonomy:
+Permanent taxonomy remains:
 
 `Unknown / CpuContention / GpuSaturation / MemoryPressure / VramPressure / FrameTimeInstability / BackgroundLoad / ThermalThrottling / NetworkInstability / RendererEngineStall / SchedulerImbalance / InputFrameLatencySpike`.
 
-Evidence-backed projection is deliberately narrow:
+Only already-proven analyzer causes are projected. Raw latency, total CPU or missing-render observations do not manufacture unsupported causal families.
 
-- `Cpu` → `CpuContention`;
-- `Gpu` → `GpuSaturation`;
-- `Memory` → `MemoryPressure`;
-- `Vram` → `VramPressure`;
-- `FramePacing` → `FrameTimeInstability`;
-- `Thermal` → `ThermalThrottling`;
-- `Network` → `NetworkInstability`.
+#### Slice 3 — Classifier support/availability contract
 
-`Unknown`, `None`, `StorageIo`, `Power` or future unmapped analyzer kinds project to Guardian `Unknown` while preserving raw analyzer details. Raw high latency does not produce `InputFrameLatencySpike`; high total CPU does not produce `BackgroundLoad`/`SchedulerImbalance`; absent render activity does not produce `RendererEngineStall`.
+- plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-support.md`;
+- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianClassifierSupportCatalog.cs`;
+- final application SHA `26b9a0dbad71a742a612426af6120f9b074fe092`;
+- Windows CI **#1049 / run `34530504651` SUCCESS**;
+- artifact `FFPerformanceEngine-win-x64`, id `10173386624`, digest `sha256:b358a64c9cc98170b9326db4218b2a7b5422038b0ee677e87e40ed56f2e38002`.
+
+Capability contract:
+
+- `Unknown` = `Fallback`, non-classifying and not proof of health;
+- `EvidenceBacked`: CpuContention, GpuSaturation, MemoryPressure, VramPressure, FrameTimeInstability, ThermalThrottling, NetworkInstability;
+- `UnavailableEvidence`: BackgroundLoad, RendererEngineStall, SchedulerImbalance, InputFrameLatencySpike;
+- every taxonomy value has exactly one immutable descriptor;
+- catalog is read-only and grants no classification/action/validation authority by itself.
 
 TDD verifier:
 
-- RED `cf03b7ceb13e0bbb9ac5f98d37ea697cf17917ce`, run `34528006765`: native SUCCESS, managed expected failure solely for absent taxonomy/Family, 35 errors, 0 warnings;
-- GREEN `dfb41c5d0770264de42bc31afd1f265d35835467`, run `34528375851`: native/managed/Core/App/publish SUCCESS;
-- temporary verifier workflow excluded from official integration.
+- RED `21317f8454ff152de9643341103e6701b4139ac4`, run `34529495018`: native SUCCESS, managed expected failure only for absent support contracts, 19 errors, 0 warnings;
+- GREEN `3b080a88828e5eae969c9f07ad2af45895909153`, run `34529941097`: native/managed/Core/App/publish SUCCESS;
+- temporary verifier workflow excluded from official cumulative diff.
 
-#### Next Slice inside item 2
+Item 2 is closed for the current capability-honest foundation. The four unavailable families are explicit future evidence gaps, not blockers that justify fabricated heuristics.
 
-Add a static/read-only **classifier support/availability contract** for every approved Guardian anomaly family. It must distinguish families currently backed by existing typed analyzer authority from families unavailable pending dedicated causal evidence. It must not convert “unsupported” into “healthy” and must not add new telemetry heuristics.
+### Track 6 item 3 — Session optimizer actions — NEXT
 
-After that Slice, evaluate whether item 2 can close for the current capability-honest foundation. Do not begin session optimizer actions before the item-2 closure gate.
+Start from existing Guardian action/canary seams. First prove a bounded **candidate eligibility/selection** contract before generic mutation:
+
+- consume proven workload state, anomaly family and classifier support authority;
+- allow only workload/state-compatible `LIVE_SAFE` candidates for live session consideration;
+- `Unknown`, `Fallback`, `UnavailableEvidence`, non-Active/untrusted state or missing exact workload authority must not produce an actionable candidate;
+- specialized BlueStacks/FF behavior remains canonical and untouched by the first generic Slice;
+- no mutation, canary execution, cooldown, Action Budget or learned reliability is granted until later Slices prove those boundaries.
 
 ### Track 6 non-negotiable constraints
 
