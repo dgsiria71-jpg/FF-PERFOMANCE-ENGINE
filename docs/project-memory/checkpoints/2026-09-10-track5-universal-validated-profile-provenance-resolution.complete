@@ -1,0 +1,60 @@
+# Track 5 — Universal validated-profile provenance resolution — COMPLETE
+
+Date: 2026-09-10
+
+## Verified application checkpoint
+
+- Branch: `build/initial-product`
+- Application SHA: `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`
+- Commit: `feat: resolve current universal provenance for persisted Custom profiles`
+- Windows CI: #1024 / run `34438271260` — SUCCESS
+- Full gate: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
+
+## Scope
+
+Added the read-only `UniversalValidatedProfileProvenanceService` so application code can re-prove universal provenance for an already persisted specialized `Custom + Validated` profile after load/restart.
+
+The service returns the existing `UniversalValidatedProfileProjection` or `null`; it adds no persisted generic profile schema and grants no validation, winner, recommendation, mutation or persistence authority.
+
+## Proven rules
+
+- Exactly one persisted requested profile and exactly one matching source History record are required.
+- Profile must remain `Custom + Validated`, FF/FFMAX, source-linked and bound to the exact current BlueStacks instance name.
+- Stored candidate configuration must rehydrate and its environment must remain structurally compatible with the current environment.
+- Current environment must contain exactly one matching instance.
+- Candidate-space is rebuilt from the current environment, instance and current allow-listed BlueStacks settings through the existing Slice 3 bridge.
+- Every existing `AutoTunerMode` is considered; no original mode is inferred because mode is not persisted as profile provenance.
+- Successful mode paths are re-proved through the existing Slice 5 and Slice 6 bridges.
+- Equivalent Adaptive/Deep overlap is accepted only when profile id, source record id, stable GameId, legacy game kind, AdapterId and universal candidate values are semantically identical.
+- Divergent successful projections fail closed; no mode is chosen arbitrarily.
+- Missing current allow-list, wrong instance, renderer/candidate drift, wrong source id, Observed profile and generated winner role return no universal projection.
+
+## Historical vs current authority
+
+The persisted specialized configuration/environment proves the historical specialized origin. The current `PerformanceUniversalConfigurationContext` does not currently persist BlueStacks allow-list state (`WorkloadConfiguration` is empty), so this service does not claim to reconstruct the exact historical candidate-space.
+
+It performs a current reproving: if the present installation can still express the same candidate, universal provenance can be exposed. If current capability is missing, the specialized validated profile remains valid while current universal projection is unavailable.
+
+Promoted/generated winners remain outside this resolver. Slice 7 requires the exact specialized `ProfileChallengeResult`; this Slice does not recreate that object from History JSON merely for application/UI convenience.
+
+## TDD evidence
+
+- verifier branch: `ci/track5-universal-profile-provenance-resolution-verify`
+- temporary verifier workflow commit: `23933be645374156a1ffc71cc46124c149c63df2`
+- test contract commit: `569036d81cfca214820324bb01c1cd59ce053522`
+- test registration / clean RED SHA: `73bc232531b22e541664eb89db4bc568ffa869a3`
+- clean RED verifier #3 / run `34438037547`: failed only with `CS0246` because `UniversalValidatedProfileProvenanceService` did not exist
+- minimal production GREEN SHA: `e510ed20ed802c9f5584f727339a50e697a7e135`
+- GREEN verifier #4 / run `34438142785`: Core + App + WPF SUCCESS
+- selective integration excluded temporary verifier workflow
+- exact official application SHA `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`: Windows CI #1024 / run `34438271260` SUCCESS
+
+Official integration changed exactly three permanent files:
+
+- `src/FFPerformanceEngine.Core/Services/UniversalValidatedProfileProvenanceService.cs`
+- `tests/FFPerformanceEngine.Core.SelfTest/UniversalValidatedProfileProvenanceServiceSelfTests.cs`
+- `tests/FFPerformanceEngine.Core.SelfTest/Program.cs`
+
+## Next
+
+Compose this policy through `AppServices` on demand using existing `AutoTuner`, `GameAdapters`, `Profiles`, `History`, current environment, exact instance and `BlueStacks.CaptureAllowedSettings(instanceName)`. Do not add implicit startup work. TDD App-level RED first, then GREEN → selective integration → exact Windows CI → memory sync → documentary CI before WPF presentation.

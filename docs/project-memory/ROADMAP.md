@@ -12,17 +12,15 @@ Universal MachineContext, Hardware Discovery, Capability Registry/Graph, Environ
 
 ## Track 2 — System Optimizer — GREEN through current branch
 
-Real Windows power/boost/core-parking capability adapters, runtime discovery, atomic transactions, exact restore/History, Analyze → Preview → Revalidate → Apply → Verify → History → Restore, controlled A/B, Cost Maps, PendingValidation, fresh validation and durable ValidatedEvidence. `Observed != Validated`, fingerprint/freshness and rollback remain strict.
+Real Windows power/boost/core-parking capability adapters, runtime discovery, atomic transactions, exact restore/History, controlled A/B, Cost Maps, PendingValidation, fresh validation and durable ValidatedEvidence. `Observed != Validated`, fingerprint/freshness and rollback remain strict.
 
 ## Track 3 — Game Discovery + Adapter Framework — GREEN
 
-Stable GameIdentity/catalog; generic + FF/FFMAX adapters; BlueStacks packages; Steam, Epic, Riot, Battle.net, EA App, Ubisoft Connect and Microsoft Store/Xbox GDK; durable identity vs transient evidence; deterministic binding; RunningProcess/App Paths evidence; exact workload target resolver.
+Stable GameIdentity/catalog; generic + FF/FFMAX adapters; BlueStacks packages; major launcher discovery; durable identity vs transient evidence; deterministic binding; exact workload target resolver.
 
 ## Track 4 — Universal Telemetry / Evidence — GREEN
 
-Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 / run `34407420906` SUCCESS.
-
-GREEN scope includes typed metric schema/quality/coverage/provenance/origin, immutable `TelemetryFrame`, conservative legacy bridge, native CPU/memory, PresentMon direct v2, accepted-frame count, processor-power clocks, WDDM GPU, bounded aggregation, typed diagnostics, typed Performance A/B/History, Guardian-bound controlled benchmark evidence, explicit selected-workload capture routing and fail-closed unavailable/ambiguous targeting. Unsupported VRAM/thermal/I/O/network remains Unknown until real providers exist.
+Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #993 / run `34407420906` SUCCESS. Typed telemetry/evidence, direct PresentMon, CPU/memory/power/WDDM GPU, bounded aggregation, diagnostics and explicit selected-workload capture routing remain proven. Unsupported channels stay Unknown.
 
 ## Track 5 — Universal Auto Tuner + Profiles — ACTIVE
 
@@ -56,7 +54,11 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 
 `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`, Windows CI #1022 / run `34436368817` SUCCESS.
 
-The new read-only projection runs only **after** specialized promotion authority. It retains exact specialized result/promoted winner/revalidation round plus the already-proven Custom challenger universal candidate and stable workload identity. It re-proves upstream provenance and exact specialized configuration/environment/revalidation metrics. Challenge-round `UniversalContext` remains absent and is not fabricated. Specialized challenge/freshness/evaluator/persistence logic is unchanged.
+### Slice 8 — Current persisted-Custom universal provenance resolution — GREEN
+
+`aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, Windows CI #1024 / run `34438271260` SUCCESS.
+
+`UniversalValidatedProfileProvenanceService` reloads the real persisted `Custom + Validated` profile and its exact source History record, then re-proves it against the **current** BlueStacks candidate-space/allow-list. `Adaptive` and `Deep` overlap is accepted only when both describe the same semantic universal provenance; the original mode is never invented. Missing current capability/drift returns no universal projection without invalidating specialized historical authority. Promoted winner reconstruction remains outside this resolver.
 
 ### Immediate sequence
 
@@ -68,13 +70,16 @@ The new read-only projection runs only **after** specialized promotion authority
 6. Universal projection of already-authorized validated History ✅
 7. Universal provenance for the real specialized Custom Validated profile origin ✅
 8. Challenge/promotion provenance after already-authorized specialized verdict ✅
-9. **Application/presentation consumption seam** ← NEXT
-   - inspect `AppServices.cs`, `ProfilesPage.xaml(.cs)` and App self-tests;
-   - expose stable GameId/AdapterId/exact candidate provenance only from already-proven Core projections;
-   - keep WPF presentation-only; no identity inference, validation, winner logic or universal persistence in UI;
-   - no generic persisted profile schema for convenience;
-   - fail closed to no universal provenance when exact application correlation is unavailable.
-10. UI refinement only after the application-owned policy/composition seam is GREEN.
+9. Current persisted-Custom provenance reproving for application consumption ✅
+10. **AppServices composition seam** ← NEXT
+   - compose shared candidate bridge + persisted-Custom provenance resolver from existing services;
+   - expose one on-demand AppServices method that captures current environment/instance/allow-list and delegates to the proven Core service;
+   - construction/`InitializeAsync()` must not resolve provenance, generate candidates or trigger game discovery implicitly;
+   - missing/ambiguous instance or missing current capability fails closed;
+   - no original AutoTuner mode, validation, winner or persistence inference.
+11. **Profiles presentation** after AppServices composition is GREEN
+   - presentation-only stable GameId/AdapterId/exact candidate values;
+   - no generic persisted profile schema and no WPF-owned authority.
 
 Every independent slice remains:
 
@@ -109,26 +114,4 @@ Analyze, Games, Cleaner and System Optimize surfaces plus the already-approved H
 
 ## Expanded master architecture — approved future domains
 
-Exact raw historical Track 11–19 numbering is not currently authoritative and must not be invented. Preserve these approved future domains until the original source is recovered:
-
-- Memory & Working Set Engine
-- Storage / I/O Engine
-- GPU / VRAM Engine
-- WDDM / Display Engine
-- Network / Latency Engine
-- Input Responsiveness Engine
-- Process / Services / Tasks Director
-- Resource Director
-- Privileged Broker
-- crash/reboot recovery
-- Capability Registry/Graph + ownership/leases
-- DG Graphics Runtime Engine
-- Scene Complexity / Load Classifier
-- native low-overhead HUD
-- Low-End Recovery
-- Adaptive Performance Governor
-- Scene-Aware Performance Cost Model
-- controlled + passive + live micro-A/B learning
-- Data Architecture v2
-- update/adapter lifecycle
-- hardware-in-the-loop testing
+Exact raw historical Track 11–19 numbering is not currently authoritative and must not be invented. Preserve approved future domains: Memory/Working Set, Storage/I/O, GPU/VRAM, WDDM/Display, Network/Latency, Input Responsiveness, Process/Services/Tasks Director, Resource Director, Privileged Broker, crash/reboot recovery, Capability Registry/Graph + ownership/leases, DG Graphics Runtime, Scene Complexity, native low-overhead HUD, Low-End Recovery, Adaptive Performance Governor, Scene-Aware Cost Model, controlled/passive/live micro-A/B learning, Data Architecture v2, update/adapter lifecycle and hardware-in-the-loop testing.
