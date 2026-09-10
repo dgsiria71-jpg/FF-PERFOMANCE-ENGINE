@@ -44,6 +44,13 @@ public static class BlueStacksUniversalTuningResultBridge
 
         if (candidateSpace.Identity.LegacyGameKind != result.Game)
             throw new InvalidOperationException("The specialized tuning result targets a different workload than the universal candidate space.");
+        if (string.IsNullOrWhiteSpace(candidateSpace.AdapterId)
+            || string.IsNullOrWhiteSpace(candidateSpace.Identity.AdapterId)
+            || !string.Equals(
+                candidateSpace.AdapterId.Trim(),
+                candidateSpace.Identity.AdapterId.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The universal candidate space adapter authority does not match its stable GameIdentity adapter authority.");
 
         var evidence = result.Evidence
             .Select(item =>
@@ -78,7 +85,7 @@ public static class BlueStacksUniversalTuningResultBridge
         return new UniversalTuningResultProjection
         {
             Identity = candidateSpace.Identity,
-            AdapterId = candidateSpace.AdapterId,
+            AdapterId = candidateSpace.AdapterId.Trim(),
             SpecializedResult = result,
             Evidence = Array.AsReadOnly(evidence),
             Winners = Array.AsReadOnly(winners)
