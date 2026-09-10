@@ -8,6 +8,7 @@ internal static class UniversalTuningResultProjectionSelfTests
     {
         ProjectsExistingEvidenceAndFiveWinnerRolesOneToOne();
         RejectsCrossWorkloadResultProjection();
+        RejectsAdapterAuthorityMismatch();
 
         Console.WriteLine("PASS Track 5 universal tuning result/profile projection preserves specialized authority");
     }
@@ -140,6 +141,41 @@ internal static class UniversalTuningResultProjectionSelfTests
         RequireThrows<InvalidOperationException>(
             () => BlueStacksUniversalTuningResultBridge.Project(wrongWorkloadResult, candidateSpace),
             "A Free Fire MAX result must not be projected onto a Free Fire candidate space even when specialized candidate values happen to match.");
+    }
+
+    private static void RejectsAdapterAuthorityMismatch()
+    {
+        var environment = new EnvironmentSnapshot
+        {
+            LogicalProcessors = 8,
+            MemoryTotalGb = 16
+        };
+        var instance = new BlueStacksInstance
+        {
+            Name = "Pie64",
+            CpuCores = 4,
+            RamMb = 4096,
+            Renderer = "Vulkan",
+            Fps = 90,
+            Resolution = "1920x1080"
+        };
+        var engine = new AutoTunerEngine();
+        var candidateSpace = new BlueStacksUniversalTuningCandidateBridge(engine, CreateResolver()).Build(
+            environment,
+            instance,
+            GameKind.FreeFire,
+            AutoTunerMode.Deep,
+            FullCapturedSettings(instance.Name));
+        Require(candidateSpace.Bindings.Count >= 3,
+            "Adapter mismatch fixture requires at least three exact bindings.");
+
+        var evidence = CreateValidatedEvidence(candidateSpace.Bindings.Take(3).ToArray());
+        var result = engine.SelectWinners(GameKind.FreeFire, AutoTunerMode.Deep, evidence);
+        var tamperedSpace = candidateSpace with { AdapterId = "tampered-adapter" };
+
+        RequireThrows<InvalidOperationException>(
+            () => BlueStacksUniversalTuningResultBridge.Project(result, tamperedSpace),
+            "Universal result projection must reject a candidate space whose adapter authority no longer matches the stable GameIdentity adapter authority.");
     }
 
     private static GameAdapterResolver CreateResolver()
