@@ -73,9 +73,9 @@ Canonical scope:
 - generic search-space abstractions;
 - global/system profile dimensions;
 - game-specific candidate dimensions;
-- automatic **validated** winner promotion;
-- revalidation rules;
-- reuse Track 4 typed evidence authority.
+- evidence-backed universal output correlation;
+- automatic **validated** winner promotion and revalidation;
+- reuse Track 4 typed evidence authority without weakening it.
 
 ### Slice 1 — Generic search-space + Windows system dimension bridge — GREEN
 
@@ -87,7 +87,7 @@ Windows CI #1000 / run 34411645032 — SUCCESS
 
 Checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-universal-search-space.complete`.
 
-Implemented neutral System/Workload dimensions, neutral candidates, deterministic bounded Cartesian planning, fail-closed declaration validation and a Windows system bridge that reuses Track 2 `WindowsCapabilityCandidatePlan` and accepts only `CanExplore == true`.
+Implemented neutral System/Workload dimensions, neutral candidates, deterministic bounded planning and a Windows system bridge from Track 2 `CanExplore == true` plans.
 
 Closed boundary: **search/support space is exploration only; it is not recommendation or validated winner authority.**
 
@@ -101,13 +101,11 @@ Windows CI #1007 / run 34416726382 — SUCCESS
 
 Checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-game-adapter-tuning-dimensions.complete`.
 
-Implemented optional adapter-owned workload tuning declarations, resolved-adapter authority, reversible lifecycle gating, deterministic namespaced dimensions and direct System + Workload composition through the existing universal planner. Generic/unregistered/no-provider cases remain empty and no static BlueStacks option catalog was invented.
+Implemented optional adapter-owned workload tuning declarations, resolved-adapter authority, reversible lifecycle gating and deterministic namespaced dimensions. Generic/unregistered/no-provider cases remain empty; no static BlueStacks option catalog was invented.
 
 Closed boundary: **adapter declaration proves only explorable support. It grants no evidence, confidence, mutation permission, persistence permission, winner role or recommendation authority.**
 
 ### Slice 3 — Dynamic BlueStacks/FF universal candidate bridge — GREEN
-
-Verified application checkpoint:
 
 ```text
 HEAD 39246089fb28f510287e79639356a4e16d1b6b02
@@ -117,31 +115,49 @@ Windows CI #1014 / run 34422254555 — SUCCESS
 
 Checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-bluestacks-universal-candidate-bridge.complete`.
 
+Implemented exact one-to-one `UniversalTuningCandidate` ↔ specialized `TuningCandidate` bindings while preserving the existing dynamic generator, order/bounds and installed-build applicability. Descriptive dimension marginals are not Cartesian-expanded. Captured renderer drift fails closed because current renderer mutation remains unverified.
+
+Closed boundary: **exact candidate binding proves correlation/applicability only. It does not prove that the candidate is beneficial, measured, validated, a winner or safe to persist.**
+
+### Slice 4 — Evidence-backed universal winner/result projection — GREEN
+
+Verified application checkpoint:
+
+```text
+HEAD f24c8c25612182db3c12351185fa54be227a8252
+feat: project Track 5 tuning results into universal context
+Windows CI #1016 / run 34425901211 — SUCCESS
+```
+
+Checkpoint: `docs/project-memory/checkpoints/2026-09-09-track5-universal-winner-profile-projection.complete`.
+
 Implemented:
 
-- exact one-to-one `UniversalTuningCandidate` ↔ specialized `TuningCandidate` binding ✅
-- stable workload identity via `LegacyGameIdentityBridge` + exact resolved BlueStacks FF/FF MAX adapter ✅
-- existing `AutoTunerEngine.GenerateCandidates(...)` remains the only dynamic generator ✅
-- existing Adaptive/Deep bounds and surviving order preserved ✅
-- existing `BlueStacksAutoTunerRuntime.BuildCandidatePlan(...)` remains applicability authority ✅
-- captured allow-listed installed instance state is required ✅
-- generated-but-unrepresentable candidates filtered, never repaired/invented ✅
-- five workload dimension marginals projected under resolved adapter authority ✅
-- dimension marginals are descriptive only; they must not be Cartesian-expanded to manufacture candidates absent from the specialized generator ✅
-- captured renderer drift fails closed when current runtime cannot mutate renderer safely ✅
-- no renderer mutation added ✅
-- existing runtime/session/five winner roles/Profile Challenge path unchanged ✅
-- no new evidence/recommendation/persistence authority ✅
+- pure/read-only universal result projection over the existing `TuningResult` ✅
+- exact existing `CandidateEvidence` retained with exact Slice 3 universal candidate binding ✅
+- exact existing `PerformanceProfile` winner retained with exact source evidence + universal candidate binding ✅
+- stable `GameIdentity` and exact adapter authority carried from Slice 3 ✅
+- cross-workload mismatch fails closed ✅
+- blank/tampered adapter authority fails closed ✅
+- missing/ambiguous evidence binding fails closed ✅
+- winner without exactly one source evidence/binding fails closed ✅
+- `EvidenceLevel` never upgraded; `Observed` remains `Observed` ✅
+- Observed-only result cannot acquire a winner from universal metadata ✅
+- five specialized winner roles/order preserved ✅
+- no new profile schema, scoring, validation, persistence or mutation authority ✅
 
 TDD evidence:
 
-- initial RED: run `34417641306`;
-- Task 1 GREEN: verifier #4 / run `34417996142` on `e434f8e2a83f466408d91ab6e90a980b9de3d7e7`;
-- Task 2 RED: verifier #5 / run `34418189031` on `888cd58d59fe845304e428a79653989499d39c64`;
-- final GREEN: verifier #6 / run `34418407183` on `07180bd58fc5ff0b01ef3b9038056fe2693d30bb`;
-- official integration: `39246089fb28f510287e79639356a4e16d1b6b02`, Windows CI #1014 SUCCESS.
+- initial RED: verifier #1 / run `34423384376`, SHA `726ba12f6e185a5a333ea66d7e86edb098577614`;
+- Task 1 GREEN: verifier #2 / run `34423487642`, SHA `f9250eab9c18e998b9586a937e865fde7a494067`;
+- cross-workload RED: verifier #3 / run `34423652214`, SHA `644dec7a627f3309b33e3b41a6d9796c96647fc1`;
+- cross-workload GREEN: verifier #4 / run `34423775408`, SHA `2f19ba53d74651c1326aa3fbc9b299994d365f8b`;
+- adapter-authority RED: verifier #5 / run `34425347150`, SHA `07c28539e0c3a1ed1d0b555c524bb1c804ca5940`;
+- adapter-authority GREEN: verifier #6 / run `34425467591`, SHA `383f12477c83910de17dac2e260140abc98543ac`;
+- final regression GREEN: verifier #7 / run `34425669336`, SHA `53ee4ee732d044c92960434368631e912b386390`;
+- official integration: `f24c8c25612182db3c12351185fa54be227a8252`, Windows CI #1016 SUCCESS.
 
-Closed boundary: **exact candidate binding proves correlation/applicability only. It does not prove that the candidate is beneficial, measured, validated, a winner or safe to persist.**
+Closed boundary: **universal result/winner projection is correlation and provenance only. It cannot manufacture evidence, validation, winners, recommendation authority, mutation authority or persistence permission.**
 
 ### Immediate sequence
 
@@ -149,14 +165,15 @@ Closed boundary: **exact candidate binding proves correlation/applicability only
 2. Compose system/universal dimensions from proven Windows capability candidate plans ✅
 3. Capability-honest workload/game-adapter declaration + composition ✅
 4. Dynamic BlueStacks/FF specialized candidate → exact universal binding bridge ✅
-5. **Generalize evidence-backed winner/profile outputs while preserving existing BlueStacks/FF five-role and Custom Validated authority** ← NEXT
-   - inspect `CandidateEvidence`, `TuningResult`, `PerformanceProfile`, `AutoTunerEngine.SelectWinners(...)` and session persistence;
+5. Evidence-backed universal result/winner correlation while preserving specialized five-role authority ✅
+6. **Inspect and generalize the revalidation/validated-promotion boundary without allowing universal metadata to satisfy evidence/freshness gates** ← NEXT
+   - inspect `AutoTunerSessionService`, profile persistence, `PerformanceComparisonHistoryRecord.CanOriginateProfile`, Profile Challenge round/progress/promotion/freshness and winner replacement;
    - preserve direct typed PresentMon/repeatability authority;
-   - add stable workload identity + exact universal candidate/config correlation only through an additive neutral seam;
-   - do not promote search/binding metadata to evidence;
-   - preserve Recommended, Maximum FPS, Lowest Latency, Stability and Quality exactly for the specialized compatibility path;
-   - preserve Custom Validated challenge, incumbent freshness and validation gates.
-6. Revalidation and automatic promotion must retain typed measured evidence, repeatability, freshness/fingerprint and existing validation gates.
+   - retain stable GameId + exact universal candidate provenance only as additive context;
+   - preserve fingerprint/freshness and current explicit validation gates;
+   - preserve Recommended, Maximum FPS, Lowest Latency, Stability and Quality exactly for the BlueStacks/FF compatibility path;
+   - preserve Custom Validated challenge and incumbent freshness;
+   - do not create a generic persisted profile schema unless a RED test proves it necessary.
 7. Integrate with UI only after Core/application policy is proven.
 
 Every independent slice remains:
