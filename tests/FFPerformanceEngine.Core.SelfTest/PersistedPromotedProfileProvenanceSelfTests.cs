@@ -299,39 +299,49 @@ internal static class PersistedPromotedProfileProvenanceSelfTests
         double latencyMs,
         DateTimeOffset start,
         PerformanceUniversalConfigurationContext? universalContext = null)
-        => PerformanceEvidenceSnapshot.Capture(
-            name,
-            new PerformanceIntervalSummary
-            {
-                Start = start,
-                End = start.AddSeconds(1),
-                TelemetrySamples = 2,
-                FpsEvidenceSamples = 2,
-                AverageFps = fps,
-                AverageFrameTimeMs = frameTimeMs,
-                Points =
-                [
-                    new PerformanceTimelinePoint
-                    {
-                        Timestamp = start,
-                        Fps = fps,
-                        FrameTimeMs = frameTimeMs,
-                        LatencyMs = latencyMs,
-                        DataQuality = "Measured"
-                    },
-                    new PerformanceTimelinePoint
-                    {
-                        Timestamp = start.AddSeconds(1),
-                        Fps = fps,
-                        FrameTimeMs = frameTimeMs,
-                        LatencyMs = latencyMs,
-                        DataQuality = "Measured"
-                    }
-                ]
-            },
-            start.AddSeconds(2),
-            configuration,
-            universalContext);
+    {
+        var interval = new PerformanceIntervalSummary
+        {
+            Start = start,
+            End = start.AddSeconds(1),
+            TelemetrySamples = 2,
+            FpsEvidenceSamples = 2,
+            AverageFps = fps,
+            AverageFrameTimeMs = frameTimeMs,
+            Points =
+            [
+                new PerformanceTimelinePoint
+                {
+                    Timestamp = start,
+                    Fps = fps,
+                    FrameTimeMs = frameTimeMs,
+                    LatencyMs = latencyMs,
+                    DataQuality = "Measured"
+                },
+                new PerformanceTimelinePoint
+                {
+                    Timestamp = start.AddSeconds(1),
+                    Fps = fps,
+                    FrameTimeMs = frameTimeMs,
+                    LatencyMs = latencyMs,
+                    DataQuality = "Measured"
+                }
+            ]
+        };
+
+        return universalContext is null
+            ? PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                start.AddSeconds(2),
+                configuration)
+            : PerformanceEvidenceSnapshot.Capture(
+                name,
+                interval,
+                start.AddSeconds(2),
+                configuration,
+                universalContext);
+    }
 
     private sealed record Fixture(
         string ProfilesPath,
