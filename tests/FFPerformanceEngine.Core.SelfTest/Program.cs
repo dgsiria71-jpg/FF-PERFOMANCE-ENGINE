@@ -108,6 +108,7 @@ try
     GuardianPresentationSelfTests.Run();
     GenericGuardianWorkloadStateMachineSelfTests.Run();
     await GenericGuardianWorkloadObservationSelfTests.RunAsync();
+    GenericGuardianBottleneckClassifierSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
