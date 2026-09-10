@@ -159,6 +159,7 @@ try
     BlueStacksUniversalTuningCandidateBridgeSelfTests.Run();
     UniversalTuningResultProjectionSelfTests.Run();
     UniversalValidatedPerformanceProjectionSelfTests.Run();
+    await UniversalValidatedProfileProjectionSelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
