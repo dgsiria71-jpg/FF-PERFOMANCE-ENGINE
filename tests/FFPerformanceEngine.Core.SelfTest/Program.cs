@@ -110,6 +110,7 @@ try
     await GenericGuardianWorkloadObservationSelfTests.RunAsync();
     GenericGuardianBottleneckClassifierSelfTests.Run();
     GenericGuardianClassifierTaxonomySelfTests.Run();
+    GenericGuardianClassifierSupportSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
