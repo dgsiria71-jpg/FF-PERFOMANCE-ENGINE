@@ -70,6 +70,44 @@ Require(visibleProvenance.IsVisible
         && visibleProvenance.CandidateLines.SequenceEqual(expectedCandidateLines, StringComparer.Ordinal),
     "Profiles presentation must copy the already-proven GameId, AdapterId and exact universal candidate key/value pairs deterministically without renaming or inferring them.");
 
+var promotedProfile = new PerformanceProfile
+{
+    Name = "Recomendado promovido",
+    Kind = ProfileKind.Recommended,
+    Game = GameKind.FreeFire,
+    InstanceName = "Pie64",
+    Evidence = EvidenceLevel.Validated,
+    SourceComparisonId = Guid.NewGuid(),
+    EnvironmentFingerprint = "promoted-profiles-presentation-fixture"
+};
+var promotedProjection = new UniversalPersistedPromotedProfileProjection
+{
+    PromotedProfile = promotedProfile,
+    PromotionReceipt = null!,
+    ChallengerProfile = profileProjection,
+    RevalidationRound = null!,
+    UniversalCandidate = profileCandidate,
+    Identity = profileIdentity,
+    AdapterId = profileIdentity.AdapterId
+};
+var hiddenPromotedProvenance = UniversalPromotedProfileProvenancePresentation.FromProjection(null);
+Require(!hiddenPromotedProvenance.IsVisible
+        && hiddenPromotedProvenance.ProfileId == Guid.Empty
+        && hiddenPromotedProvenance.ProfileName.Length == 0
+        && hiddenPromotedProvenance.GameId.Length == 0
+        && hiddenPromotedProvenance.AdapterId.Length == 0
+        && hiddenPromotedProvenance.CandidateLines.Count == 0,
+    "Promoted-winner presentation must remain hidden and empty when AppServices supplies no durable current universal provenance.");
+var visiblePromotedProvenance = UniversalPromotedProfileProvenancePresentation.FromProjection(promotedProjection);
+Require(visiblePromotedProvenance.IsVisible
+        && visiblePromotedProvenance.ProfileId == promotedProfile.Id
+        && string.Equals(visiblePromotedProvenance.ProfileName, promotedProfile.Name, StringComparison.Ordinal)
+        && visiblePromotedProvenance.ProfileKind == promotedProfile.Kind
+        && string.Equals(visiblePromotedProvenance.GameId, profileIdentity.GameId, StringComparison.Ordinal)
+        && string.Equals(visiblePromotedProvenance.AdapterId, profileIdentity.AdapterId, StringComparison.Ordinal)
+        && visiblePromotedProvenance.CandidateLines.SequenceEqual(expectedCandidateLines, StringComparer.Ordinal),
+    "Promoted-winner presentation must copy only the already-proven winner identity, stable GameId, AdapterId and exact universal candidate values without reconstructing receipt/revalidation/challenge authority.");
+
 Require(services.PerformanceWorkloadContext.SelectedGameId is null,
     "AppServices construction must not discover or select a performance workload implicitly.");
 var initialTarget = services.ResolveSelectedPerformanceCaptureTarget();
