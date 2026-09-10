@@ -158,6 +158,7 @@ try
     GameAdapterTuningDimensionSelfTests.Run();
     BlueStacksUniversalTuningCandidateBridgeSelfTests.Run();
     UniversalTuningResultProjectionSelfTests.Run();
+    UniversalValidatedPerformanceProjectionSelfTests.Run();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
