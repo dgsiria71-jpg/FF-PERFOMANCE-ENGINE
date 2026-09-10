@@ -1,0 +1,26 @@
+name: Track 5 Universal Profile Provenance Resolution Verifier
+
+on:
+  push:
+    branches: [ ci/track5-universal-profile-provenance-resolution-verify ]
+
+concurrency:
+  group: track5-universal-profile-provenance-resolution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run Core self-tests
+        timeout-minutes: 3
+        run: dotnet run --project tests/FFPerformanceEngine.Core.SelfTest/FFPerformanceEngine.Core.SelfTest.csproj -c Release
+      - name: Run WPF application self-tests
+        timeout-minutes: 3
+        run: dotnet run --project tests/FFPerformanceEngine.App.SelfTest/FFPerformanceEngine.App.SelfTest.csproj -c Release
+      - name: Build WPF application composition
+        run: dotnet build src/FFPerformanceEngine.App/FFPerformanceEngine.App.csproj -c Release
