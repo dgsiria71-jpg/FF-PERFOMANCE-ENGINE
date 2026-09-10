@@ -3,11 +3,40 @@ using FFPerformanceEngine.Core.Telemetry;
 
 namespace FFPerformanceEngine.Core.Services;
 
+public enum GuardianAnomalyKind
+{
+    Unknown,
+    CpuContention,
+    GpuSaturation,
+    MemoryPressure,
+    VramPressure,
+    FrameTimeInstability,
+    BackgroundLoad,
+    ThermalThrottling,
+    NetworkInstability,
+    RendererEngineStall,
+    SchedulerImbalance,
+    InputFrameLatencySpike
+}
+
 public sealed record GenericGuardianBottleneckClassification
 {
     public required GenericGuardianWorkloadObservation Observation { get; init; }
     public required BottleneckAnalysisResult Analysis { get; init; }
     public string Reason { get; init; } = string.Empty;
+
+    public GuardianAnomalyKind Family
+        => Analysis.Primary switch
+        {
+            BottleneckKind.Cpu => GuardianAnomalyKind.CpuContention,
+            BottleneckKind.Gpu => GuardianAnomalyKind.GpuSaturation,
+            BottleneckKind.Memory => GuardianAnomalyKind.MemoryPressure,
+            BottleneckKind.Vram => GuardianAnomalyKind.VramPressure,
+            BottleneckKind.FramePacing => GuardianAnomalyKind.FrameTimeInstability,
+            BottleneckKind.Thermal => GuardianAnomalyKind.ThermalThrottling,
+            BottleneckKind.Network => GuardianAnomalyKind.NetworkInstability,
+            _ => GuardianAnomalyKind.Unknown
+        };
 }
 
 /// <summary>
