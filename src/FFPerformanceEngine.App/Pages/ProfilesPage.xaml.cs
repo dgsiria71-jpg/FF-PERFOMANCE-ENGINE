@@ -14,6 +14,7 @@ public partial class ProfilesPage : UserControl
     private ProfileChallengeProgress? _challengeProgress;
     private bool _challengeRunning;
     private int _challengeProgressRevision;
+    private int _universalProvenanceRevision;
 
     public ProfilesPage()
     {
@@ -49,6 +50,7 @@ public partial class ProfilesPage : UserControl
             ? custom.FirstOrDefault(profile => profile.Id == id) ?? custom.FirstOrDefault()
             : custom.FirstOrDefault();
         RefreshChallengeRoles();
+        await RefreshSelectedUniversalProvenanceAsync();
         await RefreshChallengeProgressAsync();
     }
 
@@ -93,8 +95,48 @@ public partial class ProfilesPage : UserControl
 
     private async void ChallengeSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender == ChallengeProfileComboBox) RefreshChallengeRoles();
+        if (sender == ChallengeProfileComboBox)
+        {
+            RefreshChallengeRoles();
+            await RefreshSelectedUniversalProvenanceAsync();
+        }
         await RefreshChallengeProgressAsync();
+    }
+
+    private async Task RefreshSelectedUniversalProvenanceAsync()
+    {
+        var revision = ++_universalProvenanceRevision;
+        ApplyUniversalProvenancePresentation(
+            UniversalProfileProvenancePresentation.FromProjection(null));
+
+        if (ChallengeProfileComboBox.SelectedItem is not PerformanceProfile selectedCustom)
+            return;
+
+        var projection = await App.Services
+            .ResolveCurrentUniversalValidatedProfileProvenanceAsync(selectedCustom.Id);
+        if (revision != _universalProvenanceRevision) return;
+
+        ApplyUniversalProvenancePresentation(
+            UniversalProfileProvenancePresentation.FromProjection(projection));
+    }
+
+    private void ApplyUniversalProvenancePresentation(
+        UniversalProfileProvenancePresentation presentation)
+    {
+        UniversalProvenanceCard.Visibility = presentation.IsVisible
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!presentation.IsVisible)
+        {
+            UniversalProvenanceIdentityText.Text = string.Empty;
+            UniversalProvenanceCandidateText.Text = string.Empty;
+            return;
+        }
+
+        UniversalProvenanceIdentityText.Text =
+            $"GameId {presentation.GameId} · Adapter {presentation.AdapterId}";
+        UniversalProvenanceCandidateText.Text = string.Join("\n", presentation.CandidateLines);
     }
 
     private void RefreshChallengeRoles()
@@ -103,6 +145,8 @@ public partial class ProfilesPage : UserControl
         var selectedCustom = ChallengeProfileComboBox.SelectedItem as PerformanceProfile;
         if (selectedCustom is null)
         {
+            ApplyUniversalProvenancePresentation(
+                UniversalProfileProvenancePresentation.FromProjection(null));
             ChallengeRoleComboBox.ItemsSource = Array.Empty<ChallengeRoleOption>();
             ChallengeRoleComboBox.SelectedItem = null;
             ChallengeRoundsText.Text = "0/2 rodadas elegíveis";
