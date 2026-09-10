@@ -73,8 +73,9 @@ internal static class GenericGuardianWorkloadObservationSelfTests
         Require(second.State.State == GuardianWorkloadState.Ready
                 && !second.Signals.IsForeground
                 && !second.Signals.HasRecentInput
-                && second.Signals.HasRenderActivity,
-            "Global recent input must not be attributed to a background workload PID.");
+                && second.Signals.HasRenderActivity
+                && ReferenceEquals(second.Frame, frame),
+            "Global recent input must not be attributed to a background workload PID, while exact-target frame evidence remains available.");
         Require(input.Calls == 0,
             "Recent-input probe must not be called when the exact workload PID is not foreground.");
     }
@@ -145,16 +146,16 @@ internal static class GenericGuardianWorkloadObservationSelfTests
 
     private static async Task OnlyDirectMeasuredPositiveAcceptedFramesCountAsync()
     {
-        await RequireUntrustedFrameRejectedAsync(Frame(1, TelemetryMetricQuality.Partial, TelemetryMetricOrigin.Direct), "partial");
-        await RequireUntrustedFrameRejectedAsync(Frame(1, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Derived), "derived");
-        await RequireUntrustedFrameRejectedAsync(Frame(1, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Legacy), "legacy");
-        await RequireUntrustedFrameRejectedAsync(Frame(0, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Direct), "zero-count");
+        await RequireUntrustedRenderMetricDoesNotAuthorizeActivityAsync(Frame(1, TelemetryMetricQuality.Partial, TelemetryMetricOrigin.Direct), "partial");
+        await RequireUntrustedRenderMetricDoesNotAuthorizeActivityAsync(Frame(1, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Derived), "derived");
+        await RequireUntrustedRenderMetricDoesNotAuthorizeActivityAsync(Frame(1, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Legacy), "legacy");
+        await RequireUntrustedRenderMetricDoesNotAuthorizeActivityAsync(Frame(0, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Direct), "zero-count");
     }
 
-    private static async Task RequireUntrustedFrameRejectedAsync(TelemetryFrame frame, string label)
+    private static async Task RequireUntrustedRenderMetricDoesNotAuthorizeActivityAsync(TelemetryFrame frame, string label)
     {
         var executable = FullPath(label + ".exe");
-        var gameId = "steam:" + Math.Abs(label.GetHashCode()).ToString();
+        var gameId = "fixture:" + label;
         var service = CreateService(
             new CountingForegroundProbe(707),
             new CountingRecentInputProbe(true),
@@ -166,8 +167,8 @@ internal static class GenericGuardianWorkloadObservationSelfTests
 
         Require(second.State.State == GuardianWorkloadState.Ready
                 && !second.Signals.HasRenderActivity
-                && second.Frame is null,
-            $"{label} accepted-frame telemetry must not be promoted to trustworthy generic render activity.");
+                && ReferenceEquals(second.Frame, frame),
+            $"{label} accepted-frame telemetry must not authorize render activity, while the exact-target typed frame remains available to later classifiers.");
     }
 
     private static async Task OfflineSkipsExternalProbesAsync()
