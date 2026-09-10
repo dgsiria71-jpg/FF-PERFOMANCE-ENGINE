@@ -1,0 +1,145 @@
+# Track 6.2 Slice 2 — Guardian Classifier Taxonomy Projection — COMPLETE
+
+Date: 2026-09-10
+Branch: `build/initial-product`
+
+## Scope
+
+This checkpoint closes the second bounded Slice of approved Track 6 item 2 — universal classifiers.
+
+The Slice adds the approved Guardian anomaly-family taxonomy as a read-only projection of the existing Track 4 universal bottleneck analyzer result. It introduces no new causal heuristic and no action authority.
+
+## Permanent implementation
+
+Plan:
+
+`docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`
+
+Core:
+
+`src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`
+
+Tests:
+
+`tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianClassifierTaxonomySelfTests.cs`
+
+## Contract
+
+Added `GuardianAnomalyKind`:
+
+- `Unknown`
+- `CpuContention`
+- `GpuSaturation`
+- `MemoryPressure`
+- `VramPressure`
+- `FrameTimeInstability`
+- `BackgroundLoad`
+- `ThermalThrottling`
+- `NetworkInstability`
+- `RendererEngineStall`
+- `SchedulerImbalance`
+- `InputFrameLatencySpike`
+
+Added computed read-only `GenericGuardianBottleneckClassification.Family`.
+
+The property projects only `BottleneckAnalysisResult.Primary` and never inspects raw telemetry.
+
+Evidence-backed mappings:
+
+- `BottleneckKind.Cpu` → `CpuContention`
+- `Gpu` → `GpuSaturation`
+- `Memory` → `MemoryPressure`
+- `Vram` → `VramPressure`
+- `FramePacing` → `FrameTimeInstability`
+- `Thermal` → `ThermalThrottling`
+- `Network` → `NetworkInstability`
+
+All other analyzer kinds project to Guardian `Unknown`; the raw analyzer result remains intact.
+
+## Capability-honest negative guarantees
+
+The Slice explicitly proves that:
+
+- high raw `FrameLatencyAverageMs` alone does not create `InputFrameLatencySpike`;
+- high total system CPU alone does not create `BackgroundLoad` or `SchedulerImbalance`;
+- missing render activity alone does not create `RendererEngineStall`;
+- analyzer `Unknown`, `None`, `StorageIo` and `Power` are not relabeled into unrelated approved Guardian families;
+- existing fail-closed non-Active Guardian gates remain Family `Unknown`;
+- reading the Family projection does not rewrite source observation, analyzer result, candidates or signals.
+
+`Unknown` means unavailable/unproven causal family, never “healthy”.
+
+## TDD evidence
+
+Verifier branch:
+
+`ci/track6-guardian-classifier-taxonomy-verify`
+
+RED:
+
+- SHA `cf03b7ceb13e0bbb9ac5f98d37ea697cf17917ce`
+- run `34528006765`
+- native configure/build/test: SUCCESS
+- managed build: expected FAILURE
+- exact failure: missing `GuardianAnomalyKind` and missing `GenericGuardianBottleneckClassification.Family`
+- 35 intentional compile errors
+- 0 warnings
+- no unrelated failure
+
+GREEN:
+
+- SHA `dfb41c5d0770264de42bc31afd1f265d35835467`
+- run `34528375851`
+- native configure/build/test: SUCCESS
+- managed build: SUCCESS
+- Core self-tests: SUCCESS
+- App self-tests: SUCCESS
+- publish: SUCCESS
+
+Selective official integration excluded:
+
+`.github/workflows/track6-guardian-classifier-taxonomy-verify.yml`
+
+## Official verification
+
+Application SHA:
+
+`5fd88d86abb9b00c4fb846486b7bb06026986962`
+
+Commit:
+
+`feat: add Guardian classifier taxonomy projection`
+
+Windows CI:
+
+- #1045
+- run `34528667164`
+- conclusion: SUCCESS
+- native configure/build/test: SUCCESS
+- managed build: SUCCESS
+- Core self-tests: SUCCESS
+- App self-tests: SUCCESS
+- win-x64 publish: SUCCESS
+- artifact upload: SUCCESS
+- cleanup: SUCCESS
+
+Artifact:
+
+- name `FFPerformanceEngine-win-x64`
+- id `10172642667`
+- digest `sha256:c60a2f4f2d21450a3a0dc89593248bd48727e4112b9b15c900ecc9fdc22dcd19`
+
+## Authority preserved
+
+- `Observed != Validated`.
+- No new causal thresholds.
+- No raw telemetry promotion into unsupported families.
+- No recommendation/action/canary/validation/persistence authority.
+- Existing specialized Guardian remains unchanged.
+- Global Controlled Benchmark Lease and Guardian suspend/reconcile remain unchanged.
+
+## Next boundary
+
+Track 6 item 2 remains active until callers can distinguish which approved Guardian anomaly families are currently evidence-backed versus intentionally unavailable.
+
+Next Slice: add a static/read-only classifier support/availability contract. The seven mapped families are currently evidence-backed by the typed analyzer path. `BackgroundLoad`, `RendererEngineStall`, `SchedulerImbalance` and `InputFrameLatencySpike` must remain unavailable pending dedicated causal evidence. The contract must not interpret unavailable as healthy and must introduce no new telemetry heuristic.

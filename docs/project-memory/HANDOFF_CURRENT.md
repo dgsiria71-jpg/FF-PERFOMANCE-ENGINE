@@ -10,19 +10,19 @@
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `c132ec22c1f38fbacaa43ce630098d44674b3565`
-- Commit: `feat: add Track 6 universal classifier bridge`
-- Windows CI: **#1043 — SUCCESS**
-- Run: `34526941137`
+- Application HEAD: `5fd88d86abb9b00c4fb846486b7bb06026986962`
+- Commit: `feat: add Guardian classifier taxonomy projection`
+- Windows CI: **#1045 — SUCCESS**
+- Run: `34528667164`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
-- Artifact: `FFPerformanceEngine-win-x64`, id `10172045284`, SHA-256 `950048cca361882a110caa413aa1d7de68f7821c13577675f0bd2971be67d51f`.
+- Artifact: `FFPerformanceEngine-win-x64`, id `10172642667`, SHA-256 `c60a2f4f2d21450a3a0dc89593248bd48727e4112b9b15c900ecc9fdc22dcd19`.
 
 Previous verified documentary checkpoint:
 
-- Documentary HEAD: `687b802dd187233a4637b7f78ac4c452ab925ef6`
-- Windows CI: **#1042 — SUCCESS**
-- Run: `34526017491`
-- It closed Track 6 item 1 in project memory.
+- Documentary HEAD: `32c3bdf28dfaedf78b89904e2cfe4a276c0909bd`
+- Windows CI: **#1044 — SUCCESS**
+- Run: `34527558404`
+- It checkpointed Track 6 item 2 Slice 1.
 
 ## Track state
 
@@ -32,7 +32,7 @@ Previous verified documentary checkpoint:
 - Track 3 — Game Discovery + Adapter Framework: **GREEN**
 - Track 4 — Universal Telemetry / Evidence: **GREEN**
 - Track 5 — Universal Auto Tuner + Profiles: **GREEN for current canonical scope**
-- Track 6 — Adaptive Guardian 2.0: **ACTIVE; item 1 GREEN; item 2 universal classifiers in progress; Slice 1 GREEN**
+- Track 6 — Adaptive Guardian 2.0: **ACTIVE; item 1 GREEN; item 2 universal classifiers in progress; Slices 1–2 GREEN**
 - Track 7+ — planned per roadmap/canonical context.
 
 ## Track 6 architecture authority
@@ -56,7 +56,6 @@ Guardian remains an additive expansion of the proven specialized Guardian, not a
 ### Slice 1 — lifecycle state machine
 
 Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadStateMachine.cs`.
-
 Application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS.
 
 Provides conservative `Unresolved / Offline / Desktop / Starting / Ready / Active / Ending`, categorical confidence, exact canonical identity/adapter preservation, fail-closed unknown/ambiguous behavior, non-live `KnownExecutable`, fresh lifecycle on PID replacement and conservative Ending/Desktop/offline transitions.
@@ -64,7 +63,6 @@ Provides conservative `Unresolved / Offline / Desktop / Starting / Ready / Activ
 ### Slice 2 — generic observation bridge
 
 Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWorkloadObservationService.cs`.
-
 Application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`, Windows CI #1041 / run `34525442625` SUCCESS. Documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS.
 
 Provides neutral exact foreground PID probing, exact-target typed frame preservation, exact GameId/PID/path/binding correlation, recent-input attribution only to the exact foreground workload, direct+measured positive accepted-frame render authority, fail-closed unavailable/ambiguous behavior and offline no-probe behavior. No startup discovery or mutation authority was introduced.
@@ -73,33 +71,39 @@ Provides neutral exact foreground PID probing, exact-target typed frame preserva
 
 ### Slice 1 — typed bottleneck classifier bridge — GREEN
 
-Plan:
+Plan: `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`.
+Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`.
+Application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`, Windows CI #1043 / run `34526941137` SUCCESS.
+Documentary checkpoint `32c3bdf28dfaedf78b89904e2cfe4a276c0909bd`, Windows CI #1044 / run `34527558404` SUCCESS.
 
-`docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`
+Only `Active` + exact capturable target + typed frame can enter causal classification. Eligible observations delegate directly to Track 4 `UniversalBottleneckAnalyzer`; missing/incomplete evidence remains `Unknown`. The classifier is passive/read-only and grants no action or validation authority.
 
-Permanent Core:
+### Slice 2 — Guardian classifier taxonomy projection — GREEN
 
-`src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`
+Plan: `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`.
+Permanent Core remains `src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`.
 
-Behavior:
+Added the approved `GuardianAnomalyKind` taxonomy and a computed read-only `Family` projection. The projection inspects only the already-proven `BottleneckAnalysisResult.Primary`; it does not inspect raw telemetry or introduce new thresholds.
 
-- no competing Guardian bottleneck thresholds;
-- only `GuardianWorkloadState.Active` can enter causal classification;
-- exact `TelemetryWorkloadTarget` + `CanCaptureProcess` are required;
-- typed frame is required;
-- eligible observations delegate directly to Track 4 `UniversalBottleneckAnalyzer`;
-- missing/incomplete/low-coverage causal evidence remains `BottleneckKind.Unknown`;
-- analyzer `Unknown` remains `Unknown`;
-- source observation reference is preserved exactly;
-- classifier is read-only and grants no `Validated`, recommendation, action, canary, profile, winner, Knowledge or persistence authority.
+Evidence-backed mappings:
+
+- `Cpu` → `CpuContention`;
+- `Gpu` → `GpuSaturation`;
+- `Memory` → `MemoryPressure`;
+- `Vram` → `VramPressure`;
+- `FramePacing` → `FrameTimeInstability`;
+- `Thermal` → `ThermalThrottling`;
+- `Network` → `NetworkInstability`.
+
+`Unknown`, `None`, `StorageIo`, `Power` and any other analyzer kind remain Guardian `Unknown`, while raw analyzer output is preserved unchanged. Approved but currently unproven causal families `BackgroundLoad`, `RendererEngineStall`, `SchedulerImbalance` and `InputFrameLatencySpike` exist in the taxonomy but are deliberately not emitted from raw high CPU/latency/missing-render observations.
 
 TDD evidence:
 
-- verifier branch `ci/track6-universal-classifier-bridge-verify`;
-- RED SHA `7f0c651d55ed33e5708af49526104c6d5c753f80`, run `34526434062`: native passed; managed failed only with 9 intentional `CS0246` for absent `GenericGuardianBottleneckClassifier`, 0 warnings;
-- GREEN SHA `7acc44f96f8dd8fa3e14340512a6453c518b7c6b`, run `34526631371`: native + managed + Core + App + publish SUCCESS;
-- selective integration excluded `.github/workflows/track6-universal-classifier-bridge-verify.yml`;
-- official application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`, Windows CI #1043 / run `34526941137` SUCCESS including artifact upload.
+- verifier branch `ci/track6-guardian-classifier-taxonomy-verify`;
+- RED SHA `cf03b7ceb13e0bbb9ac5f98d37ea697cf17917ce`, run `34528006765`: native passed; managed failed only for missing `GuardianAnomalyKind` / `Family`, 35 intentional compile errors, 0 warnings;
+- GREEN SHA `dfb41c5d0770264de42bc31afd1f265d35835467`, run `34528375851`: native + managed + Core + App + publish SUCCESS;
+- selective integration excluded `.github/workflows/track6-guardian-classifier-taxonomy-verify.yml`;
+- official application SHA `5fd88d86abb9b00c4fb846486b7bb06026986962`, Windows CI #1045 / run `34528667164` SUCCESS including artifact upload.
 
 ## Non-negotiable authority
 
@@ -117,9 +121,9 @@ TDD evidence:
 
 ## Exact next action
 
-Continue **Track 6 item 2 — universal classifiers**. Do not jump to session optimizer actions yet.
+Continue **Track 6 item 2 — universal classifiers**. Before adding any more causal heuristic, define the smallest capability-honest support/availability contract for the approved Guardian anomaly families so callers can distinguish evidence-backed families from those intentionally unavailable with current telemetry.
 
-Inspect the gap between the approved Guardian classifier families and the currently proven Track 4 `BottleneckKind`/typed telemetry. Build the next bounded read-only classifier Slice only where real typed evidence already exists or can be represented fail-closed. Do not manufacture missing background-load, renderer-stall, scheduler or latency causality from unrelated metrics.
+The support contract must be static/read-only and must not imply that `Unknown` means healthy. It should identify the seven currently evidence-backed mappings and explicitly mark `BackgroundLoad`, `RendererEngineStall`, `SchedulerImbalance`, `InputFrameLatencySpike` as unavailable pending dedicated causal evidence. Then decide whether item 2 can close for the current foundation without fabricating unsupported classifiers.
 
 Canonical gate remains:
 

@@ -24,9 +24,7 @@ Closing application SHA `71991379e01518adf2e1c539491a9c0339a56735`, Windows CI #
 
 ## Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
 
-Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Final Track 5 closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
-
-Track 5 is the additive universal Auto Tuner/Profile foundation over proven specialized BlueStacks/Free Fire authority. Universal search/correlation/provenance does not manufacture evidence, `Validated`, winner, mutation or persistence authority.
+Closing application SHA `a0c9a4e30dc48cb1730cee8b6b951f7338680cd1`, Windows CI #1034 / run `34502895182` SUCCESS. Final closure documentary HEAD `0d7886b6ff19898bcba38585ca6369728bff4145`, Windows CI #1036 / run `34510474469` SUCCESS.
 
 ## Track 6 — Adaptive Guardian 2.0 — ACTIVE
 
@@ -34,47 +32,17 @@ Macro architecture authority:
 
 `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md`
 
-Do not reopen it merely because implementation moves to another Slice.
-
-Approved state model:
-
-```text
-OFFLINE
-→ DESKTOP
-→ WORKLOAD STARTING
-→ WORKLOAD READY
-→ GAME STARTING
-→ LOBBY / PREP when adapter supports it
-→ MATCH / ACTIVE WORKLOAD
-→ MATCH END
-→ POST-WORKLOAD
-```
-
-Generic fallback remains conservative; specialized adapters may expose richer states only with real state-detection authority.
-
-Approved classifier families: CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
-
-Approved intervention model:
-
-```text
-detect degradation
-→ confirm anomaly
-→ select workload/state-appropriate LIVE_SAFE candidate
-→ micro-snapshot
-→ apply canary
-→ measure before/after
-→ KEEP or ROLLBACK
-```
-
-Inconclusive canaries roll back. Cooldown and Action Budget prevent thrashing. Quick Boost uses only already-validated compatible actions. Guardian modes remain Conservative / Adaptive / Aggressive / MonitorOnly and are distinct from global Balanced/Performance/Extreme policy.
-
-### Approved Track 6 implementation order
+Approved implementation order:
 
 1. **generic workload state machine** — GREEN;
 2. **universal classifiers** — IN PROGRESS;
 3. **session optimizer actions** — pending item 2;
 4. **learned action reliability** — pending item 3;
 5. **post-session queue** — pending item 4.
+
+Approved Guardian classifier families remain CPU contention, GPU saturation, memory pressure, VRAM pressure, frame-time instability, background load, thermal throttling, network instability, renderer/engine stall, scheduler imbalance, input/frame-latency spike and legitimate `Unknown`.
+
+Approved intervention model remains detect degradation → confirm anomaly → select state/workload-appropriate LIVE_SAFE candidate → micro-snapshot → canary → measure → KEEP/ROLLBACK. Inconclusive rolls back; cooldown and Action Budget prevent thrashing.
 
 ### Track 6 item 1 — Generic workload state machine — GREEN
 
@@ -100,33 +68,46 @@ Item 1 is complete for the current Core foundation: stable workload identity + e
 #### Slice 1 — Typed bottleneck classifier bridge — GREEN
 
 - application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`;
-- Windows CI **#1043 / run `34526941137` SUCCESS**;
-- artifact `FFPerformanceEngine-win-x64`, id `10172045284`, digest `sha256:950048cca361882a110caa413aa1d7de68f7821c13577675f0bd2971be67d51f`;
-- plan `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`;
-- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianBottleneckClassifier.cs`.
+- Windows CI #1043 / run `34526941137` SUCCESS;
+- documentary checkpoint `32c3bdf28dfaedf78b89904e2cfe4a276c0909bd`, Windows CI #1044 / run `34527558404` SUCCESS;
+- plan `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`.
 
-Permanent behavior:
+Only `Active` + exact target + typed frame can enter causal analysis, which delegates to the existing Track 4 analyzer. Missing/incomplete evidence remains `Unknown`.
 
-- Guardian does not duplicate `UniversalBottleneckAnalyzer` thresholds;
-- only `Active` + exact capturable target + typed frame can enter causal classification;
-- eligible input delegates directly to the existing typed analyzer;
-- missing/Partial/low-coverage required evidence remains explicit `Unknown`;
-- analyzer `Unknown` remains `Unknown`;
-- non-Active states, forged Active without exact target and Active without frame fail closed;
-- source observation is preserved exactly;
-- classifier remains passive/read-only and grants no validation/recommendation/action/canary/persistence authority.
+#### Slice 2 — Guardian classifier taxonomy projection — GREEN
 
-TDD evidence:
+- application SHA `5fd88d86abb9b00c4fb846486b7bb06026986962`;
+- Windows CI **#1045 / run `34528667164` SUCCESS**;
+- artifact `FFPerformanceEngine-win-x64`, id `10172642667`, digest `sha256:c60a2f4f2d21450a3a0dc89593248bd48727e4112b9b15c900ecc9fdc22dcd19`;
+- plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`.
 
-- RED `7f0c651d55ed33e5708af49526104c6d5c753f80`, verifier run `34526434062`: native passed; managed failed only with 9 intentional `CS0246`, 0 warnings;
-- GREEN `7acc44f96f8dd8fa3e14340512a6453c518b7c6b`, verifier run `34526631371`: native/managed/Core/App/publish SUCCESS;
+Permanent taxonomy:
+
+`Unknown / CpuContention / GpuSaturation / MemoryPressure / VramPressure / FrameTimeInstability / BackgroundLoad / ThermalThrottling / NetworkInstability / RendererEngineStall / SchedulerImbalance / InputFrameLatencySpike`.
+
+Evidence-backed projection is deliberately narrow:
+
+- `Cpu` → `CpuContention`;
+- `Gpu` → `GpuSaturation`;
+- `Memory` → `MemoryPressure`;
+- `Vram` → `VramPressure`;
+- `FramePacing` → `FrameTimeInstability`;
+- `Thermal` → `ThermalThrottling`;
+- `Network` → `NetworkInstability`.
+
+`Unknown`, `None`, `StorageIo`, `Power` or future unmapped analyzer kinds project to Guardian `Unknown` while preserving raw analyzer details. Raw high latency does not produce `InputFrameLatencySpike`; high total CPU does not produce `BackgroundLoad`/`SchedulerImbalance`; absent render activity does not produce `RendererEngineStall`.
+
+TDD verifier:
+
+- RED `cf03b7ceb13e0bbb9ac5f98d37ea697cf17917ce`, run `34528006765`: native SUCCESS, managed expected failure solely for absent taxonomy/Family, 35 errors, 0 warnings;
+- GREEN `dfb41c5d0770264de42bc31afd1f265d35835467`, run `34528375851`: native/managed/Core/App/publish SUCCESS;
 - temporary verifier workflow excluded from official integration.
 
 #### Next Slice inside item 2
 
-Compare the approved Guardian classifier families against the already-proven typed telemetry and `BottleneckKind` coverage. Extend only where evidence authority is real. Do not infer background load, renderer/engine stall, scheduler imbalance or input/frame-latency causality from unrelated data merely to fill the taxonomy.
+Add a static/read-only **classifier support/availability contract** for every approved Guardian anomaly family. It must distinguish families currently backed by existing typed analyzer authority from families unavailable pending dedicated causal evidence. It must not convert “unsupported” into “healthy” and must not add new telemetry heuristics.
 
-The next Slice remains read-only and must preserve `Unknown` for unsupported/unproven families.
+After that Slice, evaluate whether item 2 can close for the current capability-honest foundation. Do not begin session optimizer actions before the item-2 closure gate.
 
 ### Track 6 non-negotiable constraints
 
@@ -134,7 +115,6 @@ The next Slice remains read-only and must preserve `Unknown` for unsupported/unp
 - gameplay interventions require workload-appropriate `LIVE_SAFE` authority;
 - controlled evidence outranks passive observation;
 - Global Controlled Benchmark Lease prevents Guardian contamination of controlled work;
-- interventions must be measurable and reversible or explicitly non-mutating;
 - missing telemetry/capability remains Unknown/absent;
 - stable workload identity remains distinct from transient process evidence;
 - `KnownExecutable` never authorizes live process binding/capture;
@@ -175,4 +155,4 @@ Analyze, Games, Cleaner and System Optimize surfaces plus approved Home/Profiles
 
 ## Expanded master architecture
 
-A larger historical Track 0–19 master architecture was reported, but its raw source is not currently mounted. Do not fabricate exact Track 11–19 numbering. Preserve recovered approved domains in `CANONICAL_CONTEXT.md`, `DECISIONS_LOG.md`, `CHAT_CONTEXT_RECONSTRUCTION.md` and the unified architecture spec until the original source is recovered.
+A larger historical Track 0–19 master architecture was reported, but its raw source is not currently mounted. Do not fabricate exact Track 11–19 numbering. Preserve recovered approved domains in canonical project-memory and the unified architecture spec until the original source is recovered.
