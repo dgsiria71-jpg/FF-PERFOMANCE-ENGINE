@@ -10,16 +10,16 @@
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `4563ef6ab36d5dfdc29375b7156df9b357fa652d`
-- Commit: `feat: project validated Custom profiles into universal provenance`
-- Windows CI: **#1020 — SUCCESS**
-- CI run id: `34435365759`
+- Application HEAD: `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`
+- Commit: `feat: project validated profile promotions into universal provenance`
+- Windows CI: **#1022 — SUCCESS**
+- CI run id: `34436368817`
 
-The exact #1020 job passed checkout/setup, native configure/build/test, managed build, Core self-tests, App self-tests, `win-x64` publish, artifact upload and cleanup.
+The exact #1022 job passed checkout/setup, native configure/build/test, managed build, Core self-tests, App self-tests, `win-x64` publish, artifact upload and cleanup.
 
 Checkpoint record:
 
-`docs/project-memory/checkpoints/2026-09-10-track5-universal-validated-profile-projection.complete`
+`docs/project-memory/checkpoints/2026-09-10-track5-universal-promoted-profile-projection.complete`
 
 Any later docs-only memory-sync commit containing this handoff does not replace the application SHA above as code authority.
 
@@ -37,6 +37,7 @@ Any later docs-only memory-sync commit containing this handoff does not replace 
   - Slice 4 — evidence-backed universal winner/result projection: **GREEN**
   - Slice 5 — read-only universal projection of already-authorized validated History evidence: **GREEN**
   - Slice 6 — read-only universal provenance for a real specialized Custom Validated profile: **GREEN**
+  - Slice 7 — read-only universal provenance for an already-authorized specialized Profile Challenge promotion: **GREEN**
 - Track 6+ — planned; follow `ROADMAP.md` and `CANONICAL_CONTEXT.md`.
 
 ## Non-negotiable authority inherited from Tracks 2–5
@@ -60,85 +61,95 @@ Any later docs-only memory-sync commit containing this handoff does not replace 
 - Slice 4: `f24c8c25612182db3c12351185fa54be227a8252` — Windows CI #1016 SUCCESS.
 - Slice 5: `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4` — Windows CI #1018 SUCCESS.
 - Slice 6: `4563ef6ab36d5dfdc29375b7156df9b357fa652d` — Windows CI #1020 / run `34435365759` SUCCESS.
+- Slice 7: `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0` — Windows CI #1022 / run `34436368817` SUCCESS.
 
 ## Track 5 Slice 6 — Universal validated profile provenance — GREEN
 
+Slice 6 added `UniversalValidatedProfileProjection` and `BlueStacksUniversalValidatedProfileBridge.TryProject(...)` over the real `ProfileService.CreateCustomFromValidatedComparisonAsync` path. It retains the exact specialized Custom Validated profile, upstream validated-History projection, exact Slice 3 universal candidate, stable `GameIdentity` and `AdapterId` while requiring exact source id/configuration/environment/validation metrics and rerunning upstream provenance rather than trusting caller metadata. No profile creation, validation, scoring, persistence, winner selection or mutation authority was added.
+
+Application SHA `4563ef6ab36d5dfdc29375b7156df9b357fa652d`; Windows CI #1020 / run `34435365759` SUCCESS. Full details remain in `docs/project-memory/checkpoints/2026-09-10-track5-universal-validated-profile-projection.complete`.
+
+## Track 5 Slice 7 — Universal promoted-profile provenance — GREEN
+
 ### Purpose
 
-Retain stable workload + exact universal candidate provenance for a **real specialized `PerformanceProfile` already explicitly created by `ProfileService.CreateCustomFromValidatedComparisonAsync`**, without creating a generic persisted profile authority or modifying the existing profile-origin chain.
+Carry the already-proven stable workload + exact universal candidate provenance of a **Custom Validated challenger** across a Profile Challenge promotion that has already been authorized and persisted by the existing specialized `ProfileChallengeService`.
+
+The universal layer remains downstream/read-only. It never decides whether the challenger won and never creates or saves a profile.
 
 ### Permanent contracts
 
 Added:
 
-- `UniversalValidatedProfileProjection`;
-- `BlueStacksUniversalValidatedProfileBridge.TryProject(...)`.
+- `UniversalPromotedProfileProjection`;
+- `BlueStacksUniversalProfileChallengeBridge.TryProjectPromotion(...)`.
 
 The projection intentionally retains exact references to:
 
-- the specialized `PerformanceProfile`;
-- the upstream `UniversalValidatedPerformanceProjection`;
-- the exact Slice 3 `UniversalTuningCandidate`;
-- the exact candidate-space `GameIdentity` and `AdapterId`.
+- the specialized `ProfileChallengeResult`;
+- the exact persisted promoted winner profile;
+- the existing `UniversalValidatedProfileProjection` of the Custom challenger;
+- the exact specialized second/revalidation challenge round;
+- the exact Slice 3 `UniversalTuningCandidate` already proven upstream;
+- the candidate-space stable `GameIdentity` and `AdapterId`.
 
-It performs no profile creation, validation, scoring, winner selection, persistence, mutation or challenge execution.
+### Exact fail-closed authority
 
-### Exact fail-closed rules
+1. The specialized result must already be `Promoted == true` and `Status == Promoted`.
+2. `EvidenceRounds` must be at least two, the target must be one of the existing specialized winner roles, and `PromotedProfileId` must identify the exact promoted profile.
+3. The promoted profile must be `Validated`, have the exact result target role, and its `SourceComparisonId` must identify the exact supplied revalidation round.
+4. The complete upstream Custom profile provenance is re-projected with `BlueStacksUniversalValidatedProfileBridge`; caller-substituted universal metadata is not trusted.
+5. The revalidation baseline/candidate are defensively rehydrated and must both be `Measured`; their environments must remain structurally equivalent.
+6. The revalidation candidate configuration must exactly match both the original Custom challenger and the promoted profile for Game, instance, CPU, RAM, renderer, FPS target, resolution and DPI.
+7. Challenger and promoted profile environment fingerprints must equal the revalidation candidate environment id.
+8. Promoted `AverageFps`, `OnePercentLow`, `FrameTimeMs` and `LatencyMs` must exactly match the second/revalidation candidate evidence, using the existing `ProfileChallengeEvaluator.OnePercentLow(...)` authority.
+9. Candidate-space identity/adapter must remain valid and match the promoted workload.
+10. Wrong/unpromoted/incumbent-held status, wrong promoted id/role, Observed profile, configuration/fingerprint/metric drift, wrong revalidation round, fabricated universal candidate or cross-workload candidate space returns no projection.
 
-1. Profile must be `ProfileKind.Custom` and `EvidenceLevel.Validated`.
-2. `SourceComparisonId` must equal the exact specialized History record id behind the upstream validation projection.
-3. Caller-supplied universal provenance is never trusted blindly: the bridge reruns `BlueStacksUniversalValidatedPerformanceBridge.TryProject(...)` against the exact specialized record and candidate space and requires the same specialized record + same universal candidate references.
-4. The source record/candidate/validation are defensively rehydrated.
-5. Profile specialized configuration must exactly match the source candidate for Game, InstanceName, CPU, RAM, Renderer, FPS target, Resolution and DPI.
-6. `EnvironmentFingerprint` must equal the source candidate configuration environment id.
-7. `AverageFps`, `FrameTimeMs` and `LatencyMs` must exactly match the separate validation evidence values copied by `ProfileService`.
-8. Cross-workload candidate space, substituted/fabricated universal candidate, wrong source id, wrong profile kind/evidence or any configuration/fingerprint/metric drift returns no projection.
+### Challenge-round UniversalContext constraint
 
-### Important challenge-path finding
-
-Inspection proved `ProfileChallengeRoundService.CreateEvidence(...)` currently calls `PerformanceEvidenceSnapshot.Capture(...)` **without** a `PerformanceUniversalConfigurationContext`.
+The real specialized challenge-round compatibility path still captures `PerformanceEvidenceSnapshot` **without `PerformanceUniversalConfigurationContext`**. Slice 7 intentionally proves the happy path with both challenge rounds having `UniversalContext == null`.
 
 Therefore:
 
-- the challenge-round path does not currently possess valid universal context;
-- no universal context may be fabricated just to satisfy a type or projection;
-- `ProfileChallengeRoundService` remains unchanged;
-- challenge universalization must stay additive/read-only until real runtime evidence supplies the missing context or a separate proven design changes the capture contract.
+- absence remains absence;
+- no challenge-round universal context is fabricated;
+- universal provenance is carried only from the already-proven Custom Validated challenger;
+- `ProfileChallengeService`, `ProfileChallengeRoundService`, `ProfileChallengeEvaluator`, challenge freshness/incumbent logic and profile persistence are unchanged.
 
 ### TDD provenance
 
-Temporary verifier branch: `ci/track5-universal-validated-profile-projection-verify`.
+Temporary verifier branch: `ci/track5-universal-promoted-profile-projection-verify`.
 
-- verifier workflow commit: `0ce1d2ca75577579e2cb6f0ae01b4b9390316969`;
-- initial test commit: `0c92feef817725034b94f64649f0577d17ca643a`;
-- runner registration: `d33ef0a6410f8d2b0716432dbb42c8f2d9688b07`;
-- fixture-only type correction: `5c1291250aa16fed62edb4a26ef72c0d9f69bf08`;
-- clean RED verifier #4 / run `34434229353`: failed only because `BlueStacksUniversalValidatedProfileBridge` did not exist;
-- minimal production GREEN SHA: `02daa1252efb1a8b22c0690b0f2a809c1c63a702`;
-- verifier #5 / run `34434322277`: Core self-tests + App self-tests + WPF build SUCCESS;
-- selective official integration copied only production/test/runner blobs and excluded the temporary verifier workflow;
-- exact integrated SHA `4563ef6ab36d5dfdc29375b7156df9b357fa652d` passed Windows CI #1020 / run `34435365759` completely.
+- verifier workflow commit: `01c2331cfa16290b980f18ca8fc9f6ba3cafd7d4`;
+- test contract commit: `f603f06cc8dc015ca4105378172d856b0605a51f`;
+- runner registration / clean RED SHA: `c6e84b34d1b353016be8ed2d8ebcb1b76a643084`;
+- clean RED verifier #3 / run `34436070671`: Core failed only because `BlueStacksUniversalProfileChallengeBridge` did not exist;
+- minimal production GREEN SHA: `273b03d186ce17a519a91b504216b3d4f3830169`;
+- GREEN verifier #4 / run `34436199542`: Core self-tests + App self-tests + WPF build SUCCESS;
+- selective official integration copied only production/test/runner blobs and excluded the verifier workflow;
+- official application SHA `807bc763db9dd58522f7b3890c5f31ff3f6a2bb0` passed Windows CI #1022 / run `34436368817` completely.
 
-Integration diff from the previous official head contains exactly three permanent files:
+Official integration diff from the Slice 6 documentary head contains exactly three permanent files:
 
-- `src/FFPerformanceEngine.Core/Services/UniversalValidatedProfileProjection.cs` added;
-- `tests/FFPerformanceEngine.Core.SelfTest/UniversalValidatedProfileProjectionSelfTests.cs` added;
+- `src/FFPerformanceEngine.Core/Services/UniversalPromotedProfileProjection.cs` added;
+- `tests/FFPerformanceEngine.Core.SelfTest/UniversalPromotedProfileProjectionSelfTests.cs` added;
 - `tests/FFPerformanceEngine.Core.SelfTest/Program.cs` +1 runner registration.
 
-## Canonical documents not changed by Slice 6
+## Canonical documents not changed by Slice 7
 
-`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` remain authoritative and unchanged because Slice 6 implements the already-approved additive provenance boundary and introduces no new architectural/product decision.
+`CANONICAL_CONTEXT.md` and `DECISIONS_LOG.md` remain authoritative and unchanged because Slice 7 implements the already-approved additive/read-only provenance boundary and introduces no new architectural or product decision.
 
 ## Exact next action
 
-Continue **Track 5** at the challenge/promotion provenance boundary, without fabricating universal challenge evidence.
+Continue **Track 5** at the application/presentation consumption seam now that the Core provenance chain is proven through specialized promotion.
 
 Required sequence:
 
-1. inspect `ProfileChallengeService`, `ProfileChallengeRoundService`, challenge progress/freshness/incumbent replacement and their output contracts against the now-proven `UniversalValidatedProfileProjection`;
-2. find the smallest read-only seam that can retain an existing validated profile's universal provenance across an already-authorized specialized challenge verdict, if the existing contracts actually expose enough exact evidence;
-3. do **not** add `UniversalContext` to challenge-round evidence unless a new RED test plus real capture authority proves the runtime possesses it;
-4. if the specialized challenge result cannot be correlated exactly to the proven profile/source candidate, return no universal projection rather than infer identity;
-5. preserve all five specialized winner roles, Custom Validated semantics, freshness/incumbent gates, direct typed PresentMon authority and Global Controlled Benchmark Lease;
-6. TDD RED first on a new isolated verifier branch;
-7. GREEN verifier → selective official integration → exact Windows CI → memory sync → documentary HEAD CI before the following increment.
+1. inspect `AppServices.cs`, `Pages/ProfilesPage.xaml.cs`, `Pages/ProfilesPage.xaml` and App self-tests against the proven Track 5 Core contracts;
+2. identify the smallest application-owned/read-only composition that can expose stable `GameId`, `AdapterId` and exact candidate provenance for already-proven universal results/validated profiles/promotions;
+3. keep WPF presentation-only: it must not infer identity, rerun winner logic, create validation authority or persist universal metadata;
+4. do not add a generic persisted profile schema merely for UI convenience;
+5. preserve the existing specialized BlueStacks/FF compatibility workflow and all five winner roles;
+6. if current application state cannot prove exact correlation to a universal candidate/profile, display no universal provenance rather than infer it;
+7. TDD RED first on a new isolated verifier branch; GREEN verifier → selective official integration → exact Windows CI → memory sync → documentary HEAD CI.

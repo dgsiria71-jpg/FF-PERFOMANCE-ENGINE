@@ -40,27 +40,23 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 
 `39246089fb28f510287e79639356a4e16d1b6b02`, Windows CI #1014 SUCCESS.
 
-Exact one-to-one universal↔specialized candidate bindings preserve the existing dynamic generator, order/bounds and installed-build applicability. Descriptive marginals are not Cartesian-expanded; renderer remains correlation-only until separately proven reversible mutation exists.
-
 ### Slice 4 — Evidence-backed universal result/winner projection — GREEN
 
 `f24c8c25612182db3c12351185fa54be227a8252`, Windows CI #1016 SUCCESS.
-
-Read-only correlation retains exact specialized `TuningResult`, `CandidateEvidence` and `PerformanceProfile` winner objects plus exact universal candidate provenance. No new scoring, validation, winner or persistence authority.
 
 ### Slice 5 — Universal validated-History projection — GREEN
 
 `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4`, Windows CI #1018 / run `34433407760` SUCCESS.
 
-Existing specialized `CanOriginateProfile` remains first gate. Candidate + Validation must be Measured, validation later, specialized configurations exactly equivalent, universal contexts exactly equivalent and matching stable GameId/AdapterId, and candidate maps to exactly one Slice 3 binding. Legacy History without universal context remains specialized-valid and receives no fabricated projection.
-
 ### Slice 6 — Universal provenance for real Custom Validated profiles — GREEN
 
 `4563ef6ab36d5dfdc29375b7156df9b357fa652d`, Windows CI #1020 / run `34435365759` SUCCESS.
 
-Read-only projection over the real `ProfileService.CreateCustomFromValidatedComparisonAsync` path retains the exact specialized profile, upstream validated-History projection, exact universal candidate and stable workload/adapter provenance. It revalidates upstream provenance, exact specialized configuration, environment fingerprint and validation metrics and fails closed on any drift/substitution. No generic persisted profile schema was added.
+### Slice 7 — Universal provenance after specialized Profile Challenge promotion — GREEN
 
-Important inspected boundary: automated Profile Challenge round evidence currently carries **no `PerformanceUniversalConfigurationContext`**. This absence is real and must not be filled with invented context.
+`807bc763db9dd58522f7b3890c5f31ff3f6a2bb0`, Windows CI #1022 / run `34436368817` SUCCESS.
+
+The new read-only projection runs only **after** specialized promotion authority. It retains exact specialized result/promoted winner/revalidation round plus the already-proven Custom challenger universal candidate and stable workload identity. It re-proves upstream provenance and exact specialized configuration/environment/revalidation metrics. Challenge-round `UniversalContext` remains absent and is not fabricated. Specialized challenge/freshness/evaluator/persistence logic is unchanged.
 
 ### Immediate sequence
 
@@ -71,14 +67,14 @@ Important inspected boundary: automated Profile Challenge round evidence current
 5. Universal result/winner correlation preserving specialized authority ✅
 6. Universal projection of already-authorized validated History ✅
 7. Universal provenance for the real specialized Custom Validated profile origin ✅
-8. **Challenge/promotion provenance seam** ← NEXT
-   - inspect `ProfileChallengeService`, `ProfileChallengeRoundService`, challenge progress/freshness/incumbent replacement and result contracts;
-   - carry stable workload + exact candidate provenance only when it can be correlated to an already-authorized specialized challenge outcome;
-   - do not add/fabricate universal context in challenge round capture merely to satisfy universal types;
-   - preserve direct typed measurement, later independent validation, exact specialized configuration, fingerprint/freshness and current winner replacement authority;
-   - preserve Recommended, Maximum FPS, Lowest Latency, Stability, Quality and Custom Validated semantics;
-   - no generic persisted profile schema unless a RED test proves it necessary.
-9. UI integration only after Core/application policy for the universal Track 5 chain is proven.
+8. Challenge/promotion provenance after already-authorized specialized verdict ✅
+9. **Application/presentation consumption seam** ← NEXT
+   - inspect `AppServices.cs`, `ProfilesPage.xaml(.cs)` and App self-tests;
+   - expose stable GameId/AdapterId/exact candidate provenance only from already-proven Core projections;
+   - keep WPF presentation-only; no identity inference, validation, winner logic or universal persistence in UI;
+   - no generic persisted profile schema for convenience;
+   - fail closed to no universal provenance when exact application correlation is unavailable.
+10. UI refinement only after the application-owned policy/composition seam is GREEN.
 
 Every independent slice remains:
 
