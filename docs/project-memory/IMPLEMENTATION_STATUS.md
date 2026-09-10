@@ -5,15 +5,15 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `20408ab20957afb43834b456df581bb0e417b4d0`
-- Commit: `feat: compose universal profile provenance in AppServices`
-- Windows CI: **#1026 — SUCCESS**
-- Run: `34439301451`
+- Application HEAD: `07b4264e438a5052ddca45d8b5eda111d74f4270`
+- Commit: `feat: present universal Custom profile provenance in Profiles`
+- Windows CI: **#1028 — SUCCESS**
+- Run: `34441106814`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
 
 Track 5 checkpoint:
 
-`docs/project-memory/checkpoints/2026-09-10-track5-appservices-universal-profile-provenance.complete`
+`docs/project-memory/checkpoints/2026-09-10-track5-profiles-universal-provenance-presentation.complete`
 
 Any docs-only memory-sync commit after this application SHA does not replace the application checkpoint above as code authority.
 
@@ -79,61 +79,63 @@ Universalization is additive and never weakens specialized evidence/validation/p
 
 ### Slice 9 — AppServices universal profile-provenance composition — GREEN
 
-- application SHA `20408ab20957afb43834b456df581bb0e417b4d0`
-- commit `feat: compose universal profile provenance in AppServices`
-- Windows CI #1026 / run `34439301451` SUCCESS
-- checkpoint `2026-09-10-track5-appservices-universal-profile-provenance.complete`
+`20408ab20957afb43834b456df581bb0e417b4d0`, Windows CI #1026 / run `34439301451` SUCCESS. `AppServices` composes the proven current persisted-Custom provenance path explicitly/on-demand without discovery or candidate generation in construction/`InitializeAsync()`.
+
+### Slice 10 — Profiles universal provenance presentation — GREEN
+
+- application SHA `07b4264e438a5052ddca45d8b5eda111d74f4270`
+- commit `feat: present universal Custom profile provenance in Profiles`
+- Windows CI #1028 / run `34441106814` SUCCESS
+- checkpoint `2026-09-10-track5-profiles-universal-provenance-presentation.complete`
 
 Implemented:
 
-- one shared `BlueStacksUniversalTuningCandidateBridge` exposed as `AppServices.UniversalTuningCandidates` ✅
-- one shared `UniversalValidatedProfileProvenanceService` exposed as `AppServices.UniversalValidatedProfileProvenance` ✅
-- both reuse the already-shared `AutoTuner`, `GameAdapters`, `Profiles` and `History` authorities ✅
-- construction remains side-effect free for this Track 5 seam; no candidate generation, profile provenance resolution or extra game discovery is triggered ✅
-- `ResolveCurrentUniversalValidatedProfileProvenanceAsync(profileId)` is explicit/on-demand ✅
-- method requires exactly one persisted requested profile before environment/config work ✅
-- method accepts only `Custom + Validated` with exact source and instance binding ✅
-- current environment is captured only after those persisted-profile gates ✅
-- exactly one current instance matching the persisted instance name is required ✅
-- current BlueStacks settings are captured only through the existing allow-list and must be non-empty ✅
-- AppServices delegates final provenance authority to Slice 8 rather than rebuilding validation/candidate policy itself ✅
-- supported I/O, permission, JSON, invalid-data and argument failures return `null` rather than partial provenance ✅
-- unknown profile self-test proves the application path fails closed without inventing identity or triggering unrelated discovery ✅
-- no original AutoTuner mode, validation, winner, recommendation, mutation or persistence authority added ✅
+- pure `UniversalProfileProvenancePresentation` model ✅
+- `null` application projection maps to hidden/empty presentation with no fabricated identifiers/values ✅
+- proven projection maps exact stable `GameId` and exact `AdapterId` without inference ✅
+- exact `UniversalTuningCandidate.Values` are rendered as deterministic sorted `key = value` lines without semantic rewriting ✅
+- `ProfilesPage` universal-provenance card is collapsed by default and carries no default authority-implying content ✅
+- presentation is refreshed only for the currently selected persisted Custom challenger ✅
+- WPF calls only `App.Services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(selectedCustom.Id)` for this feature ✅
+- WPF does not load History independently for universal provenance, rebuild candidate space, infer identity/mode, rerun validation, decide winners or persist universal metadata ✅
+- stale asynchronous results are rejected through `_universalProvenanceRevision` when profile selection changes ✅
+- absent current provenance immediately clears/collapses the card ✅
+- existing Recommended card, Profile Challenge roles/progress/automation/promotion, A/B presentation, historical validation, profile list/application and five specialized winner roles remain preserved ✅
 
 TDD provenance:
 
-- verifier branch `ci/track5-appservices-profile-provenance-verify`;
-- verifier workflow commit `40c79ca2627f3a71856d89fc2dd6bba3f9a984a9`;
-- RED contract SHA `24f8bc9b91ab5195343ed40da43b4043d6cddd17`, verifier #2 / run `34438809367`: Core passed; App failed only because the three AppServices seam members did not exist (`CS1061`);
-- first production candidate `11c53eb0e915a21e5118fa2b978ce4a6faca053f`;
-- verifier #3 / run `34439045805`: Core passed; App compile exposed only the missing `System.IO` namespace required by the fail-closed exception filters;
-- root-cause-only correction `d56979cfe400ec4f03508e24687717ce1e9b623c`;
-- GREEN verifier #4 / run `34439177062`: Core + App + WPF build SUCCESS;
-- selective integration excluded the temporary verifier workflow;
-- official application SHA `20408ab20957afb43834b456df581bb0e417b4d0`, Windows CI #1026 / run `34439301451` SUCCESS.
+- verifier branch `ci/track5-profiles-universal-provenance-presentation-verify`;
+- verifier workflow commit `bed44063e059d98d56f0e4beb837c83adb9458f3`;
+- RED contract SHA `489eb1e868a573c9fe395164d9192cd43e05079c`;
+- clean RED verifier #2 / run `34440671279`: Core passed; App failed only because `UniversalProfileProvenancePresentation` did not exist (`CS0103`);
+- minimal production GREEN SHA `cadf10b7f8f45e52e20d0b53a080c3b085550945`;
+- GREEN verifier #3 / run `34440919128`: Core + App + WPF build SUCCESS;
+- selective official integration excluded the temporary verifier workflow;
+- official application SHA `07b4264e438a5052ddca45d8b5eda111d74f4270`, Windows CI #1028 / run `34441106814` SUCCESS.
 
-Official integration diff contains exactly two permanent files:
+Official integration diff contains exactly four permanent files:
 
-- `src/FFPerformanceEngine.App/AppServices.cs` modified;
+- `src/FFPerformanceEngine.App/UniversalProfileProvenancePresentation.cs` added;
+- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml` modified;
+- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml.cs` modified;
 - `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
 
-### Track 5 authority boundary after Slice 9
+### Track 5 authority boundary after Slice 10
 
-Search declarations, exact candidate binding, result/winner projection, validated-History projection, Custom Validated projection, post-specialized-promotion projection, current persisted-Custom reproving and AppServices composition remain correlation/provenance layers. None creates measured evidence, validation, recommendation, profile origin, challenge verdict, winner role, mutation or persistence permission.
+Search declarations, exact candidate binding, result/winner projection, validated-History projection, Custom Validated projection, post-specialized-promotion projection, current persisted-Custom reproving, AppServices composition and Profiles presentation remain correlation/provenance layers. None creates measured evidence, validation, recommendation, profile origin, challenge verdict, winner role, mutation or persistence permission.
 
 The specialized BlueStacks/FF chain remains compatibility authority. `PerformanceComparisonHistoryRecord.CanOriginateProfile`, `HistoryService`, `ProfileService`, `ProfileChallengeService`, challenge freshness/incumbent logic, typed PresentMon authority, Global Controlled Benchmark Lease and rollback/History are unchanged.
 
 ## Current next engineering slice
 
-Continue Track 5 at the **Profiles presentation seam**.
+Inspect the remaining durable Profiles provenance gap before implementing anything further.
 
-1. Inspect `ProfilesPage.xaml`, `ProfilesPage.xaml.cs`, presentation helpers and relevant App/WPF tests.
-2. Define the smallest presentation-only model that consumes `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)` and exposes stable GameId, AdapterId and exact universal candidate values for the selected persisted `Custom + Validated` profile.
-3. WPF must not load History independently, rebuild candidate spaces, infer GameIdentity or original AutoTuner mode, rerun validation, select winners or persist universal metadata.
-4. `null` from AppServices means no universal provenance presentation; do not display authority-implying fabricated placeholders.
-5. Preserve all existing specialized winner roles, Profile Challenge behavior and BlueStacks/FF compatibility flows.
-6. TDD RED first on an isolated verifier; GREEN → selective integration → exact Windows CI → memory sync → documentary HEAD CI.
+1. Read `HistoryEvent`/promotion persistence, `ProfileChallengeService`, the persisted promoted `PerformanceProfile`, and Slice 7 `UniversalPromotedProfileProjection` together.
+2. Determine whether a promoted winner can be re-proven after restart from durable specialized evidence without recreating an unpersisted `ProfileChallengeResult`.
+3. If sufficient exact authority exists, define the smallest read-only persisted-promoted-winner provenance resolver and start with a new RED verifier.
+4. If insufficient, record the fail-closed boundary instead of synthesizing missing challenge state and select the next bounded UI/Profile refinement.
+5. Do not add a generic persisted profile schema merely for UI convenience.
+6. Preserve the five winner roles and BlueStacks/FF compatibility path.
 
 ## Planned later tracks
 

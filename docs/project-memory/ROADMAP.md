@@ -58,13 +58,15 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 
 `aaca2c0d08de6e1da2c97a0d543f9f4c30ab627c`, Windows CI #1024 / run `34438271260` SUCCESS.
 
-`UniversalValidatedProfileProvenanceService` reloads the real persisted `Custom + Validated` profile and its exact source History record, then re-proves it against the current BlueStacks candidate-space/allow-list. `Adaptive` and `Deep` overlap is accepted only when both describe the same semantic universal provenance; the original mode is never invented. Missing current capability/drift returns no universal projection without invalidating specialized historical authority. Promoted winner reconstruction remains outside this resolver.
-
 ### Slice 9 — AppServices universal profile-provenance composition — GREEN
 
 `20408ab20957afb43834b456df581bb0e417b4d0`, Windows CI #1026 / run `34439301451` SUCCESS.
 
-`AppServices` now composes one shared `BlueStacksUniversalTuningCandidateBridge` from existing `AutoTuner + GameAdapters` and one shared `UniversalValidatedProfileProvenanceService` from existing `Profiles + History + candidate bridge`. `ResolveCurrentUniversalValidatedProfileProvenanceAsync(profileId)` is explicit/on-demand: it loads only the requested persisted profile, captures current environment + exactly one matching BlueStacks instance + current allow-listed settings, then delegates to the Slice 8 Core authority. Missing/ambiguous state and supported I/O/permission/JSON/data failures return no universal provenance. Construction and `InitializeAsync()` do not run the resolver or generate candidate spaces implicitly.
+### Slice 10 — Profiles universal provenance presentation — GREEN
+
+`07b4264e438a5052ddca45d8b5eda111d74f4270`, Windows CI #1028 / run `34441106814` SUCCESS.
+
+The real Profiles UI now consumes only the explicit AppServices persisted-Custom provenance seam. A pure presenter copies stable `GameId`, `AdapterId` and exact universal candidate key/value pairs in deterministic order. The card is collapsed/empty when provenance is absent, and a revision token prevents stale asynchronous selection results from being shown. WPF does not reload universal History, rebuild candidate spaces, infer identity/mode, rerun validation, select winners or persist universal metadata.
 
 ### Immediate sequence
 
@@ -78,14 +80,14 @@ Canonical objective: generalize the proven specialized Auto Tuner/Profile system
 8. Challenge/promotion provenance after already-authorized specialized verdict ✅
 9. Current persisted-Custom provenance reproving for application consumption ✅
 10. AppServices composition seam ✅
-11. **Profiles presentation seam** ← NEXT
-   - inspect `ProfilesPage.xaml`, `ProfilesPage.xaml.cs`, presentation helpers and relevant tests;
-   - consume only `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)`;
-   - expose stable GameId, AdapterId and exact universal candidate values only when the application seam returns a real projection;
-   - WPF must not load History independently, rebuild candidate spaces, infer identity/mode, rerun validation, decide winners or persist universal metadata;
-   - `null` means no universal provenance presentation, without authority-implying fabricated placeholders;
-   - preserve existing five specialized winner roles, challenge workflow and BlueStacks/FF compatibility UI.
-12. Broader Track 5 UI refinement only after the presentation seam is GREEN.
+11. Profiles presentation seam ✅
+12. **Durable promoted-winner provenance boundary inspection** ← NEXT
+   - inspect promotion `HistoryEvent` fields, `ProfileChallengeService` persistence, persisted winner profile and Slice 7 projection together;
+   - determine whether an already-promoted winner can be re-proven after restart using only durable specialized authority;
+   - do not reconstruct or invent a `ProfileChallengeResult` that was never persisted exactly;
+   - if sufficient exact evidence exists, implement the smallest read-only resolver with TDD RED first;
+   - otherwise record the fail-closed boundary and move to the next bounded Profiles/UI refinement without schema invention.
+13. Broader Track 5 UI refinement only after the durable-winner boundary is resolved.
 
 Every independent slice remains:
 
