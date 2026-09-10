@@ -1,3 +1,4 @@
+using System.IO;
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
@@ -63,6 +64,8 @@ public sealed class AppServices : IAsyncDisposable
     public MicrosoftStoreGdkGameDiscoverySource MicrosoftStoreGameDiscovery { get; }
     public LocalGameCatalogService GameCatalog { get; }
     public GameAdapterResolver GameAdapters { get; }
+    public BlueStacksUniversalTuningCandidateBridge UniversalTuningCandidates { get; }
+    public UniversalValidatedProfileProvenanceService UniversalValidatedProfileProvenance { get; }
     public RunningProcessGameEvidenceSource RunningProcessGameEvidence { get; }
     public KnownExecutableGameEvidenceSource KnownExecutableGameEvidence { get; }
     public GameEvidenceCatalogService GameEvidenceCatalog { get; }
@@ -193,6 +196,13 @@ public sealed class AppServices : IAsyncDisposable
             BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire),
             BlueStacksFreeFireGameAdapter.For(GameKind.FreeFireMax)
         ]);
+        UniversalTuningCandidates = new BlueStacksUniversalTuningCandidateBridge(
+            AutoTuner,
+            GameAdapters);
+        UniversalValidatedProfileProvenance = new UniversalValidatedProfileProvenanceService(
+            Profiles,
+            History,
+            UniversalTuningCandidates);
         RunningProcessGameEvidence = new RunningProcessGameEvidenceSource(
             new WindowsRunningProcessObservationProvider());
         KnownExecutableGameEvidence = new KnownExecutableGameEvidenceSource(
@@ -444,6 +454,79 @@ public sealed class AppServices : IAsyncDisposable
             targetValue,
             recommendation,
             cancellationToken);
+
+    public async Task<UniversalValidatedProfileProjection?> ResolveCurrentUniversalValidatedProfileProvenanceAsync(
+        Guid profileId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        IReadOnlyList<PerformanceProfile> profiles;
+        try
+        {
+            profiles = await Profiles.LoadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException
+                                          or UnauthorizedAccessException
+                                          or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+
+        var matches = profiles
+            .Where(profile => profile.Id == profileId)
+            .Take(2)
+            .ToArray();
+        if (matches.Length != 1) return null;
+
+        var profile = matches[0];
+        if (profile.Kind != ProfileKind.Custom
+            || profile.Evidence != EvidenceLevel.Validated
+            || profile.SourceComparisonId is null
+            || string.IsNullOrWhiteSpace(profile.InstanceName))
+            return null;
+
+        var environment = Environment.Capture();
+        var instances = environment.Instances
+            .Where(instance => string.Equals(
+                instance.Name,
+                profile.InstanceName,
+                StringComparison.OrdinalIgnoreCase))
+            .Take(2)
+            .ToArray();
+        if (instances.Length != 1) return null;
+
+        IReadOnlyDictionary<string, string> capturedSettings;
+        try
+        {
+            capturedSettings = BlueStacks.CaptureAllowedSettings(instances[0].Name);
+        }
+        catch (Exception exception) when (exception is IOException
+                                          or UnauthorizedAccessException
+                                          or ArgumentException)
+        {
+            return null;
+        }
+        if (capturedSettings.Count == 0) return null;
+
+        try
+        {
+            return await UniversalValidatedProfileProvenance.ResolveCurrentAsync(
+                profileId,
+                environment,
+                instances[0],
+                capturedSettings,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException
+                                          or UnauthorizedAccessException
+                                          or System.Text.Json.JsonException
+                                          or InvalidDataException
+                                          or ArgumentException)
+        {
+            return null;
+        }
+    }
 
     public UniversalDiagnosticSnapshot AnalyzeCurrentMachine(
         TelemetrySample sample,
