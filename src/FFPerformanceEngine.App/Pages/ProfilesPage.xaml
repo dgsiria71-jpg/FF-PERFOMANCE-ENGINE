@@ -42,6 +42,23 @@
                         </StackPanel>
                     </Grid>
 
+                    <Border x:Name="UniversalProvenanceCard"
+                            Visibility="Collapsed"
+                            Background="{DynamicResource HoverBrush}"
+                            CornerRadius="12" Padding="12" Margin="0,14,0,0">
+                        <StackPanel>
+                            <TextBlock Text="PROVENIÊNCIA UNIVERSAL ATUAL" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock x:Name="UniversalProvenanceIdentityText"
+                                       Margin="0,7,0,0" FontSize="16" FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="UniversalProvenanceCandidateText"
+                                       Margin="0,7,0,0" FontFamily="Consolas"
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
                     <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,14,0,0">
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap">
