@@ -30,7 +30,8 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
             "Improved evaluator verdict must be preserved exactly.");
         Require(result.Before is not null && result.After is not null,
             "Kept canary must preserve both typed evidence frames.");
-        Require(result.ActiveLease is not null && result.ActiveLease.IsActive,
+        var activeLease = result.ActiveLease;
+        Require(activeLease is not null && activeLease.IsActive,
             "Kept canary must transfer the active System Optimization session through a live lease.");
         Require(harness.State[Harness.CapabilityId] == Harness.TargetValue,
             "Kept canary must leave the session mutation active until the lease restores.");
@@ -39,8 +40,8 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         Require(harness.CaptureCalls == 2 && harness.Evaluator.Calls == 1,
             "Canary must capture before and after exactly once and evaluate once.");
 
-        await result.ActiveLease.RestoreAsync();
-        Require(!result.ActiveLease.IsActive && harness.State[Harness.CapabilityId] == Harness.OriginalValue,
+        await activeLease!.RestoreAsync();
+        Require(!activeLease.IsActive && harness.State[Harness.CapabilityId] == Harness.OriginalValue,
             "Restoring the kept lease must return the exact pre-canary capability state.");
         Require(harness.Adapter.RollbackCount == 1,
             "Kept lease restore must delegate rollback to the existing transaction engine exactly once.");
