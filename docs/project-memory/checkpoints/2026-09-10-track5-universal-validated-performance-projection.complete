@@ -1,0 +1,68 @@
+# Track 5 — Universal Validated Performance Projection — COMPLETE
+
+Date: 2026-09-10
+Branch: `build/initial-product`
+Application SHA: `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4`
+Commit: `feat: project validated performance records into universal context`
+Windows CI: #1018 — SUCCESS
+Run id: `34433407760`
+
+## Verified scope
+
+- Added `UniversalValidatedPerformanceProjection` as a read-only projection that retains the exact original specialized `PerformanceComparisonHistoryRecord` plus its exact Slice 3 `UniversalTuningCandidate` binding.
+- Added `BlueStacksUniversalValidatedPerformanceBridge.TryProject(...)`.
+- `PerformanceComparisonHistoryRecord.CanOriginateProfile` remains the first authority gate. Universal metadata cannot make it true.
+- The bridge defensively rehydrates the record and fails closed on invalid additive context.
+- Candidate and Validation must both be fully `Measured`.
+- Validation must be captured later than Candidate.
+- Candidate and Validation must retain exact equivalent `PerformanceConfigurationSnapshot` values.
+- Candidate and Validation must both contain valid `PerformanceUniversalConfigurationContext` values and those contexts must be exactly equivalent.
+- Universal `GameId` and `AdapterId` must match the stable Slice 3 candidate-space identity and exact resolved adapter.
+- Specialized configuration `Game` must match `candidateSpace.Identity.LegacyGameKind`; cross-workload projection fails closed.
+- The specialized candidate configuration must map to exactly one Slice 3 binding by CPU/RAM/FPS/renderer/resolution. Zero or ambiguous matches return no projection.
+- Full specialized Candidate↔Validation equivalence continues to own BlueStacks instance, DPI and structural environment matching.
+- Legacy validated History without `UniversalContext` remains valid through the specialized profile-origin path but receives no universal projection. No historical context is invented.
+- Observed and PendingValidation records remain blocked.
+- An adversarial non-Measured Candidate is blocked by the universal projection even when the legacy `CanOriginateProfile` property itself remains true; the legacy property is not modified.
+- Universal candidate/validation context mismatch, cross-machine context, GameId/workload mismatch, AdapterId mismatch and zero/ambiguous binding all fail closed.
+- No new `Validated`, winner, `PerformanceProfile`, recommendation, persistence or mutation authority was created.
+- No changes were made to `HistoryService`, `ProfileService`, `PerformanceProfile`, `ProfileChallengeService`, `ProfileChallengeRoundService`, incumbent freshness/winner replacement, typed PresentMon authority, Global Controlled Benchmark Lease, rollback or startup behavior.
+
+## TDD provenance
+
+Temporary proving branch: `ci/track5-universal-validation-projection-verify`.
+
+- Verifier workflow commit: `46fc5271ddf5db4c31b00c10319a6ed804f8fa4d`.
+- Test-contract commit: `ce558a357d9b0dfcfb2274f56581f9d450b090a0`; its workflow run was superseded/cancelled by the immediate runner-registration push.
+- RED SHA: `37774d0685403104bf4ace7e12e903217ee1098a`.
+- RED verifier #3 / run `34433104755`: Core failed only with `CS0103` because `BlueStacksUniversalValidatedPerformanceBridge` did not exist. No earlier regression failure was present.
+- Minimal production SHA: `2edf4e18acce9dcc3847d0367922f3ba64afcf1c`.
+- GREEN verifier #4 / run `34433257697`: Core self-tests, permanent App self-tests and WPF application build all SUCCESS.
+- Selective atomic official integration copied only the permanent production/test/runner blobs and excluded `.github/workflows/core-track5-universal-validation-projection-verifier.yml`.
+- Official application SHA `f5e57ce4cb61c01132d5ecb5f4d67d2433533fc4` passed Windows CI #1018 / run `34433407760`, including native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
+
+## Preserved authority boundary
+
+Canonical chain remains:
+
+```text
+specialized controlled measurement / History
+        ↓
+Observed
+        ↓
+PendingValidation
+        ↓
+later independent fully Measured validation
+        ↓
+exact specialized configuration equivalence
+        ↓
+CanOriginateProfile
+        ↓
+optional exact universal correlation
+```
+
+Universal correlation is downstream, additive and read-only. Failure to correlate universally does not rewrite or invalidate a specialized record that remains valid under the existing profile-origin rules.
+
+## Exact next boundary
+
+Inspect validated profile origin/challenge provenance. Determine whether exact universal candidate/workload provenance can accompany the existing explicit specialized profile-origin/challenge chain without a new generic profile persistence schema. Before modifying `ProfileChallengeRoundService`, prove whether its current capture path already possesses a valid `PerformanceUniversalConfigurationContext`; absence must remain absence rather than being fabricated.

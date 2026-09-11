@@ -1,0 +1,68 @@
+# Track 6 Item 3 Slice 3 — Typed Canary Outcome Policy — COMPLETE
+
+Date: 2026-09-11
+Branch: `build/initial-product`
+Status: application GREEN; documentary checkpoint pending exact-head Windows CI at creation time.
+
+## Purpose
+
+Close the family-outcome-policy gap left intentionally open by Slice 2 without redesigning the reversible canary executor and without inventing unsupported causal metrics or one universal optimization score.
+
+## Production contract
+
+- Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianTypedCanaryOutcomeEvaluator.cs`
+- Interface: existing `IGenericGuardianSessionCanaryOutcomeEvaluator`
+- CPU/GPU are the only generic families currently allowed to emit `Improved` or `Regressive`.
+- Required before/after metrics: measured finite `TelemetryStandardMetrics.FrameFpsAverage` and `TelemetryStandardMetrics.FrameTimeAverageMs`, each with coverage >= 0.75.
+- `Improved`: relative FPS gain >= 2% and average frame time does not worsen.
+- `Regressive`: relative FPS loss >= 2%.
+- `Inconclusive`: sub-threshold change, frame-time worsening without the defined FPS regression, missing/partial/low-coverage/invalid evidence, or any family without a dedicated typed outcome contract.
+- `MemoryPressure`, `VramPressure`, `FrameTimeInstability`, `ThermalThrottling`, `NetworkInstability` intentionally remain `Inconclusive`; fallback/unavailable families also fail closed.
+- The 2% boundary is reused from the existing specialized `GuardianEngine.CanaryImproved` default; 75% coverage is reused from the typed universal bottleneck analyzer causal-evidence floor.
+- No universal score, new arbitrary threshold, mutation authority, persistence, learning, cooldown/Action Budget, host/startup wiring, WPF or recommendation/profile authority was added.
+
+## TDD evidence
+
+Verifier branch: `ci/track6-session-canary-outcome-policy-verify`
+
+RED:
+
+- SHA `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`
+- run `34586771695`
+- native configure/build/test SUCCESS
+- managed build FAILED exactly on missing `GenericGuardianTypedCanaryOutcomeEvaluator`
+- exactly 1 `CS0246`, 0 warnings
+
+Minimal production precursor:
+
+- SHA `5aaddec30413ef65690e7c01dcc36ffc7981b4b2`
+
+GREEN verifier:
+
+- SHA `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`
+- run `34587029659`
+- native configure/build/test, managed build, Core self-tests, App self-tests and win-x64 publish SUCCESS
+
+## Official application evidence
+
+- application SHA `37e4744abcea1c791d6e19ea93b517f461fdbdb1`
+- commit `feat: add typed Guardian canary outcome policy`
+- Windows CI #1058 / run `34587241098` SUCCESS
+- artifact `FFPerformanceEngine-win-x64`
+- artifact id `10194147656`
+- artifact SHA-256 `3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`
+- temporary verifier workflow excluded from official integration
+
+## Authority boundaries preserved
+
+- `Observed != Validated`; live canary outcome never becomes controlled validation automatically.
+- System Optimization transaction/snapshot/rollback authority remains unchanged.
+- Typed capture authority remains in `PerformanceCaptureCoordinator`.
+- Slice 1 eligibility remains unchanged and must succeed before execution.
+- Specialized BlueStacks/FF Guardian behavior remains unchanged.
+- Global Controlled Benchmark Lease behavior remains unchanged.
+- Item 4 learned reliability has not started.
+
+## Next exact engineering action
+
+After this documentary HEAD is exact-CI GREEN, continue Track 6 item 3 with a bounded **cooldown + Action Budget** slice. It must prevent repeated live-session intervention thrash while preserving the existing eligibility → reversible canary → typed outcome chain. Runtime host wiring remains the following item-3 slice; learned reliability remains item 4.

@@ -1,0 +1,502 @@
+using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using FFPerformanceEngine.Core.Diagnostics;
+using FFPerformanceEngine.Core.Models;
+using FFPerformanceEngine.Core.Services;
+
+namespace FFPerformanceEngine.Core.SystemOptimization;
+
+public sealed class SystemOptimizationTransactionEngine
+{
+    private readonly WindowsPerformanceCapabilityRegistry _capabilities;
+    private readonly WindowsCapabilityMutationAdapterRegistry _adapters;
+    private readonly SnapshotService _snapshots;
+    private readonly HistoryService _history;
+    private readonly SemaphoreSlim _transactionGate = new(1, 1);
+    private readonly Dictionary<string, Guid> _activeCapabilityOwners = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, HashSet<string>> _sessionOwnershipByRestorePoint = new();
+
+    public SystemOptimizationTransactionEngine(
+        WindowsPerformanceCapabilityRegistry capabilities,
+        WindowsCapabilityMutationAdapterRegistry adapters,
+        SnapshotService snapshots,
+        HistoryService history)
+    {
+        _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
+        _adapters = adapters ?? throw new ArgumentNullException(nameof(adapters));
+        _snapshots = snapshots ?? throw new ArgumentNullException(nameof(snapshots));
+        _history = history ?? throw new ArgumentNullException(nameof(history));
+    }
+
+    public async Task<SystemOptimizationSession> BeginSessionAsync(
+        string label,
+        IReadOnlyList<WindowsMutationRequest> mutations,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
+            var prepared = await PrepareAsync(label, SystemOptimizationScope.Session, mutations, cancellationToken).ConfigureAwait(false);
+            AcquireSessionOwnership(prepared);
+            try
+            {
+                await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+                return new SystemOptimizationSession(this, prepared.TransactionId, prepared.RestorePointId, prepared.Label);
+            }
+            catch
+            {
+                ReleaseSessionOwnership(prepared.RestorePointId);
+                throw;
+            }
+        }
+        finally
+        {
+            _transactionGate.Release();
+        }
+    }
+
+    public async Task<PersistentOptimizationResult> ApplyPersistentAsync(
+        string label,
+        IReadOnlyList<WindowsMutationRequest> mutations,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mutations);
+        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
+            var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
+            await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+            return new PersistentOptimizationResult(
+                true,
+                prepared.TransactionId,
+                prepared.RestorePointId,
+                $"Persistent system optimization '{prepared.Label}' applied and verified.");
+        }
+        finally
+        {
+            _transactionGate.Release();
+        }
+    }
+
+    public async Task<SystemOptimizationRestoreResult> RestoreAsync(
+        Guid restorePointId,
+        CancellationToken cancellationToken = default)
+    {
+        if (restorePointId == Guid.Empty) throw new ArgumentException("A restore point identity is required.", nameof(restorePointId));
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var stored = (await _snapshots.LoadAsync(cancellationToken).ConfigureAwait(false))
+                .FirstOrDefault(snapshot => snapshot.Id == restorePointId)
+                ?? throw new KeyNotFoundException($"System optimization restore point '{restorePointId:D}' was not found.");
+            if (!stored.Values.TryGetValue(SystemOptimizationSnapshotCodec.PayloadKey, out var payload))
+                throw new InvalidDataException($"Snapshot '{restorePointId:D}' is not a DG system optimization restore point.");
+
+            var envelope = SystemOptimizationSnapshotCodec.Decode(payload);
+            var restoringOwnedSession = _sessionOwnershipByRestorePoint.ContainsKey(restorePointId);
+            if (!restoringOwnedSession)
+                EnsureCapabilitiesAreNotOwned(envelope.Entries.Select(entry => entry.CapabilityId));
+
+            var failures = await RollbackEnvelopeAsync(envelope).ConfigureAwait(false);
+            if (failures.Count > 0)
+            {
+                await AppendHistoryAsync(
+                    envelope,
+                    restorePointId,
+                    "restore-incomplete",
+                    $"System optimization restore incomplete; {failures.Count} rollback error(s) require attention.",
+                    CancellationToken.None).ConfigureAwait(false);
+                throw new AggregateException("System optimization restore could not return every capability to its original state.", failures);
+            }
+
+            ReleaseSessionOwnership(restorePointId);
+            await AppendHistoryAsync(
+                envelope,
+                restorePointId,
+                "restored",
+                $"System optimization '{envelope.Label}' restored to its pre-transaction state.",
+                CancellationToken.None).ConfigureAwait(false);
+
+            return new SystemOptimizationRestoreResult(
+                true,
+                envelope.TransactionId,
+                restorePointId,
+                "Original Windows capability state restored and verified.");
+        }
+        finally
+        {
+            _transactionGate.Release();
+        }
+    }
+
+    private async Task<PreparedTransaction> PrepareAsync(
+        string label,
+        SystemOptimizationScope scope,
+        IReadOnlyList<WindowsMutationRequest> mutations,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(label)) throw new ArgumentException("A system optimization transaction label is required.", nameof(label));
+        ArgumentNullException.ThrowIfNull(mutations);
+        if (mutations.Count == 0) throw new ArgumentException("At least one Windows capability mutation is required.", nameof(mutations));
+
+        var requested = new Dictionary<string, WindowsMutationRequest>(StringComparer.OrdinalIgnoreCase);
+        foreach (var mutation in mutations)
+        {
+            ArgumentNullException.ThrowIfNull(mutation);
+            var id = NormalizeId(mutation.CapabilityId);
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Every mutation requires a CapabilityId.", nameof(mutations));
+            if (!requested.TryAdd(id, mutation with { CapabilityId = id }))
+                throw new InvalidOperationException($"Capability '{id}' appears more than once in the same transaction.");
+        }
+
+        var capabilityMap = _capabilities.GetAll().ToDictionary(item => item.CapabilityId, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in requested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!capabilityMap.TryGetValue(pair.Key, out var capability))
+                throw new InvalidOperationException($"Unknown Windows performance capability '{pair.Key}'.");
+            if (capability.Availability != CapabilityAvailability.Available)
+                throw new InvalidOperationException($"Windows performance capability '{pair.Key}' is {capability.Availability}; no mutation will be attempted until a concrete adapter verifies availability.");
+            ValidateScope(capability, scope);
+
+            var adapter = _adapters.GetRequired(pair.Key);
+            var validation = adapter.Validate(pair.Value.TargetValue, scope);
+            if (!validation.Success)
+                throw new InvalidOperationException($"Windows capability '{pair.Key}' rejected target '{pair.Value.TargetValue}': {validation.Message}");
+
+            var current = await adapter.ReadCurrentAsync(cancellationToken).ConfigureAwait(false);
+            if (!current.Success)
+                throw new InvalidOperationException($"Windows capability '{pair.Key}' current state could not be read: {current.Message}");
+            if (pair.Value.ExpectedCurrentValue is not null
+                && !string.Equals(current.Value, pair.Value.ExpectedCurrentValue, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Windows capability '{pair.Key}' expected-state precondition failed before snapshot. Expected '{pair.Value.ExpectedCurrentValue}', read '{current.Value}'.");
+            }
+        }
+
+        var plan = _capabilities.ResolvePlan(requested.Keys);
+        if (!plan.IsValid)
+            throw new InvalidOperationException("Windows capability graph rejected the transaction: " + string.Join("; ", plan.Issues.Select(issue => issue.Message)));
+
+        // An active session owns not only the values it changes but the dependency
+        // assumptions under which those values were validated. Dependencies stay
+        // unmodified unless explicitly requested; they are only reserved here.
+        var dependencyClosureIds = plan.OrderedCapabilities
+            .Select(capability => NormalizeId(capability.CapabilityId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        // A dependency is a runtime precondition, not merely an ordering hint.
+        // The transaction cannot rely on a dependency whose current capability
+        // state has not been proven by discovery. This check is deliberately
+        // performed before any snapshot or Apply.
+        foreach (var dependencyId in dependencyClosureIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!capabilityMap.TryGetValue(dependencyId, out var dependency))
+                throw new InvalidOperationException($"Windows capability graph resolved unknown dependency '{dependencyId}'.");
+            if (dependency.Availability != CapabilityAvailability.Available)
+                throw new InvalidOperationException(
+                    $"Windows performance dependency '{dependencyId}' is {dependency.Availability}; dependent mutations are blocked until discovery proves the dependency Available.");
+        }
+
+        EnsureCapabilitiesAreNotOwned(dependencyClosureIds);
+
+        var orderedIds = dependencyClosureIds
+            .Where(requested.ContainsKey)
+            .ToArray();
+        if (orderedIds.Length != requested.Count)
+            throw new InvalidOperationException("Windows capability planner did not resolve every requested mutation.");
+
+        var entries = new List<PreparedMutation>(orderedIds.Length);
+        foreach (var id in orderedIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var request = requested[id];
+            var adapter = _adapters.GetRequired(id);
+            var snapshot = await adapter.SnapshotAsync(cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(NormalizeId(snapshot.CapabilityId), id, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Adapter '{id}' returned a snapshot for '{snapshot.CapabilityId}'.");
+            if (request.ExpectedCurrentValue is not null
+                && !string.Equals(snapshot.OriginalValue, request.ExpectedCurrentValue, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Windows capability '{id}' expected-state precondition changed between read and snapshot. Expected '{request.ExpectedCurrentValue}', snapshot captured '{snapshot.OriginalValue}'.");
+            }
+            entries.Add(new PreparedMutation(request, adapter, snapshot));
+        }
+
+        var transactionId = Guid.NewGuid();
+        var envelope = new SystemOptimizationRestoreEnvelope
+        {
+            TransactionId = transactionId,
+            Label = label.Trim(),
+            Scope = scope,
+            CreatedAt = DateTimeOffset.UtcNow,
+            Entries = entries.Select(entry => new SystemOptimizationRestoreEntry
+            {
+                CapabilityId = entry.Request.CapabilityId,
+                TargetValue = entry.Request.TargetValue,
+                OriginalValue = entry.Snapshot.OriginalValue,
+                RestorePayload = entry.Snapshot.RestorePayload
+            }).ToList()
+        };
+        var restorePoint = await _snapshots.CreateAsync(
+            $"DG System Restore · {label.Trim()}",
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [SystemOptimizationSnapshotCodec.PayloadKey] = SystemOptimizationSnapshotCodec.Encode(envelope)
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return new PreparedTransaction(transactionId, restorePoint.Id, label.Trim(), scope, entries, dependencyClosureIds, envelope);
+    }
+
+    private async Task ApplyPreparedAsync(PreparedTransaction prepared, CancellationToken cancellationToken)
+    {
+        var applied = new List<PreparedMutation>(prepared.Entries.Count);
+        Exception? primaryFailure = null;
+        try
+        {
+            foreach (var entry in prepared.Entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                applied.Add(entry);
+                var apply = await entry.Adapter.ApplyAsync(entry.Request.TargetValue, cancellationToken).ConfigureAwait(false);
+                if (!apply.Success)
+                    throw new InvalidOperationException($"Windows capability '{entry.Request.CapabilityId}' failed to apply: {apply.Message}");
+
+                var verified = await entry.Adapter.VerifyAsync(entry.Request.TargetValue, cancellationToken).ConfigureAwait(false);
+                if (!verified)
+                    throw new InvalidOperationException($"Windows capability '{entry.Request.CapabilityId}' did not verify the requested state after apply.");
+            }
+
+            await AppendHistoryAsync(
+                prepared.Envelope,
+                prepared.RestorePointId,
+                "applied",
+                $"System optimization '{prepared.Label}' applied and verified as a {prepared.Scope} transaction.",
+                CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+        }
+
+        var rollbackFailures = await RollbackPreparedAsync(applied).ConfigureAwait(false);
+        Exception? rollbackAuditFailure = null;
+        try
+        {
+            await AppendHistoryAsync(
+                prepared.Envelope,
+                prepared.RestorePointId,
+                rollbackFailures.Count == 0 ? "rollback" : "rollback-incomplete",
+                rollbackFailures.Count == 0
+                    ? $"Rollback completed after system optimization failure: {primaryFailure.Message}"
+                    : $"Rollback incomplete after system optimization failure: {primaryFailure.Message}",
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            rollbackAuditFailure = exception;
+        }
+
+        if (rollbackFailures.Count > 0 || rollbackAuditFailure is not null)
+        {
+            var all = new List<Exception> { primaryFailure };
+            all.AddRange(rollbackFailures);
+            if (rollbackAuditFailure is not null)
+                all.Add(new InvalidOperationException("System optimization rollback completed or was attempted, but its History event could not be persisted.", rollbackAuditFailure));
+            throw new AggregateException(
+                rollbackFailures.Count > 0
+                    ? "System optimization failed and rollback was incomplete."
+                    : "System optimization failed, state was rolled back, but rollback audit persistence also failed.",
+                all);
+        }
+
+        ExceptionDispatchInfo.Capture(primaryFailure).Throw();
+    }
+
+    private void EnsureCapabilitiesAreNotOwned(IEnumerable<string> capabilityIds)
+    {
+        foreach (var capabilityId in capabilityIds)
+        {
+            var id = NormalizeId(capabilityId);
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            if (_activeCapabilityOwners.TryGetValue(id, out var transactionId))
+                throw new InvalidOperationException($"Windows performance capability '{id}' is owned by active session transaction '{transactionId:D}' until that session restores.");
+        }
+    }
+
+    private void AcquireSessionOwnership(PreparedTransaction prepared)
+    {
+        var ids = prepared.OwnershipCapabilityIds
+            .Select(NormalizeId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        EnsureCapabilitiesAreNotOwned(ids);
+        foreach (var id in ids) _activeCapabilityOwners.Add(id, prepared.TransactionId);
+        _sessionOwnershipByRestorePoint.Add(prepared.RestorePointId, ids);
+    }
+
+    private void ReleaseSessionOwnership(Guid restorePointId)
+    {
+        if (!_sessionOwnershipByRestorePoint.Remove(restorePointId, out var ids)) return;
+        foreach (var id in ids) _activeCapabilityOwners.Remove(id);
+    }
+
+    private static async Task<List<Exception>> RollbackPreparedAsync(IReadOnlyList<PreparedMutation> applied)
+    {
+        var failures = new List<Exception>();
+        for (var index = applied.Count - 1; index >= 0; index--)
+        {
+            var entry = applied[index];
+            try
+            {
+                await entry.Adapter.RollbackAsync(entry.Snapshot, CancellationToken.None).ConfigureAwait(false);
+                await VerifyRollbackAsync(entry.Adapter, entry.Snapshot).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new InvalidOperationException($"Rollback failed for capability '{entry.Request.CapabilityId}'.", exception));
+            }
+        }
+        return failures;
+    }
+
+    private async Task<List<Exception>> RollbackEnvelopeAsync(SystemOptimizationRestoreEnvelope envelope)
+    {
+        var failures = new List<Exception>();
+        for (var index = envelope.Entries.Count - 1; index >= 0; index--)
+        {
+            var entry = envelope.Entries[index];
+            try
+            {
+                var adapter = _adapters.GetRequired(entry.CapabilityId);
+                var snapshot = new WindowsCapabilityMutationSnapshot(entry.CapabilityId, entry.OriginalValue, entry.RestorePayload);
+                await adapter.RollbackAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+                await VerifyRollbackAsync(adapter, snapshot).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(new InvalidOperationException($"Restore failed for capability '{entry.CapabilityId}'.", exception));
+            }
+        }
+        return failures;
+    }
+
+    private static async Task VerifyRollbackAsync(
+        IWindowsCapabilityMutationAdapter adapter,
+        WindowsCapabilityMutationSnapshot snapshot)
+    {
+        var current = await adapter.ReadCurrentAsync(CancellationToken.None).ConfigureAwait(false);
+        if (!current.Success)
+            throw new InvalidOperationException($"Capability '{adapter.CapabilityId}' could not be read after rollback: {current.Message}");
+        if (snapshot.OriginalValue is not null
+            && !string.Equals(current.Value, snapshot.OriginalValue, StringComparison.Ordinal))
+            throw new InvalidOperationException($"Capability '{adapter.CapabilityId}' rollback verification mismatch. Expected '{snapshot.OriginalValue}', read '{current.Value}'.");
+    }
+
+    private async Task AppendHistoryAsync(
+        SystemOptimizationRestoreEnvelope envelope,
+        Guid restorePointId,
+        string status,
+        string summary,
+        CancellationToken cancellationToken)
+    {
+        await _history.AppendAsync(new HistoryEvent
+        {
+            Kind = HistoryEventKind.System,
+            Title = envelope.Scope == SystemOptimizationScope.Persistent
+                ? "DG · Otimizar este PC"
+                : "DG · Otimização de sessão",
+            Summary = summary,
+            DetailsJson = JsonSerializer.Serialize(new
+            {
+                transactionId = envelope.TransactionId,
+                restorePointId,
+                scope = envelope.Scope.ToString(),
+                status,
+                capabilities = envelope.Entries.Select(entry => entry.CapabilityId).ToArray()
+            })
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void ValidateScope(WindowsPerformanceCapability capability, SystemOptimizationScope scope)
+    {
+        var allowed = scope switch
+        {
+            SystemOptimizationScope.Session => capability.PersistenceScope is CapabilityPersistenceScope.SessionOnly or CapabilityPersistenceScope.PersistentAllowed,
+            SystemOptimizationScope.Persistent => capability.PersistenceScope is CapabilityPersistenceScope.PersistentAllowed or CapabilityPersistenceScope.PersistentOnly,
+            _ => false
+        };
+        if (!allowed)
+            throw new InvalidOperationException($"Capability '{capability.CapabilityId}' with scope {capability.PersistenceScope} cannot participate in a {scope} transaction.");
+    }
+
+    private static string NormalizeId(string? capabilityId)
+        => capabilityId?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private sealed record PreparedMutation(
+        WindowsMutationRequest Request,
+        IWindowsCapabilityMutationAdapter Adapter,
+        WindowsCapabilityMutationSnapshot Snapshot);
+
+    private sealed record PreparedTransaction(
+        Guid TransactionId,
+        Guid RestorePointId,
+        string Label,
+        SystemOptimizationScope Scope,
+        IReadOnlyList<PreparedMutation> Entries,
+        IReadOnlyList<string> OwnershipCapabilityIds,
+        SystemOptimizationRestoreEnvelope Envelope);
+}
+
+public sealed class SystemOptimizationSession : IAsyncDisposable
+{
+    private readonly SystemOptimizationTransactionEngine _engine;
+    private int _restored;
+
+    internal SystemOptimizationSession(
+        SystemOptimizationTransactionEngine engine,
+        Guid transactionId,
+        Guid restorePointId,
+        string label)
+    {
+        _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        TransactionId = transactionId;
+        RestorePointId = restorePointId;
+        Label = label;
+    }
+
+    public Guid TransactionId { get; }
+    public Guid RestorePointId { get; }
+    public string Label { get; }
+    public bool IsRestored => Volatile.Read(ref _restored) != 0;
+
+    public async Task RestoreAsync(CancellationToken cancellationToken = default)
+    {
+        if (Interlocked.CompareExchange(ref _restored, 1, 0) != 0) return;
+        try
+        {
+            await _engine.RestoreAsync(RestorePointId, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            Volatile.Write(ref _restored, 0);
+            throw;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (IsRestored) return;
+        await RestoreAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+}
