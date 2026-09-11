@@ -112,6 +112,7 @@ try
     GenericGuardianClassifierTaxonomySelfTests.Run();
     GenericGuardianClassifierSupportSelfTests.Run();
     GenericGuardianSessionActionSelectorSelfTests.Run();
+    await GenericGuardianWindowsSessionCanarySelfTests.RunAsync();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
