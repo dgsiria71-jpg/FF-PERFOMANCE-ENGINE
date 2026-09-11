@@ -111,6 +111,7 @@ try
     GenericGuardianBottleneckClassifierSelfTests.Run();
     GenericGuardianClassifierTaxonomySelfTests.Run();
     GenericGuardianClassifierSupportSelfTests.Run();
+    GenericGuardianSessionActionSelectorSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
