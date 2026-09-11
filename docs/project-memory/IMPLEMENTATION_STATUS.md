@@ -5,14 +5,14 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `cef217f4d4f053109ee6bed34483d773f02605bf`
-- Commit: `feat: add reversible Guardian Windows session canary`
-- Track 6 item 3 Slice 2: **GREEN**
-- Windows CI: **#1053 — SUCCESS**
-- Run: `34546467152`
-- Artifact `FFPerformanceEngine-win-x64`: id `10179230537`, digest `sha256:b8d3821173725bc2859ce82eef3d5fc76f146a79eb815d6757f01abd867780b0`.
+- Application HEAD: `37e4744abcea1c791d6e19ea93b517f461fdbdb1`
+- Commit: `feat: add typed Guardian canary outcome policy`
+- Track 6 item 3 Slice 3: **GREEN**
+- Windows CI: **#1058 — SUCCESS**
+- Run: `34587241098`
+- Artifact `FFPerformanceEngine-win-x64`: id `10194147656`, digest `sha256:3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`.
 
-Previous verified documentary HEAD: `8dcc6042ec72fe1b38fa5d1cd1faee8a9f1e012d`, Windows CI #1054 / run `34564823407` SUCCESS.
+Previous verified documentary HEAD: `94dc8a4681e044221479677edc0d4345e1f49989`, Windows CI #1055 / run `34567424200` SUCCESS.
 
 ## Track state
 
@@ -22,7 +22,7 @@ Previous verified documentary HEAD: `8dcc6042ec72fe1b38fa5d1cd1faee8a9f1e012d`, 
 - Track 3 — Game Discovery + Adapter Framework — GREEN
 - Track 4 — Universal Telemetry / Evidence — GREEN
 - Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
-- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slices 1–2 GREEN**
+- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slices 1–3 GREEN**
 - Track 7 — Hardware Performance Engine — PLANNED
 - Track 8 — Deep Cleaner — PLANNED
 - Track 9 — Auto Optimize — PLANNED
@@ -54,17 +54,35 @@ Application `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`, CI #1051 / run `34544846
 
 Plan `docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`.
 
-Production `GenericGuardianWindowsSessionCanaryExecutor` reuses Track 2 transaction authority and Track 4 typed capture rather than duplicating them. It accepts one explicit eligible binding, revalidates it, captures typed before evidence, starts exactly one explicit session transaction, captures typed after evidence, delegates family semantics to `IGenericGuardianSessionCanaryOutcomeEvaluator`, keeps only `Improved`, and restores exact prior state on regression/inconclusive/unavailable-after/failure/cancellation. Kept state is owned by a reversible async-disposable lease.
+`GenericGuardianWindowsSessionCanaryExecutor` reuses Track 2 transaction authority and Track 4 typed capture. It accepts one explicit eligible binding, revalidates it, captures typed before evidence, starts one explicit session transaction, captures typed after evidence, delegates family semantics through `IGenericGuardianSessionCanaryOutcomeEvaluator`, keeps only `Improved`, restores exact prior state on all non-improved/failure/cancellation paths, and returns kept state only through a reversible async-disposable lease.
 
-TDD evidence:
+TDD evidence: RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec` / run `34545776498`; GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9` / run `34546198986`; official application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS.
 
-- RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`, verifier run `34545776498`: native passed; managed failed with exactly 6 intended missing-contract `CS0246` errors and 0 warnings;
-- production precursor `26af2d51667596f9f0a356022196d172bf3c2569`;
-- GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9`, verifier run `34546198986`: native/managed/Core/App/publish SUCCESS;
-- official application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS;
-- official artifact id `10179230537`, digest `sha256:b8d3821173725bc2859ce82eef3d5fc76f146a79eb815d6757f01abd867780b0`.
+#### Slice 3 — Typed canary outcome policy — GREEN
 
-Authority boundary: Slice 2 proves reversible orchestration only. No family-specific threshold policy, cooldown/Action Budget, runtime host wiring, learned ranking/reliability, post-session queue, recommendation/profile/winner promotion or persistent optimization is introduced.
+Core `src/FFPerformanceEngine.Core/Services/GenericGuardianTypedCanaryOutcomeEvaluator.cs`.
+Test `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.cs`.
+
+Permanent contract:
+
+- policy plugs into the existing outcome-evaluator seam; it does not alter transaction/capture/executor authority;
+- `CpuContention` and `GpuSaturation` are the only generic families currently allowed to produce `Improved`/`Regressive`;
+- required before/after metrics are measured finite `FrameFpsAverage` and `FrameTimeAverageMs` at coverage >= 0.75;
+- >=2% relative FPS gain plus non-worsening average frame time => `Improved`;
+- >=2% relative FPS loss => `Regressive`;
+- sub-threshold/noisy, incomplete, partial, low-coverage or invalid evidence => `Inconclusive`;
+- Memory/VRAM/frame-pacing/thermal/network families remain `Inconclusive` until dedicated typed outcome evidence is available; all fallback/unavailable families also fail closed;
+- no new score, persistence, learning, host wiring, startup mutation or presentation behavior.
+
+TDD / verification:
+
+- RED `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`, verifier run `34586771695`: native passed; managed failed only for missing `GenericGuardianTypedCanaryOutcomeEvaluator`, exactly 1 `CS0246`, 0 warnings;
+- minimal implementation precursor `5aaddec30413ef65690e7c01dcc36ffc7981b4b2`;
+- GREEN `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`, verifier run `34587029659`: native/managed/Core/App/publish SUCCESS;
+- official application `37e4744abcea1c791d6e19ea93b517f461fdbdb1`, Windows CI #1058 / run `34587241098` SUCCESS;
+- official artifact id `10194147656`, digest `sha256:3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`.
+
+Authority boundary: Slice 3 closes capability-honest family outcome semantics only for CPU/GPU. It adds no cooldown/Action Budget, runtime host wiring, learned ranking/reliability, post-session queue, recommendation/profile/winner promotion or persistent optimization.
 
 ## Non-negotiable authority
 
@@ -76,4 +94,4 @@ Authority boundary: Slice 2 proves reversible orchestration only. No family-spec
 
 ## Exact next engineering action
 
-After the documentary checkpoint is exact-CI GREEN, remain inside Track 6 item 3. Build the smallest family-specific canary outcome-policy layer that uses only supported typed evidence and returns `Inconclusive` when the required causal metric is unavailable. Do not add learned reliability yet. Cooldown/Action Budget and runtime host wiring remain subsequent item-3 slices.
+After the documentary checkpoint is exact-CI GREEN, remain inside Track 6 item 3 and implement the smallest **cooldown + Action Budget** boundary that prevents repeated live-session interventions from thrashing. It must compose with the existing eligibility → reversible session canary → typed outcome path without adding learned reliability. Runtime host wiring remains the final subsequent item-3 slice.

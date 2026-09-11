@@ -49,16 +49,25 @@ Application `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`, CI #1051 / run `34544846
 - Core `src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionCanaryExecutor.cs`;
 - RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`, verifier run `34545776498`: intended missing-contract failure, 6 `CS0246`, 0 warnings;
 - GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9`, verifier run `34546198986`: full verifier SUCCESS;
-- application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS;
-- artifact id `10179230537`, digest `sha256:b8d3821173725bc2859ce82eef3d5fc76f146a79eb815d6757f01abd867780b0`.
+- application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS.
 
 Slice-2 boundary: exactly one explicit already-eligible `LiveSafe` binding; exact typed before/after; Track-2 transaction authority; keep only `Improved`; rollback all non-improved/failure paths; no family-specific threshold, no learning, no cooldown/budget, no runtime host wiring.
 
+#### Slice 3 — Capability-honest typed canary outcome policy — GREEN
+
+- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianTypedCanaryOutcomeEvaluator.cs`;
+- test `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.cs`;
+- RED `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`, verifier run `34586771695`: native SUCCESS, managed expected failure only for one missing outcome-policy contract, 1 `CS0246`, 0 warnings;
+- GREEN `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`, verifier run `34587029659`: native/managed/Core/App/publish SUCCESS;
+- application `37e4744abcea1c791d6e19ea93b517f461fdbdb1`, Windows CI #1058 / run `34587241098` SUCCESS;
+- artifact id `10194147656`, digest `sha256:3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`.
+
+Slice-3 authority: CPU/GPU alone currently use measured typed FPS + average frame time at >=75% coverage; >=2% FPS gain plus non-worsening frame time is `Improved`, >=2% FPS loss is `Regressive`, and incomplete/noisy/unsupported evidence is `Inconclusive`. Memory/VRAM/frame-pacing/thermal/network outcome semantics are intentionally not invented.
+
 #### Remaining item-3 sequence
 
-1. **family-specific canary outcome policy** using already-supported typed evidence; unsupported/missing evidence stays `Inconclusive`;
-2. **cooldown + Action Budget** to bound repeated session interventions and prevent thrash;
-3. **runtime host wiring** that composes state → classifier → eligibility → bounded canary without changing startup discovery or specialized BlueStacks authority.
+1. **cooldown + Action Budget** to bound repeated session interventions and prevent thrash;
+2. **runtime host wiring** that composes state → classifier → eligibility → bounded canary without changing startup discovery or specialized BlueStacks authority.
 
 Only after item 3 is closed does Track 6 move to learned action reliability. Post-session queue remains item 5.
 

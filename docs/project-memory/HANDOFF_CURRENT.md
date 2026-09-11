@@ -11,25 +11,25 @@
 
 ## Current exact verified application checkpoint
 
-- Application HEAD: `cef217f4d4f053109ee6bed34483d773f02605bf`
-- Commit: `feat: add reversible Guardian Windows session canary`
-- Track 6 item 3 Slice 2: **GREEN**
-- Windows CI: **#1053 — SUCCESS**
-- Run: `34546467152`
+- Application HEAD: `37e4744abcea1c791d6e19ea93b517f461fdbdb1`
+- Commit: `feat: add typed Guardian canary outcome policy`
+- Track 6 item 3 Slice 3: **GREEN**
+- Windows CI: **#1058 — SUCCESS**
+- Run: `34587241098`
 - Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
-- Artifact: `FFPerformanceEngine-win-x64`, id `10179230537`, SHA-256 `b8d3821173725bc2859ce82eef3d5fc76f146a79eb815d6757f01abd867780b0`.
+- Artifact: `FFPerformanceEngine-win-x64`, id `10194147656`, SHA-256 `3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`.
 
 Previous verified documentary checkpoint:
 
-- Documentary HEAD: `8dcc6042ec72fe1b38fa5d1cd1faee8a9f1e012d`
-- Windows CI: **#1054 — SUCCESS**
-- Run: `34564823407`
-- It preserved the recovered master architecture without changing application behavior.
+- Documentary HEAD: `94dc8a4681e044221479677edc0d4345e1f49989`
+- Windows CI: **#1055 — SUCCESS**
+- Run: `34567424200`
+- It formally checkpointed Track 6 item 3 Slice 2 after the recovered master-architecture preservation checkpoint.
 
 ## Track state
 
 - Tracks 0–5: **GREEN for their current canonical scope**.
-- Track 6 — Adaptive Guardian 2.0: **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slices 1–2 GREEN**.
+- Track 6 — Adaptive Guardian 2.0: **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slices 1–3 GREEN**.
 - Tracks 7–10: planned per canonical roadmap.
 - Additional master domains beyond Track 10 are preserved in the recovered master architecture; exact old Track 11–19 numbering remains unproven.
 
@@ -53,47 +53,50 @@ Guardian remains additive to the proven specialized Guardian. Generic behavior i
 
 ### Slice 2 — Reversible Windows session-canary execution — GREEN
 
-Plan:
+- plan: `docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`;
+- Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionCanaryExecutor.cs`;
+- test: `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsSessionCanarySelfTests.cs`;
+- RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`, verifier run `34545776498`: native passed; managed failed with exactly 6 intended missing-contract `CS0246` errors and 0 warnings;
+- GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9`, verifier run `34546198986`: native + managed + Core + App + publish SUCCESS;
+- official application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS.
 
-`docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`
+Permanent Slice-2 authority remains: one already-eligible explicit `LiveSafe` candidate maps to exactly one explicit `WindowsMutationRequest`; typed before evidence must exist before mutation; snapshot/apply/verify/rollback remain in `SystemOptimizationTransactionEngine`; before/after capture stays in `PerformanceCaptureCoordinator`; only evaluator verdict `Improved` may KEEP; every non-improved/failure/cancel path restores; kept state is session-scoped behind `GenericGuardianSessionCanaryLease`.
+
+### Slice 3 — Capability-honest typed canary outcome policy — GREEN
 
 Core:
 
-`src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionCanaryExecutor.cs`
+`src/FFPerformanceEngine.Core/Services/GenericGuardianTypedCanaryOutcomeEvaluator.cs`
 
 Test:
 
-`tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsSessionCanarySelfTests.cs`
+`tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.cs`
 
 Permanent contract:
 
-- accepts one already-eligible explicit candidate bound to exactly one explicit `WindowsMutationRequest`;
-- independently re-checks `Active`, `High`, exact capturable target, stable GameId, candidate reference membership and `LiveSafe` before mutation;
-- typed before capture must exist before mutation;
-- mutation/snapshot/ownership/rollback remain exclusively in `SystemOptimizationTransactionEngine.BeginSessionAsync()`;
-- typed before/after evidence uses `PerformanceCaptureCoordinator.CaptureWorkloadTypedAsync()` on the exact same `TelemetryWorkloadTarget`;
-- family-specific interpretation is injected through `IGenericGuardianSessionCanaryOutcomeEvaluator`; the executor invents no universal threshold;
-- only `Improved` may KEEP;
-- `Regressive`, `Inconclusive`, missing after evidence, evaluator/capture failure or cancellation after apply restore exact pre-canary state first;
-- cleanup after an active mutation uses non-cancelled restoration semantics;
-- a kept mutation stays session-scoped behind `GenericGuardianSessionCanaryLease`; disposing/restoring delegates to the existing transaction engine;
-- this slice adds no recommendation, profile/winner authority, Guardian learning, persistent optimization, startup wiring, WPF, new discovery or new controlled-benchmark semantics;
-- the Guardian canary does **not** acquire Global Controlled Benchmark Lease because it is a live session experiment, while controlled benchmark work continues to suspend/reconcile Guardian through the existing lease lifecycle.
+- implements the existing `IGenericGuardianSessionCanaryOutcomeEvaluator` extension point; no executor or mutation-authority redesign;
+- only `CpuContention` and `GpuSaturation` currently have a proven generic live-canary outcome contract;
+- CPU/GPU require both `frame.fps.avg` and `frame.time.avg_ms` to be `Measured`, finite and at least the existing 75% causal-coverage floor in both before/after frames;
+- relative FPS gain >= the already-proven specialized Guardian canary boundary of 2% plus non-worsening average frame time => `Improved`;
+- relative FPS loss >= 2% => `Regressive`;
+- sub-threshold noise, worsened frame time without the defined FPS regression, missing/partial/low-coverage/invalid evidence => `Inconclusive`;
+- `MemoryPressure`, `VramPressure`, `FrameTimeInstability`, `ThermalThrottling`, `NetworkInstability` remain `Inconclusive` until dedicated before/after outcome semantics exist; unsupported/fallback families also fail closed as `Inconclusive`;
+- the slice creates no universal score, no new arbitrary threshold, no learning, no persistence, no host/startup wiring and no WPF changes.
 
 TDD / verification:
 
-- verifier branch `ci/track6-session-canary-execution-verify`;
-- RED SHA `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`, run `34545776498`: native configure/build/test passed; managed build failed exactly for 6 missing new canary contracts (`CS0246`), 0 warnings;
-- production GREEN precursor `26af2d51667596f9f0a356022196d172bf3c2569` added the reversible executor;
-- final verifier GREEN SHA `380169a047415e17b6fcfbd85a471f88fdb743b9`, run `34546198986`: native + managed + Core + App + publish SUCCESS;
-- official application SHA `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS;
+- verifier branch `ci/track6-session-canary-outcome-policy-verify`;
+- authoritative RED SHA `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`, run `34586771695`: native configure/build/test passed; managed build failed only with one intended `CS0246` for missing `GenericGuardianTypedCanaryOutcomeEvaluator`, 0 warnings;
+- minimal production precursor `5aaddec30413ef65690e7c01dcc36ffc7981b4b2`;
+- final verifier GREEN SHA `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`, run `34587029659`: native + managed + Core + App + publish SUCCESS;
+- official application SHA `37e4744abcea1c791d6e19ea93b517f461fdbdb1`, Windows CI #1058 / run `34587241098` SUCCESS including artifact upload;
 - temporary verifier workflow remains excluded from official integration.
 
-Item 3 remains open. Slice 2 deliberately does **not** define family-specific improvement policies, cooldown/Action Budget, runtime host wiring or learned reliability.
+Item 3 remains open. Slice 3 deliberately does **not** add cooldown/Action Budget, runtime host wiring, learned reliability, post-session queue or outcome semantics for families whose required causal evidence is not yet available in the typed before/after frames.
 
 ## Non-negotiable authority
 
-- `Observed != Validated`.
+- `Observed != Validated`; live Guardian canary evidence is not controlled validation.
 - Missing telemetry/capability/provenance stays absent/Unknown.
 - Stable GameId is separate from transient PID/path/process evidence; `KnownExecutable` never grants live action/capture.
 - Typed measurement, History validation, ProfileService origin, AutoTuner winner selection and ProfileChallenge promotion retain existing authority.
@@ -105,8 +108,8 @@ Item 3 remains open. Slice 2 deliberately does **not** define family-specific im
 
 ## Exact next action
 
-Continue **Track 6 item 3** only after this documentary checkpoint receives exact Windows CI. The next bounded slice should close one missing item-3 responsibility without entering learned reliability: define **capability-honest family-specific canary outcome policy** from already-available typed evidence, then separately address cooldown/Action Budget and runtime host wiring. Do not invent unsupported metrics or generic magic thresholds; reuse proven typed semantics where possible and leave unsupported family evaluation `Inconclusive`/unavailable.
+After this documentary checkpoint receives exact Windows CI, continue **Track 6 item 3** with the next bounded Slice: **cooldown + Action Budget**. The goal is to bound repeated live-session interventions and prevent thrashing without introducing learned ranking/reliability. Preserve the existing eligibility → reversible canary → typed outcome chain; runtime host wiring remains the subsequent item-3 slice.
 
 Canonical gate:
 
-`docs/memory/context → bounded Slice design → TDD RED → exact intended RED → minimal production → verifier GREEN → selective official integration → exact Windows CI → memory/checkpoint sync → exact documentary-head CI → next Slice`.
+`docs/memory/context → bounded design → TDD RED → exact intended RED → minimal production → verifier GREEN → selective official integration → exact Windows CI → memory/checkpoint sync → exact documentary-head CI → next Slice`.
