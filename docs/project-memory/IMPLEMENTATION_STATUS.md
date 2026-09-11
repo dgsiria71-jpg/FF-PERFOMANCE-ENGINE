@@ -5,19 +5,20 @@ Current branch code/tests + fresh exact-commit Windows CI are authoritative over
 ## Current verified application checkpoint
 
 - Branch: `build/initial-product`
-- Application HEAD: `26b9a0dbad71a742a612426af6120f9b074fe092`
-- Track 6 item 2 universal classifiers: **GREEN for current capability-honest foundation**
-- Windows CI: **#1049 — SUCCESS**
-- Run: `34530504651`
+- Application HEAD: `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`
+- Commit: `feat: add generic Guardian session action eligibility`
+- Track 6 item 3 Slice 1: **GREEN**
+- Windows CI: **#1051 — SUCCESS**
+- Run: `34544846607`
 - Full official gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
-- Artifact `FFPerformanceEngine-win-x64`: id `10173386624`, digest `sha256:b358a64c9cc98170b9326db4218b2a7b5422038b0ee677e87e40ed56f2e38002`.
+- Artifact `FFPerformanceEngine-win-x64`: id `10178655020`, digest `sha256:6094cd60f679e35f9e01fc2464b77ae38ee92945c23a3e6f30aef3b05a9d96f4`.
 
 Previous verified documentary checkpoint:
 
-- Documentary HEAD `72f4aba95c752fd694327190978affdbaab401de`
-- Windows CI **#1046 — SUCCESS**
-- Run `34529109781`
-- It checkpointed Track 6 item 2 Slice 2.
+- Documentary HEAD `b0feaa8147a1bec8b1f3199b888cbd34a90d2ef9`
+- Windows CI **#1050 — SUCCESS**
+- Run `34531058883`
+- It formally closed Track 6 item 2 universal classifiers.
 
 ## Product foundation
 
@@ -31,7 +32,7 @@ DG Performance Engine is an evolution of the working FF Performance Engine Windo
 - Track 3 — Game Discovery + Adapter Framework — GREEN
 - Track 4 — Universal Telemetry / Evidence — GREEN
 - Track 5 — Universal Auto Tuner + Profiles — GREEN for current canonical scope
-- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; items 1–2 GREEN; item 3 session optimizer actions NEXT**
+- Track 6 — Adaptive Guardian 2.0 — **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slice 1 GREEN**
 - Track 7 — Hardware Performance Engine — PLANNED
 - Track 8 — Deep Cleaner — PLANNED
 - Track 9 — Auto Optimize — PLANNED
@@ -45,58 +46,64 @@ Approved sequence:
 
 1. generic workload state machine — GREEN;
 2. universal classifiers — GREEN for current foundation;
-3. session optimizer actions — NEXT;
-4. learned action reliability;
-5. post-session queue.
+3. session optimizer actions — IN PROGRESS;
+4. learned action reliability — pending item 3;
+5. post-session queue — pending item 4.
 
 Approved Guardian semantics remain state detection → degradation confirmation → likely-cause classification → workload/state-appropriate `LIVE_SAFE` candidate → micro-snapshot/canary → measured keep or rollback. Inconclusive results roll back. Cooldown and Action Budget prevent thrashing. Controlled evidence remains stronger than passive Guardian observation.
 
 ## Track 6 item 1 — Generic workload state machine — GREEN
 
-Slice 1 lifecycle foundation: application SHA `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS.
-
-Slice 2 observation bridge: application SHA `6bb501eab866ee1fb17c546a02b5016ef97cad58`, Windows CI #1041 / run `34525442625` SUCCESS; documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS.
+- lifecycle foundation application `725065a90cef2ebd04a9d4d19e703ba46756bcb1`, Windows CI #1039 / run `34522642478` SUCCESS;
+- observation bridge application `6bb501eab866ee1fb17c546a02b5016ef97cad58`, Windows CI #1041 / run `34525442625` SUCCESS;
+- documentary close `687b802dd187233a4637b7f78ac4c452ab925ef6`, Windows CI #1042 / run `34526017491` SUCCESS.
 
 ## Track 6 item 2 — Universal classifiers — GREEN
 
-### Slice 1 — typed bottleneck classifier bridge
+- Slice 1 typed bottleneck bridge: application `c132ec22c1f38fbacaa43ce630098d44674b3565`, Windows CI #1043 / run `34526941137` SUCCESS;
+- Slice 2 taxonomy projection: application `5fd88d86abb9b00c4fb846486b7bb06026986962`, Windows CI #1045 / run `34528667164` SUCCESS;
+- Slice 3 support/availability contract: application `26b9a0dbad71a742a612426af6120f9b074fe092`, Windows CI #1049 / run `34530504651` SUCCESS;
+- documentary close `b0feaa8147a1bec8b1f3199b888cbd34a90d2ef9`, Windows CI #1050 / run `34531058883` SUCCESS.
 
-Plan `docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md`.
-Application SHA `c132ec22c1f38fbacaa43ce630098d44674b3565`, Windows CI #1043 / run `34526941137` SUCCESS.
+The evidence-backed families remain `CpuContention`, `GpuSaturation`, `MemoryPressure`, `VramPressure`, `FrameTimeInstability`, `ThermalThrottling`, `NetworkInstability`. `Unknown` remains fallback/not healthy. `BackgroundLoad`, `RendererEngineStall`, `SchedulerImbalance`, `InputFrameLatencySpike` remain explicitly unavailable pending dedicated causal evidence.
 
-### Slice 2 — Guardian classifier taxonomy projection
+## Track 6 item 3 — Session optimizer actions — IN PROGRESS
 
-Plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`.
-Application SHA `5fd88d86abb9b00c4fb846486b7bb06026986962`, Windows CI #1045 / run `34528667164` SUCCESS.
-Documentary checkpoint `72f4aba95c752fd694327190978affdbaab401de`, Windows CI #1046 / run `34529109781` SUCCESS.
+### Slice 1 — generic session action eligibility — GREEN
 
-Approved taxonomy exists, but projection remains evidence-bounded: CPU/GPU/Memory/VRAM/FramePacing/Thermal/Network map to their Guardian families. Unmapped analyzer results remain Guardian `Unknown`; raw high latency/system CPU/missing render do not manufacture unsupported causes.
+Plan `docs/superpowers/plans/2026-09-10-track6-session-action-eligibility.md`.
+Core `src/FFPerformanceEngine.Core/Services/GenericGuardianSessionActionSelector.cs`.
+Test `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianSessionActionSelectorSelfTests.cs`.
 
-### Slice 3 — classifier support/availability contract
+Permanent contracts:
 
-Plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-support.md`.
-Core `src/FFPerformanceEngine.Core/Services/GenericGuardianClassifierSupportCatalog.cs`.
-Test `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianClassifierSupportSelfTests.cs`.
+- `GenericGuardianSessionActionCandidate` = exact stable `GameId` + exact `GuardianAnomalyKind` + existing `GuardianAction`;
+- `GenericGuardianSessionActionEligibility` = source state/family + read-only eligible candidate collection + reason;
+- `GenericGuardianSessionActionSelector.SelectEligible(...)` is read-only/passive.
 
-Contract:
+Eligibility requires all of:
 
-- support levels are `Fallback`, `EvidenceBacked`, `UnavailableEvidence`;
-- every approved anomaly enum value has exactly one canonical immutable descriptor;
-- `Unknown` is non-classifying `Fallback`, not proof of health;
-- exactly seven families are `EvidenceBacked`: CpuContention, GpuSaturation, MemoryPressure, VramPressure, FrameTimeInstability, ThermalThrottling, NetworkInstability;
-- exactly four are `UnavailableEvidence`: BackgroundLoad, RendererEngineStall, SchedulerImbalance, InputFrameLatencySpike;
-- `CanClassify` is true only for EvidenceBacked;
-- exposed catalog is genuinely read-only and has no classifier side effects.
+- state `Active`;
+- state confidence `High`;
+- exact capturable running-process target with stable GameId;
+- family `EvidenceBacked` by `GenericGuardianClassifierSupportCatalog`;
+- candidate GameId matches exact target after trim/case normalization;
+- candidate family matches exactly;
+- `GuardianAction.Safety == ActionSafety.LiveSafe`.
+
+The selector rejects `Unknown`, all `UnavailableEvidence` families, non-Active states, confidence below High, non-exact/non-capturable targets, non-LiveSafe actions and workload/family mismatches. It preserves caller order and candidate identity, exposes a genuinely read-only output, and never synthesizes an action from classification alone.
 
 TDD / verification:
 
-- RED `21317f8454ff152de9643341103e6701b4139ac4`, verifier run `34529495018`: native passed; managed failed only for absent support contracts, 19 intentional errors, 0 warnings;
-- GREEN `3b080a88828e5eae969c9f07ad2af45895909153`, verifier run `34529941097`: native/managed/Core/App/publish SUCCESS;
-- temporary verifier workflow excluded from official cumulative diff;
-- final official application SHA `26b9a0dbad71a742a612426af6120f9b074fe092`;
-- Windows CI #1049 / run `34530504651` SUCCESS including artifact upload.
+- verifier branch `ci/track6-session-action-eligibility-verify`;
+- RED SHA `252db727ead915b12611fd70723b528afc3fbe94`, run `34531778854`: native passed; managed failed only for absent `GenericGuardianSessionActionCandidate`, exactly 1 `CS0246`, 0 warnings;
+- two accidentally omitted prior regression registrations were restored before RED was accepted; final RED diff removed no previous test;
+- GREEN SHA `15d52a15502f149634dd9a28e467737824695646`, run `34532059225`: native/managed/Core/App/publish SUCCESS;
+- selective official integration excluded the temporary verifier workflow;
+- official application SHA `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`;
+- Windows CI #1051 / run `34544846607` SUCCESS including artifact upload.
 
-Item 2 is complete for the current capability-honest foundation. The four unsupported causal families intentionally remain unavailable until dedicated evidence exists; they are not silently promoted to healthy, causal or actionable states.
+Authority boundary: Slice 1 grants **eligibility only**. It does not rank eligible candidates, execute one, mutate state, create snapshots, run canaries, enforce cooldown/Action Budget, write History/Knowledge or learn reliability.
 
 ## Non-negotiable authority
 
@@ -114,4 +121,4 @@ Item 2 is complete for the current capability-honest foundation. The four unsupp
 
 ## Exact next engineering action
 
-Begin Track 6 item 3 — **session optimizer actions**. First bounded Slice should establish passive candidate eligibility/selection from already-proven workload state + `GuardianAnomalyKind` + support catalog, requiring `LIVE_SAFE` compatibility and refusing `Unknown` / `UnavailableEvidence`. Do not implement generic mutation or canary execution until the candidate-authority boundary is proven by TDD.
+Continue Track 6 item 3 with the next bounded **reversible session-canary execution** Slice. Inspect and reuse existing snapshot/mutation/canary seams. The new seam must accept only an already-eligible explicit `LiveSafe` candidate, micro-snapshot only touched state, apply through an explicit executor, measure before/after, KEEP only on proven improvement, and ROLLBACK on regression or inconclusive result. Preserve specialized BlueStacks behavior and the Global Controlled Benchmark Lease. Learned ranking remains outside this item-3 Slice and belongs to item 4.

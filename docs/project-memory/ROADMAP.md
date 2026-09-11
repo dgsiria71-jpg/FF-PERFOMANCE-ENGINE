@@ -36,7 +36,7 @@ Approved implementation order:
 
 1. **generic workload state machine** — GREEN;
 2. **universal classifiers** — GREEN for current capability-honest foundation;
-3. **session optimizer actions** — NEXT;
+3. **session optimizer actions** — IN PROGRESS;
 4. **learned action reliability** — pending item 3;
 5. **post-session queue** — pending item 4.
 
@@ -62,48 +62,59 @@ Item 1 provides stable workload identity, exact runtime target, trustworthy gene
 
 - application `5fd88d86abb9b00c4fb846486b7bb06026986962`;
 - Windows CI #1045 / run `34528667164` SUCCESS;
-- documentary checkpoint `72f4aba95c752fd694327190978affdbaab401de`, Windows CI #1046 / run `34529109781` SUCCESS;
 - plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md`.
-
-Permanent taxonomy remains:
-
-`Unknown / CpuContention / GpuSaturation / MemoryPressure / VramPressure / FrameTimeInstability / BackgroundLoad / ThermalThrottling / NetworkInstability / RendererEngineStall / SchedulerImbalance / InputFrameLatencySpike`.
-
-Only already-proven analyzer causes are projected. Raw latency, total CPU or missing-render observations do not manufacture unsupported causal families.
 
 #### Slice 3 — Classifier support/availability contract
 
-- plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-support.md`;
-- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianClassifierSupportCatalog.cs`;
-- final application SHA `26b9a0dbad71a742a612426af6120f9b074fe092`;
-- Windows CI **#1049 / run `34530504651` SUCCESS**;
-- artifact `FFPerformanceEngine-win-x64`, id `10173386624`, digest `sha256:b358a64c9cc98170b9326db4218b2a7b5422038b0ee677e87e40ed56f2e38002`.
+- application `26b9a0dbad71a742a612426af6120f9b074fe092`;
+- Windows CI #1049 / run `34530504651` SUCCESS;
+- documentary close `b0feaa8147a1bec8b1f3199b888cbd34a90d2ef9`, Windows CI #1050 / run `34531058883` SUCCESS;
+- plan `docs/superpowers/plans/2026-09-10-track6-guardian-classifier-support.md`.
 
-Capability contract:
+Capability-honest support remains explicit: `Unknown` is fallback/not healthy; seven families are evidence-backed; `BackgroundLoad`, `RendererEngineStall`, `SchedulerImbalance`, `InputFrameLatencySpike` remain unavailable pending dedicated causal evidence.
 
-- `Unknown` = `Fallback`, non-classifying and not proof of health;
-- `EvidenceBacked`: CpuContention, GpuSaturation, MemoryPressure, VramPressure, FrameTimeInstability, ThermalThrottling, NetworkInstability;
-- `UnavailableEvidence`: BackgroundLoad, RendererEngineStall, SchedulerImbalance, InputFrameLatencySpike;
-- every taxonomy value has exactly one immutable descriptor;
-- catalog is read-only and grants no classification/action/validation authority by itself.
+### Track 6 item 3 — Session optimizer actions — IN PROGRESS
+
+#### Slice 1 — Generic session action eligibility — GREEN
+
+- plan `docs/superpowers/plans/2026-09-10-track6-session-action-eligibility.md`;
+- Core `src/FFPerformanceEngine.Core/Services/GenericGuardianSessionActionSelector.cs`;
+- application SHA `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`;
+- Windows CI **#1051 / run `34544846607` SUCCESS**;
+- artifact `FFPerformanceEngine-win-x64`, id `10178655020`, digest `sha256:6094cd60f679e35f9e01fc2464b77ae38ee92945c23a3e6f30aef3b05a9d96f4`.
+
+Eligibility authority:
+
+- candidate must be explicitly supplied as stable GameId + Guardian anomaly family + existing GuardianAction;
+- workload must be `Active` with `High` confidence and exact capturable runtime target;
+- family must be currently evidence-backed;
+- candidate workload/family must match the proven runtime/classification;
+- action safety must be exactly `LiveSafe`;
+- Unknown, unavailable families, untrusted/non-Active states, ambiguous/unavailable targets and every non-LiveSafe safety class fail closed;
+- eligible candidates stay in caller order with original object identity;
+- selector does not rank, synthesize or execute actions.
 
 TDD verifier:
 
-- RED `21317f8454ff152de9643341103e6701b4139ac4`, run `34529495018`: native SUCCESS, managed expected failure only for absent support contracts, 19 errors, 0 warnings;
-- GREEN `3b080a88828e5eae969c9f07ad2af45895909153`, run `34529941097`: native/managed/Core/App/publish SUCCESS;
-- temporary verifier workflow excluded from official cumulative diff.
+- RED `252db727ead915b12611fd70723b528afc3fbe94`, run `34531778854`: native SUCCESS; managed expected failure only for absent candidate contract, exactly one `CS0246`, 0 warnings;
+- GREEN `15d52a15502f149634dd9a28e467737824695646`, run `34532059225`: native/managed/Core/App/publish SUCCESS;
+- temporary verifier workflow excluded from official integration.
 
-Item 2 is closed for the current capability-honest foundation. The four unavailable families are explicit future evidence gaps, not blockers that justify fabricated heuristics.
+#### Next Slice inside item 3
 
-### Track 6 item 3 — Session optimizer actions — NEXT
+Add the smallest **reversible session-canary execution boundary** over one already-eligible explicit LiveSafe candidate.
 
-Start from existing Guardian action/canary seams. First prove a bounded **candidate eligibility/selection** contract before generic mutation:
+It must:
 
-- consume proven workload state, anomaly family and classifier support authority;
-- allow only workload/state-compatible `LIVE_SAFE` candidates for live session consideration;
-- `Unknown`, `Fallback`, `UnavailableEvidence`, non-Active/untrusted state or missing exact workload authority must not produce an actionable candidate;
-- specialized BlueStacks/FF behavior remains canonical and untouched by the first generic Slice;
-- no mutation, canary execution, cooldown, Action Budget or learned reliability is granted until later Slices prove those boundaries.
+- reuse existing snapshot/mutation/canary seams rather than creating a parallel mutation authority;
+- micro-snapshot only state touched by the action;
+- apply only through an explicit executor bound to the exact eligible workload/action;
+- measure before/after through trustworthy existing telemetry;
+- KEEP only on proven improvement;
+- ROLLBACK on regression or inconclusive evidence;
+- preserve the Global Controlled Benchmark Lease and specialized BlueStacks/FF Guardian behavior;
+- avoid learned ranking/reliability, which remains Track 6 item 4;
+- avoid WPF/startup/discovery changes.
 
 ### Track 6 non-negotiable constraints
 
