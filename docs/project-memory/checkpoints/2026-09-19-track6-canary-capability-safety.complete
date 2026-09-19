@@ -1,0 +1,35 @@
+# Track 6 Item 3 — Canary Windows capability safety hardening — COMPLETE
+
+Date: 2026-09-19
+Branch: `build/initial-product`
+Status when written: official application GREEN; exact documentary-HEAD Windows CI pending.
+
+## Why this bounded regression was needed
+
+A declared `GuardianAction` marked `LiveSafe` passed the generic canary's eligibility/preflight even when its separate `WindowsMutationRequest.CapabilityId` identified a `LobbySafe` Windows capability. The read-only eligibility/action metadata was not the Windows capability authority. The generic host is still not wired, but this gap had to be closed before runtime integration.
+
+## TDD evidence
+
+Verifier branch: `ci/track6-canary-capability-safety-verify` (temporary workflow excluded from official branch).
+- RED test registered in `tests/FFPerformanceEngine.Core.SelfTest/Program.cs`, test source `GenericGuardianLiveSafeCapabilitySelfTests.cs`; RED SHA `3dfa8e3ade2d1ffe4b2c48fa8fb121ae90cf302f`; verifier run `35424479978`, job `105847961374`, FAILURE as intended. Native configure/build/test and managed build SUCCESS (0 compile warnings/errors). Existing Core tests passed until new test failed: `Unsafe or unknown capability test.lobby must fail preflight before any measurement or mutation.` The old executor reached fake typed capture for `LobbySafe`.
+- GREEN verifier SHA `b28e13b3cd7aed3ae47147a7ffb26915008d0861`; run `35424662173`, job `105848430682`, SUCCESS for native configure/build/test, managed, Core self-tests including the new test, App self-tests and Windows publish.
+
+## Minimal production contract
+
+- `SystemOptimizationTransactionEngine.IsLiveSafeSessionCapability` reads the existing authoritative capability registry and returns true only for an existing, currently Available, session-applicable `ActionSafety.LiveSafe` capability. It creates no mutation rights; BeginSession still owns fresh validation/snapshot/apply/rollback.
+- `GenericGuardianWindowsSessionCanaryExecutor.PreflightFailure` checks this authority against the exact bound Windows mutation *before* typed before-capture. Candidate Action.LiveSafe is not enough.
+- Regression tests reject `LobbySafe`, `RestartRequired` and unknown capabilities with zero captures, zero mutations; a real LiveSafe descriptor may reach before-capture, where absent evidence still forbids mutation.
+- No Guardian host wiring, learning, profile/recommendation authority, startup discovery, UI, or Global Controlled Benchmark Lease semantics added.
+
+## Official application evidence
+
+Application SHA: `e6241520b50ae6562ed5ab3d51743ab67043095d`.
+Windows CI #1060, run `35424757961`, job `105848669318`: SUCCESS including native/managed/Core/App tests, publish, upload, cleanup.
+Artifact `FFPerformanceEngine-win-x64`, ID `10578872061`, SHA-256 `6a24cddfa6e8150914c0a7a415193e382700e9296dc31cea0f8b63d7ec755e6a`.
+Selective official integration: two production files, new test file, Program registration. Temporary verifier workflow excluded. `main` untouched; PR #1 remains draft.
+
+## Open boundaries and next action
+
+This closes actual capability safety preflight only. The trustworthy Action.Id-to-mutation binding and before/after comparability / contamination conditions are not proved by this regression; do not enable the generic runtime host until those boundaries are validated. The approved next Track 6 item 3 Slice 4 is in-memory, atomic cooldown + Action Budget, conservatively scoped to generic live canary attempts, without inventing fixed numerical defaults or claiming to implement all historical per-category budgets. Runtime host integration remains subsequent.
+
+Provenance correction from user: implementation has been conducted through ChatGPT and the connected GitHub repository, not a Codex workspace. Git commits do not independently establish the authoring tool.

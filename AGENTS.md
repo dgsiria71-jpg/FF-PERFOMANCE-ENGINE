@@ -54,4 +54,4 @@ After every materially GREEN checkpoint:
 
 ## Current continuation pointer
 
-Read `docs/project-memory/HANDOFF_CURRENT.md`. At the time this memory system was created, Track 3 had validated BlueStacks, Steam, Epic, Riot and Battle.net discovery; the next launcher slice was **EA App**, followed by **Ubisoft Connect**.
+Always read `docs/project-memory/HANDOFF_CURRENT.md` and verify the actual branch HEAD and its exact-commit Windows CI. Do not use a fixed Track or task name in this file as a current continuation pointer; historical pointers become stale as work advances.

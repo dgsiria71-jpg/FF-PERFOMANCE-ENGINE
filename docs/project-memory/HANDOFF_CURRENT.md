@@ -1,115 +1,58 @@
-# Current Handoff — 2026-09-11
+# Current Handoff — 2026-09-19
 
-## Repository / continuity
+## Repository and continuity authority
 
-- Repo: `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`
-- Branch: `build/initial-product`
-- PR #1 remains open/draft to `main`; do not merge/touch `main` while critical architecture is being proven.
-- Product: **DG Performance Engine**, evolved incrementally from FF Performance Engine; no rewrite or mass rename.
-- Current Git/code/tests + fresh exact Windows CI outrank stale chat or memory text.
-- Recovered master architecture is durably preserved in `docs/project-memory/RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`; do not fabricate historical Track 11–19 labels.
+- Repository: `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`.
+- Development branch: `build/initial-product`; PR #1 remains open/draft to unchanged `main`. Never merge or touch main during incremental hardening.
+- Official product **DG Performance Engine**, direct incremental continuation of the FF Performance Engine. Keep current `FFPerformanceEngine.*` projects and working specialized FF/BlueStacks subsystem until deliberately migrated; no rewrite.
+- The user clarified that development was performed here via ChatGPT and connected GitHub, not through a Codex workspace. Never invent local Codex uncommitted changes. Git commit identity alone does not attest to the authoring tool.
+- Current Git/code/tests and exact Windows CI outrank stale documents. Read `AGENTS.md`, the project-memory README, this handoff, implementation status, canonical context, architecture spec and affected production/tests before any increment.
+- `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md` preserves approved expanded domains. Original 89-page master unavailable; do not fabricate its former Track 11–19 labels.
 
-## Current exact verified application checkpoint
+## Last exact verified application checkpoint
 
-- Application HEAD: `37e4744abcea1c791d6e19ea93b517f461fdbdb1`
-- Commit: `feat: add typed Guardian canary outcome policy`
-- Track 6 item 3 Slice 3: **GREEN**
-- Windows CI: **#1058 — SUCCESS**
-- Run: `34587241098`
-- Full gate passed: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
-- Artifact: `FFPerformanceEngine-win-x64`, id `10194147656`, SHA-256 `3759a9e218797f4cb2233ee7cba5c5bd773838c04bf245394c1acbbcd3a82d66`.
+- Application SHA: `e6241520b50ae6562ed5ab3d51743ab67043095d`.
+- Commit: `fix: enforce Windows capability safety for Guardian live canaries`.
+- Windows CI: **#1060 SUCCESS**, run `35424757961`, job `105848669318`. Native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, upload and cleanup all succeeded.
+- Artifact `FFPerformanceEngine-win-x64`: ID `10578872061`, SHA-256 `6a24cddfa6e8150914c0a7a415193e382700e9296dc31cea0f8b63d7ec755e6a`.
+- This is bounded Track 6 item 3 **pre-Slice-4 safety hardening**, not Slice 4 and not complete host integration. `docs/project-memory/checkpoints/2026-09-19-track6-canary-capability-safety.complete` records the complete RED/GREEN/official provenance.
+- Last preceding documentary HEAD `991cc24442e94af081dc49ff25028de7cfd215ec` passed Windows CI #1059 / run `34587548463`. This new documentary checkpoint is pending exact documentary-HEAD CI until its own run completes; never describe the new docs as GREEN prematurely.
 
-Previous verified documentary checkpoint:
+## Tracks and approved order
 
-- Documentary HEAD: `94dc8a4681e044221479677edc0d4345e1f49989`
-- Windows CI: **#1055 — SUCCESS**
-- Run: `34567424200`
-- It formally checkpointed Track 6 item 3 Slice 2 after the recovered master-architecture preservation checkpoint.
+- Tracks 0–5: GREEN in their current canonical scope.
+- Track 6 Adaptive Guardian 2.0: ACTIVE; item 1 generic workload state machine GREEN; item 2 universal classifiers GREEN for current evidence-backed scope; item 3 session optimizer actions IN PROGRESS; original Slices 1–3 GREEN plus the September 19 capability safety regression GREEN. Item 4 learned action reliability and item 5 post-session queue are pending.
+- Tracks 7–10 planned per `ROADMAP.md`, additional approved master domains preserved without invented old numbering.
 
-## Track state
+### Track 6 item 3 Slice 1 — Generic eligibility GREEN
 
-- Tracks 0–5: **GREEN for their current canonical scope**.
-- Track 6 — Adaptive Guardian 2.0: **ACTIVE; items 1–2 GREEN; item 3 IN PROGRESS; Slices 1–3 GREEN**.
-- Tracks 7–10: planned per canonical roadmap.
-- Additional master domains beyond Track 10 are preserved in the recovered master architecture; exact old Track 11–19 numbering remains unproven.
+Plan `docs/superpowers/plans/2026-09-10-track6-session-action-eligibility.md`; application `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`, Windows CI #1051 / run `34544846607` SUCCESS. Read-only explicit candidate selector requires stable GameId, Active state, High confidence, exact capturable RunningProcess, supported anomaly family and `GuardianAction.LiveSafe`. It does not synthesize, rank, learn, grant mutation authority or change discovery.
 
-## Track 6 approved order
+### Track 6 item 3 Slice 2 — Reversible Windows canary GREEN
 
-1. generic workload state machine — **GREEN**;
-2. universal classifiers — **GREEN for current capability-honest foundation**;
-3. session optimizer actions — **IN PROGRESS**;
-4. learned action reliability;
-5. post-session queue.
+Plan `docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`; Core `GenericGuardianWindowsSessionCanaryExecutor.cs`, tests `GenericGuardianWindowsSessionCanarySelfTests.cs`. RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec` / run `34545776498` (6 intended missing-contract CS0246 errors); GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9` / run `34546198986`; official app `cef217f4d4f053109ee6bed34483d773f02605bf`, CI #1053 / run `34546467152` SUCCESS.
 
-Guardian remains additive to the proven specialized Guardian. Generic behavior is conservative/fail-closed; richer game/lobby/match semantics require specialized-adapter authority.
+One explicit exact eligible candidate and one Windows mutation. Typed before must exist before any mutation; typed before/after capture remains in PerformanceCaptureCoordinator; SystemOptimizationTransactionEngine alone owns transaction/snapshot/apply/verify/rollback and session capability ownership. Only evaluator `Improved` keeps mutation under `GenericGuardianSessionCanaryLease`; all non-improved/failure/cancel paths restore original state.
 
-## Track 6 item 3 — Session optimizer actions
+### Track 6 item 3 Slice 3 — Typed outcome policy GREEN
 
-### Slice 1 — Generic session action eligibility — GREEN
+Core `GenericGuardianTypedCanaryOutcomeEvaluator.cs`, tests `GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.cs`. RED `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`, run `34586771695` expected missing evaluator; GREEN verifier `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`, run `34587029659`; official application `37e4744abcea1c791d6e19ea93b517f461fdbdb1`, CI #1058 / run `34587241098` SUCCESS; documentary `991cc24442e94af081dc49ff25028de7cfd215ec`, CI #1059 SUCCESS. CPU/GPU families require before/after directly Measured finite FPS and average frame-time metrics with coverage >=75%. Relative FPS gain >=2% with nonworsening frame time => Improved; loss >=2% => Regressive; other/noisy/incomplete cases => Inconclusive. No invented semantic outcome for memory/VRAM/frame pacing/thermal/network or fallback families.
 
-- plan: `docs/superpowers/plans/2026-09-10-track6-session-action-eligibility.md`;
-- application `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`, Windows CI #1051 / run `34544846607` SUCCESS;
-- exact authority: explicit stable GameId + evidence-backed anomaly family + existing `GuardianAction`, `Active` + `High` + exact capturable target, exactly `LiveSafe`; selector is read-only, preserves caller order/object identity, and never synthesizes/ranks/executes actions.
+### September 19 security regression — GREEN for limited contract
 
-### Slice 2 — Reversible Windows session-canary execution — GREEN
+RED `3dfa8e3ade2d1ffe4b2c48fa8fb121ae90cf302f`, verifier run `35424479978` intended failure: LiveSafe action with LobbySafe Windows capability reached typed capture. GREEN verifier `b28e13b3cd7aed3ae47147a7ffb26915008d0861`, run `35424662173` SUCCESS; official `e6241520b50ae6562ed5ab3d51743ab67043095d`, CI #1060 SUCCESS. Executor now rejects unknown/unavailable/non-LiveSafe/non-session-compatible capability through a read-only check on the existing transaction authority's registry *before capture*. Tested LobbySafe, RestartRequired, unknown and actual LiveSafe with missing before frame. Four implementation/test files selectively integrated, no temporary workflow in official branch. This DOES NOT yet prove trusted Action.Id ↔ Windows mutation mapping, workload scene comparability or host lifecycle; they remain explicit gates before enabling automatic generic host.
 
-- plan: `docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`;
-- Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionCanaryExecutor.cs`;
-- test: `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsSessionCanarySelfTests.cs`;
-- RED `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`, verifier run `34545776498`: native passed; managed failed with exactly 6 intended missing-contract `CS0246` errors and 0 warnings;
-- GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9`, verifier run `34546198986`: native + managed + Core + App + publish SUCCESS;
-- official application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS.
+## Non-negotiable invariants
 
-Permanent Slice-2 authority remains: one already-eligible explicit `LiveSafe` candidate maps to exactly one explicit `WindowsMutationRequest`; typed before evidence must exist before mutation; snapshot/apply/verify/rollback remain in `SystemOptimizationTransactionEngine`; before/after capture stays in `PerformanceCaptureCoordinator`; only evaluator verdict `Improved` may KEEP; every non-improved/failure/cancel path restores; kept state is session-scoped behind `GenericGuardianSessionCanaryLease`.
+- `Observed != Validated`; a Guardian live canary outcome does not promote History, profiles or persistent recommendations; controlled benchmark evidence remains higher authority.
+- No fabricated metrics, sensors, capabilities, executables, GameIds, causal attributions or effect sizes. Missing remains Unknown/Unavailable/Inconclusive.
+- Stable GameId separate from transient PID/path. `KnownExecutable` never authorizes capture or live mutation. Exact workload target must be bound RunningProcess.
+- No new startup discovery, startup mutations or WPF-owned decision logic. `AppServices.InitializeAsync` and specialized FF/BlueStacks Guardian unchanged.
+- Track0 Global Controlled Benchmark Lease, Track2 transaction and rollback, Track4 typed capture, Track5 profile/winner provenance, fingerprint/freshness, History, no anti-cheat/integrity bypass remain intact.
+- Generic canaries do not themselves acquire the Global Controlled Benchmark Lease; controlled benchmark work continues to suspend/reconcile the Guardian, with runtime interactions to be tested before host wiring.
 
-### Slice 3 — Capability-honest typed canary outcome policy — GREEN
+## Exact next engineering action
 
-Core:
+First verify that **this exact documentary HEAD** passed complete Windows CI. Then continue Track 6 item3 **Slice4 cooldown + Action Budget**, not Track7 or host startup. Policy must prevent same-action/family thrashing and bound per-session canary attempts, using atomic admission, exact session identity and configurable limits; do not invent fixed default numbers or claim one generic canary budget fully implements historical recovery/graphics/Windows category budgets. No learned rankings or host/executor integration in policy-only Slice4. Before subsequently enabling the generic runtime host, separately prove trustworthy Action.Id-to-capability mutation binding and valid before/after comparability/contamination policy.
 
-`src/FFPerformanceEngine.Core/Services/GenericGuardianTypedCanaryOutcomeEvaluator.cs`
-
-Test:
-
-`tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.cs`
-
-Permanent contract:
-
-- implements the existing `IGenericGuardianSessionCanaryOutcomeEvaluator` extension point; no executor or mutation-authority redesign;
-- only `CpuContention` and `GpuSaturation` currently have a proven generic live-canary outcome contract;
-- CPU/GPU require both `frame.fps.avg` and `frame.time.avg_ms` to be `Measured`, finite and at least the existing 75% causal-coverage floor in both before/after frames;
-- relative FPS gain >= the already-proven specialized Guardian canary boundary of 2% plus non-worsening average frame time => `Improved`;
-- relative FPS loss >= 2% => `Regressive`;
-- sub-threshold noise, worsened frame time without the defined FPS regression, missing/partial/low-coverage/invalid evidence => `Inconclusive`;
-- `MemoryPressure`, `VramPressure`, `FrameTimeInstability`, `ThermalThrottling`, `NetworkInstability` remain `Inconclusive` until dedicated before/after outcome semantics exist; unsupported/fallback families also fail closed as `Inconclusive`;
-- the slice creates no universal score, no new arbitrary threshold, no learning, no persistence, no host/startup wiring and no WPF changes.
-
-TDD / verification:
-
-- verifier branch `ci/track6-session-canary-outcome-policy-verify`;
-- authoritative RED SHA `83cde58ba9d44135b6c02d3b03b5bca3e4ca6ba3`, run `34586771695`: native configure/build/test passed; managed build failed only with one intended `CS0246` for missing `GenericGuardianTypedCanaryOutcomeEvaluator`, 0 warnings;
-- minimal production precursor `5aaddec30413ef65690e7c01dcc36ffc7981b4b2`;
-- final verifier GREEN SHA `e2df32f109fc0dc1cb8e2bd91fec1df8d1d299d4`, run `34587029659`: native + managed + Core + App + publish SUCCESS;
-- official application SHA `37e4744abcea1c791d6e19ea93b517f461fdbdb1`, Windows CI #1058 / run `34587241098` SUCCESS including artifact upload;
-- temporary verifier workflow remains excluded from official integration.
-
-Item 3 remains open. Slice 3 deliberately does **not** add cooldown/Action Budget, runtime host wiring, learned reliability, post-session queue or outcome semantics for families whose required causal evidence is not yet available in the typed before/after frames.
-
-## Non-negotiable authority
-
-- `Observed != Validated`; live Guardian canary evidence is not controlled validation.
-- Missing telemetry/capability/provenance stays absent/Unknown.
-- Stable GameId is separate from transient PID/path/process evidence; `KnownExecutable` never grants live action/capture.
-- Typed measurement, History validation, ProfileService origin, AutoTuner winner selection and ProfileChallenge promotion retain existing authority.
-- Global Controlled Benchmark Lease, Guardian suspension/reconciliation, fingerprint/freshness, rollback and History remain intact.
-- Guardian does not own deep Auto Tuner exploration.
-- Controlled evidence outranks passive/live Guardian evidence.
-- Discovery remains explicit/on-demand and is not added to `InitializeAsync()`.
-- UI remains presentation/request only. No anti-cheat/integrity bypass.
-
-## Exact next action
-
-After this documentary checkpoint receives exact Windows CI, continue **Track 6 item 3** with the next bounded Slice: **cooldown + Action Budget**. The goal is to bound repeated live-session interventions and prevent thrashing without introducing learned ranking/reliability. Preserve the existing eligibility → reversible canary → typed outcome chain; runtime host wiring remains the subsequent item-3 slice.
-
-Canonical gate:
-
-`docs/memory/context → bounded design → TDD RED → exact intended RED → minimal production → verifier GREEN → selective official integration → exact Windows CI → memory/checkpoint sync → exact documentary-head CI → next Slice`.
+Required gate: `docs/context → bounded design → TDD RED → intended Windows verifier RED → minimal GREEN → verifier CI GREEN → selective official integration → exact official Windows CI GREEN → memory/checkpoint sync → exact documentary-HEAD Windows CI GREEN → next increment`.
