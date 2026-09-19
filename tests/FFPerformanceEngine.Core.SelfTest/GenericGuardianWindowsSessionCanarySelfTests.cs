@@ -21,136 +21,88 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
 
     private static async Task ImprovedCanaryKeepsUntilLeaseRestoresAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
-        var result = await harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding);
-
-        Require(result.Attempted && result.Kept && !result.RolledBack,
-            "Improved canary must be attempted and kept without immediate rollback.");
-        Require(result.Verdict == GenericGuardianSessionCanaryVerdict.Improved,
-            "Improved evaluator verdict must be preserved exactly.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+        var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+        Require(result.Attempted && result.Kept && !result.RolledBack
+                && result.Verdict == GenericGuardianSessionCanaryVerdict.Improved,
+            "Improved canary is attempted and kept with the evaluator verdict.");
         Require(result.Before is not null && result.After is not null,
-            "Kept canary must preserve both typed evidence frames.");
-        var activeLease = result.ActiveLease;
-        Require(activeLease is not null && activeLease.IsActive,
-            "Kept canary must transfer the active System Optimization session through a live lease.");
-        Require(harness.State[Harness.CapabilityId] == Harness.TargetValue,
-            "Kept canary must leave the session mutation active until the lease restores.");
-        Require(harness.Adapter.SnapshotCount == 1 && harness.Adapter.ApplyCount == 1,
-            "Canary must use exactly one micro-snapshot and one mutation for the explicit binding.");
-        Require(harness.CaptureCalls == 2 && harness.Evaluator.Calls == 1,
-            "Canary must capture before and after exactly once and evaluate once.");
-
-        await activeLease!.RestoreAsync();
-        Require(!activeLease.IsActive && harness.State[Harness.CapabilityId] == Harness.OriginalValue,
-            "Restoring the kept lease must return the exact pre-canary capability state.");
-        Require(harness.Adapter.RollbackCount == 1,
-            "Kept lease restore must delegate rollback to the existing transaction engine exactly once.");
+            "Kept canary retains typed before/after evidence.");
+        var lease = result.ActiveLease;
+        Require(lease is not null && lease.IsActive
+                && h.State[Harness.CapabilityId] == Harness.TargetValue,
+            "Improved canary holds the mutation under an active reversible lease.");
+        Require(h.Adapter.SnapshotCount == 1 && h.Adapter.ApplyCount == 1
+                && h.CaptureCalls == 2 && h.Evaluator.Calls == 1,
+            "One explicit mutation, snapshot, two captures and one evaluation.");
+        await lease!.RestoreAsync();
+        Require(!lease.IsActive && h.State[Harness.CapabilityId] == Harness.OriginalValue
+                && h.Adapter.RollbackCount == 1,
+            "Lease restore delegates one exact rollback to transaction engine.");
     }
 
     private static async Task NonImprovedVerdictsRestoreBeforeReturningAsync()
     {
-        foreach (var verdict in new[]
-                 {
-                     GenericGuardianSessionCanaryVerdict.Regressive,
-                     GenericGuardianSessionCanaryVerdict.Inconclusive
-                 })
+        foreach (var verdict in new[] { GenericGuardianSessionCanaryVerdict.Regressive, GenericGuardianSessionCanaryVerdict.Inconclusive })
         {
-            using var harness = new Harness(verdict);
-            var result = await harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding);
-
-            Require(result.Attempted && !result.Kept && result.RolledBack,
-                $"{verdict} canary must restore before returning.");
-            Require(result.Verdict == verdict && result.ActiveLease is null,
-                $"{verdict} result must expose no active lease.");
-            Require(harness.State[Harness.CapabilityId] == Harness.OriginalValue && harness.Adapter.RollbackCount == 1,
-                $"{verdict} canary must restore exact original state through the transaction engine.");
+            using var h = new Harness(verdict);
+            var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+            Require(result.Attempted && !result.Kept && result.RolledBack
+                    && result.Verdict == verdict && result.ActiveLease is null,
+                $"{verdict} must restore before returning with no lease.");
+            Require(h.State[Harness.CapabilityId] == Harness.OriginalValue && h.Adapter.RollbackCount == 1,
+                $"{verdict} delegates one exact transaction rollback.");
         }
     }
 
     private static async Task MissingBeforeNeverMutatesAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved)
-        {
-            Before = null
-        };
-
-        var result = await harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding);
-
-        Require(!result.Attempted && !result.Kept && !result.RolledBack,
-            "Unavailable before evidence must fail closed before opening a mutation session.");
-        Require(result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive,
-            "Unavailable before evidence is inconclusive, never beneficial.");
-        Require(harness.Adapter.SnapshotCount == 0 && harness.Adapter.ApplyCount == 0 && harness.Adapter.RollbackCount == 0,
-            "Missing before evidence must cause zero snapshot/apply/rollback calls.");
-        Require(harness.Evaluator.Calls == 0 && harness.CaptureCalls == 1,
-            "Missing before evidence must not invoke outcome policy or attempt after capture.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved) { Before = null };
+        var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+        Require(!result.Attempted && !result.Kept && !result.RolledBack
+                && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive,
+            "Missing before evidence is inconclusive without an attempted mutation.");
+        Require(h.Adapter.SnapshotCount == 0 && h.Adapter.ApplyCount == 0
+                && h.Adapter.RollbackCount == 0 && h.Evaluator.Calls == 0 && h.CaptureCalls == 1,
+            "Missing before evidence cannot snapshot, apply, evaluate or capture after.");
     }
 
     private static async Task MissingAfterRestoresAsInconclusiveAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved)
-        {
-            After = null
-        };
-
-        var result = await harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding);
-
-        Require(result.Attempted && !result.Kept && result.RolledBack,
-            "Unavailable after evidence must roll back an already-applied canary.");
-        Require(result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive && result.ActiveLease is null,
-            "Unavailable after evidence must remain inconclusive and expose no live lease.");
-        Require(harness.State[Harness.CapabilityId] == Harness.OriginalValue && harness.Adapter.RollbackCount == 1,
-            "Missing after evidence must restore exact original state.");
-        Require(harness.Evaluator.Calls == 0,
-            "Outcome evaluator must not receive incomplete before/after evidence.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved) { After = null };
+        var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+        Require(result.Attempted && !result.Kept && result.RolledBack
+                && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive
+                && result.ActiveLease is null,
+            "Missing after evidence restores with no retained lease.");
+        Require(h.State[Harness.CapabilityId] == Harness.OriginalValue
+                && h.Adapter.RollbackCount == 1 && h.Evaluator.Calls == 0,
+            "Missing after evidence must restore and never invoke outcome evaluator.");
     }
 
     private static async Task PreflightRejectsUntrustedOrUncontainedCandidatesAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
-
-        var equivalentButUncontained = harness.Binding.Candidate with { };
-        var uncontainedBinding = harness.Binding with { Candidate = equivalentButUncontained };
-        var uncontained = await harness.Executor.ExecuteAsync(harness.Eligibility, uncontainedBinding);
-        Require(!uncontained.Attempted && harness.CaptureCalls == 0 && harness.Adapter.ApplyCount == 0,
-            "Equivalent but uncontained candidate object must not gain execution authority.");
-
-        foreach (var state in new[]
-                 {
-                     GuardianWorkloadState.Ready,
-                     GuardianWorkloadState.Starting,
-                     GuardianWorkloadState.Desktop,
-                     GuardianWorkloadState.Unresolved
-                 })
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+        var copy = h.Binding.Candidate with { };
+        Require(!(await h.Executor.ExecuteAsync(h.Eligibility, h.Binding with { Candidate = copy })).Attempted,
+            "Equivalent but uncontained candidate cannot execute.");
+        foreach (var state in new[] { GuardianWorkloadState.Ready, GuardianWorkloadState.Starting,
+                                       GuardianWorkloadState.Desktop, GuardianWorkloadState.Unresolved })
         {
-            var malformed = harness.Eligibility with
-            {
-                State = harness.Eligibility.State with { State = state }
-            };
-            var result = await harness.Executor.ExecuteAsync(malformed, harness.Binding);
-            Require(!result.Attempted,
-                $"Execution boundary must re-check and reject stale state {state}.");
+            var eligibility = h.Eligibility with { State = h.Eligibility.State with { State = state } };
+            Require(!(await h.Executor.ExecuteAsync(eligibility, h.Binding)).Attempted,
+                $"Stale workload state {state} cannot execute.");
         }
-
-        foreach (var confidence in new[]
-                 {
-                     GuardianWorkloadStateConfidence.Unknown,
-                     GuardianWorkloadStateConfidence.Low,
-                     GuardianWorkloadStateConfidence.Medium
-                 })
+        foreach (var confidence in new[] { GuardianWorkloadStateConfidence.Unknown, GuardianWorkloadStateConfidence.Low,
+                                            GuardianWorkloadStateConfidence.Medium })
         {
-            var malformed = harness.Eligibility with
-            {
-                State = harness.Eligibility.State with { Confidence = confidence }
-            };
-            var result = await harness.Executor.ExecuteAsync(malformed, harness.Binding);
-            Require(!result.Attempted,
-                $"Execution boundary must re-check and reject confidence {confidence}.");
+            var eligibility = h.Eligibility with { State = h.Eligibility.State with { Confidence = confidence } };
+            Require(!(await h.Executor.ExecuteAsync(eligibility, h.Binding)).Attempted,
+                $"Insufficient confidence {confidence} cannot execute.");
         }
-
-        var nonExact = harness.Eligibility with
+        var nonExact = h.Eligibility with
         {
-            State = harness.Eligibility.State with
+            State = h.Eligibility.State with
             {
                 Target = new TelemetryWorkloadTarget
                 {
@@ -159,104 +111,65 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                 }
             }
         };
-        Require(!(await harness.Executor.ExecuteAsync(nonExact, harness.Binding)).Attempted,
-            "Execution boundary must reject non-exact/non-capturable target.");
-
-        var nonLiveCandidate = harness.Binding.Candidate with
-        {
-            Action = harness.Binding.Candidate.Action with { Safety = ActionSafety.LobbySafe }
-        };
-        var nonLiveEligibility = harness.Eligibility with
-        {
-            EligibleCandidates = Array.AsReadOnly(new[] { nonLiveCandidate })
-        };
-        var nonLiveBinding = harness.Binding with { Candidate = nonLiveCandidate };
-        Require(!(await harness.Executor.ExecuteAsync(nonLiveEligibility, nonLiveBinding)).Attempted,
-            "Execution boundary must independently reject non-LiveSafe action even if malformed eligibility contains it.");
-
-        var wrongGameCandidate = harness.Binding.Candidate with { GameId = "other.game" };
-        var wrongGameEligibility = harness.Eligibility with
-        {
-            EligibleCandidates = Array.AsReadOnly(new[] { wrongGameCandidate })
-        };
-        Require(!(await harness.Executor.ExecuteAsync(
-                wrongGameEligibility,
-                harness.Binding with { Candidate = wrongGameCandidate })).Attempted,
-            "Execution boundary must independently reject stable GameId mismatch.");
-
-        Require(harness.CaptureCalls == 0 && harness.Adapter.SnapshotCount == 0 && harness.Adapter.ApplyCount == 0,
-            "All preflight rejection paths must remain side-effect free.");
+        Require(!(await h.Executor.ExecuteAsync(nonExact, h.Binding)).Attempted,
+            "Non-exact/non-capturable target cannot execute.");
+        var nonLive = h.Binding.Candidate with { Action = h.Binding.Candidate.Action with { Safety = ActionSafety.LobbySafe } };
+        Require(!(await h.Executor.ExecuteAsync(
+                h.Eligibility with { EligibleCandidates = Array.AsReadOnly(new[] { nonLive }) },
+                h.Binding with { Candidate = nonLive })).Attempted,
+            "Malformed eligibility cannot authorize non-LiveSafe action.");
+        var wrongGame = h.Binding.Candidate with { GameId = "other.game" };
+        Require(!(await h.Executor.ExecuteAsync(
+                h.Eligibility with { EligibleCandidates = Array.AsReadOnly(new[] { wrongGame }) },
+                h.Binding with { Candidate = wrongGame })).Attempted,
+            "Malformed eligibility cannot authorize another stable GameId.");
+        Require(h.CaptureCalls == 0 && h.Adapter.SnapshotCount == 0 && h.Adapter.ApplyCount == 0,
+            "Every preflight rejection is side-effect-free.");
     }
 
     private static async Task TransactionFailureUsesExistingRollbackAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
-        harness.Adapter.FailVerification = true;
-
-        await RequireThrowsAsync<InvalidOperationException>(() =>
-            harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding));
-
-        Require(harness.State[Harness.CapabilityId] == Harness.OriginalValue,
-            "Existing transaction engine must restore original state when apply verification fails.");
-        Require(harness.Adapter.ApplyCount == 1 && harness.Adapter.RollbackCount == 1,
-            "Transaction failure must use the proven apply/rollback authority exactly once.");
-        Require(harness.CaptureCalls == 1 && harness.Evaluator.Calls == 0,
-            "Failed transaction must not capture after evidence or evaluate a canary outcome.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+        h.Adapter.FailVerification = true;
+        await RequireThrowsAsync<InvalidOperationException>(() => h.Executor.ExecuteAsync(h.Eligibility, h.Binding));
+        Require(h.State[Harness.CapabilityId] == Harness.OriginalValue
+                && h.Adapter.ApplyCount == 1 && h.Adapter.RollbackCount == 1
+                && h.CaptureCalls == 1 && h.Evaluator.Calls == 0,
+            "Failed verification restores exactly once, with no after capture or evaluation.");
     }
 
     private static async Task EvaluatorFailureRestoresBeforeRethrowAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
-        harness.Evaluator.Failure = new InvalidOperationException("evaluator failed");
-
-        var exception = await CaptureExceptionAsync(() =>
-            harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding));
-
-        Require(exception is InvalidOperationException && exception.Message == "evaluator failed",
-            "Evaluator failure must remain the primary surfaced failure after cleanup.");
-        Require(harness.State[Harness.CapabilityId] == Harness.OriginalValue && harness.Adapter.RollbackCount == 1,
-            "Evaluator failure after apply must restore exact original state before rethrow.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+        h.Evaluator.Failure = new InvalidOperationException("evaluator failed");
+        var failure = await CaptureExceptionAsync(() => h.Executor.ExecuteAsync(h.Eligibility, h.Binding));
+        Require(failure is InvalidOperationException && failure.Message == "evaluator failed"
+                && h.State[Harness.CapabilityId] == Harness.OriginalValue && h.Adapter.RollbackCount == 1,
+            "Evaluator failure preserves primary failure and restores exact state.");
     }
 
     private static async Task PostApplyCaptureFailureRestoresBeforeRethrowAsync()
     {
-        using var harness = new Harness(GenericGuardianSessionCanaryVerdict.Improved)
-        {
-            ThrowOnCaptureCall = 2
-        };
-
-        var exception = await CaptureExceptionAsync(() =>
-            harness.Executor.ExecuteAsync(harness.Eligibility, harness.Binding));
-
-        Require(exception is OperationCanceledException,
-            "Post-apply capture cancellation/failure must escape after cleanup rather than being converted into success.");
-        Require(harness.State[Harness.CapabilityId] == Harness.OriginalValue && harness.Adapter.RollbackCount == 1,
-            "Post-apply capture failure must restore using non-cancelled cleanup semantics.");
-        Require(harness.Evaluator.Calls == 0,
-            "Evaluator must not run when after capture fails.");
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved) { ThrowOnCaptureCall = 2 };
+        var failure = await CaptureExceptionAsync(() => h.Executor.ExecuteAsync(h.Eligibility, h.Binding));
+        Require(failure is OperationCanceledException && h.State[Harness.CapabilityId] == Harness.OriginalValue
+                && h.Adapter.RollbackCount == 1 && h.Evaluator.Calls == 0,
+            "Cancelled after-capture restores with noncancelled cleanup before surfacing cancellation.");
     }
 
     private static async Task<Exception?> CaptureExceptionAsync(Func<Task> operation)
     {
-        try
-        {
-            await operation();
-            return null;
-        }
-        catch (Exception exception)
-        {
-            return exception;
-        }
+        try { await operation(); return null; }
+        catch (Exception exception) { return exception; }
     }
 
     private static async Task RequireThrowsAsync<TException>(Func<Task> operation) where TException : Exception
     {
-        var exception = await CaptureExceptionAsync(operation);
-        if (exception is TException) return;
-        throw new InvalidOperationException(
-            exception is null
-                ? $"Expected {typeof(TException).Name}, but operation completed successfully."
-                : $"Expected {typeof(TException).Name}, but received {exception.GetType().Name}.");
+        var failure = await CaptureExceptionAsync(operation);
+        if (failure is TException) return;
+        throw new InvalidOperationException(failure is null
+            ? $"Expected {typeof(TException).Name}, but operation succeeded."
+            : $"Expected {typeof(TException).Name}, got {failure.GetType().Name}.");
     }
 
     private static void Require(bool condition, string message)
@@ -270,7 +183,6 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         internal const string GameId = "game.session-canary";
         internal const string OriginalValue = "balanced";
         internal const string TargetValue = "performance";
-
         private readonly string _root;
         private int _captureCalls;
 
@@ -278,13 +190,9 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         {
             _root = Path.Combine(Path.GetTempPath(), "dg-guardian-canary-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_root);
-            State = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                [CapabilityId] = OriginalValue
-            };
+            State = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [CapabilityId] = OriginalValue };
             Adapter = new FakeAdapter(CapabilityId, State);
             Evaluator = new FakeEvaluator(verdict);
-
             var capabilities = new WindowsPerformanceCapabilityRegistry(
             [
                 new WindowsPerformanceCapability
@@ -307,13 +215,6 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
             var capture = new PerformanceCaptureCoordinator(
                 (_, _, _) => Task.FromResult<TelemetrySample?>(null),
                 typedCapture: (_, _, cancellationToken) => CaptureTypedAsync(cancellationToken));
-
-            Executor = new GenericGuardianWindowsSessionCanaryExecutor(
-                transactions,
-                capture,
-                Evaluator,
-                TimeSpan.FromMilliseconds(50));
-
             var candidate = new GenericGuardianSessionActionCandidate
             {
                 GameId = GameId,
@@ -325,6 +226,14 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                     Safety = ActionSafety.LiveSafe
                 }
             };
+            var catalog = new GenericGuardianSessionMutationCatalog(
+            [
+                new GenericGuardianSessionMutationDefinition(
+                    GameId, GuardianAnomalyKind.CpuContention, candidate.Action.Id,
+                    new WindowsMutationRequest(CapabilityId, TargetValue, OriginalValue))
+            ]);
+            Executor = new GenericGuardianWindowsSessionCanaryExecutor(
+                transactions, capture, Evaluator, catalog, TimeSpan.FromMilliseconds(50));
             Eligibility = new GenericGuardianSessionActionEligibility
             {
                 State = new GuardianWorkloadStateSnapshot
@@ -378,17 +287,13 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         }
 
         private static TelemetryFrame Frame(double fps)
-            => new(
-                DateTimeOffset.UtcNow,
-                [
-                    new TelemetryMetricObservation(
-                        TelemetryStandardMetrics.FrameFpsAverage,
-                        fps,
-                        TelemetryMetricQuality.Measured,
-                        1d,
-                        "guardian-canary-selftest",
-                        TelemetryMetricOrigin.Direct)
-                ]);
+            => new(DateTimeOffset.UtcNow,
+            [
+                new TelemetryMetricObservation(
+                    TelemetryStandardMetrics.FrameFpsAverage, fps,
+                    TelemetryMetricQuality.Measured, 1d,
+                    "guardian-canary-selftest", TelemetryMetricOrigin.Direct)
+            ]);
     }
 
     private sealed class FakeEvaluator(GenericGuardianSessionCanaryVerdict verdict)
@@ -398,9 +303,7 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         internal Exception? Failure { get; set; }
 
         public GenericGuardianSessionCanaryVerdict Evaluate(
-            GenericGuardianSessionActionCandidate candidate,
-            TelemetryFrame before,
-            TelemetryFrame after)
+            GenericGuardianSessionActionCandidate candidate, TelemetryFrame before, TelemetryFrame after)
         {
             Calls++;
             if (Failure is not null) throw Failure;
@@ -408,9 +311,8 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         }
     }
 
-    private sealed class FakeAdapter(
-        string capabilityId,
-        IDictionary<string, string> state) : IWindowsCapabilityMutationAdapter
+    private sealed class FakeAdapter(string capabilityId, IDictionary<string, string> state)
+        : IWindowsCapabilityMutationAdapter
     {
         public string CapabilityId { get; } = capabilityId;
         internal int SnapshotCount { get; private set; }
@@ -434,14 +336,11 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
             cancellationToken.ThrowIfCancellationRequested();
             SnapshotCount++;
             return Task.FromResult(new WindowsCapabilityMutationSnapshot(
-                CapabilityId,
-                state[CapabilityId],
-                state[CapabilityId]));
+                CapabilityId, state[CapabilityId], state[CapabilityId]));
         }
 
         public Task<WindowsCapabilityApplyResult> ApplyAsync(
-            string targetValue,
-            CancellationToken cancellationToken = default)
+            string targetValue, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ApplyCount++;
@@ -452,14 +351,10 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         public Task<bool> VerifyAsync(string targetValue, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(
-                !FailVerification
-                && string.Equals(state[CapabilityId], targetValue, StringComparison.Ordinal));
+            return Task.FromResult(!FailVerification && string.Equals(state[CapabilityId], targetValue, StringComparison.Ordinal));
         }
 
-        public Task RollbackAsync(
-            WindowsCapabilityMutationSnapshot snapshot,
-            CancellationToken cancellationToken = default)
+        public Task RollbackAsync(WindowsCapabilityMutationSnapshot snapshot, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             RollbackCount++;
