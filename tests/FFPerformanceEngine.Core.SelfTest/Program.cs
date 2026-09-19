@@ -66,7 +66,8 @@ try
         new() { Candidate = adaptive[1], Evidence = EvidenceLevel.Validated, Confidence = 0.97, Sample = new TelemetrySample { Fps = 108, OnePercentLow = 90, LatencyMs = 12, GpuTemperatureC = 64 } },
         new() { Candidate = adaptive[2], Evidence = EvidenceLevel.Validated, Confidence = 0.98, Sample = new TelemetrySample { Fps = 103, OnePercentLow = 99, LatencyMs = 8, GpuTemperatureC = 61 } }
     };
-    var winners = tuner.SelectWinners(GameKind.FreeFireMax, AutoTunerMode.Adaptive, evidence);
+    var winners = tuner.SelectWinners(GameKind.FreeFireMax, AutoTunerMode.Adaptive, Array.Empty<CandidateEvidence>());
+    winners = tuner.SelectWinners(GameKind.FreeFireMax, AutoTunerMode.Adaptive, evidence);
     Check("Auto Tuner returns five evidence-backed roles", winners.Winners.Count == 5 && winners.Winners.All(x => x.Evidence == EvidenceLevel.Validated));
 
     var profileService = new ProfileService(Path.Combine(tempRoot, "profiles.json"));
@@ -134,6 +135,7 @@ try
     await ProfileChallengeRoundSelfTests.RunAsync();
     await ProfileChallengeTypedValidationSelfTests.RunAsync();
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
+    await GenericGuardianControlledBenchmarkIntervalSelfTests.RunAsync();
     UniversalDiagnosticFoundationSelfTests.Run();
     CapabilityRecommendationRegistrySelfTests.Run();
     PersistentPcRecommendationCoordinatorSelfTests.Run();
