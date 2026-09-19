@@ -51,7 +51,7 @@ Application `7df0a6d5712a01aaf0ef58c0e47b7da4e0b937bd`, CI #1051 / run `34544846
 - GREEN `380169a047415e17b6fcfbd85a471f88fdb743b9`, verifier run `34546198986`: full verifier SUCCESS;
 - application `cef217f4d4f053109ee6bed34483d773f02605bf`, Windows CI #1053 / run `34546467152` SUCCESS.
 
-Slice-2 boundary: exactly one explicit already-eligible `LiveSafe` binding; exact typed before/after; Track-2 transaction authority; keep only `Improved`; rollback all non-improved/failure paths; no family-specific threshold, no learning, no cooldown/budget, no runtime host wiring.
+Slice-2 boundary: exactly one explicit already-eligible `LiveSafe` binding; exact typed before/after; Track-2 transaction authority; keep only `Improved`; rollback all non-improved/failure paths; no family-specific threshold, no learning, no cooldown/budget, no runtime host wiring in this slice.
 
 #### Slice 3 — Capability-honest typed canary outcome policy — GREEN
 
@@ -64,16 +64,27 @@ Slice-2 boundary: exactly one explicit already-eligible `LiveSafe` binding; exac
 
 Slice-3 authority: CPU/GPU alone currently use measured typed FPS + average frame time at >=75% coverage; >=2% FPS gain plus non-worsening frame time is `Improved`, >=2% FPS loss is `Regressive`, and incomplete/noisy/unsupported evidence is `Inconclusive`. Memory/VRAM/frame-pacing/thermal/network outcome semantics are intentionally not invented.
 
+#### Pre-Slice4 — Windows capability safety hardening — GREEN
+
+RED `3dfa8e3ade2d1ffe4b2c48fa8fb121ae90cf302f`, verifier `35424479978`: action declared LiveSafe could reach capture while Windows capability was LobbySafe. GREEN verifier `b28e13b3cd7aed3ae47147a7ffb26915008d0861` / run `35424662173`. Official `e6241520b50ae6562ed5ab3d51743ab67043095d`, CI #1060 / run `35424757961` SUCCESS. Documentary `451ab8683feea642830ebbdeecb434e97c506420`, CI #1061 / run `35424969921` SUCCESS. Executor now rejects a missing, unavailable, non-session-applicable or non-LiveSafe capability before measurement; Track2 transaction remains the mutation authority. This does NOT prove Action.Id↔mutation binding or scene comparability.
+
+#### Slice 4 — Generic canary cooldown + Action Budget — GREEN
+
+Plan `docs/superpowers/plans/2026-09-19-track6-session-action-budget.md`; Core `GenericGuardianSessionActionBudget.cs`, selftests `GenericGuardianSessionActionBudgetSelfTests.cs`. RED SHA `65e397bb20b0be0f4dfd602a202a8aeb5e9e04a7`, run `35425142105`: 3 intended missing-key `CS0246`, 0 warnings; verifier GREEN SHA `735a6b029f858901cd6abfb7fba7bd26f77924d1`, run `35425247577`: full native/managed/Core/App/publish SUCCESS. Official application SHA `e1e049b76422b7b8873d28c40be54a50b31b7ef1`, CI #1062 / run `35425367060` SUCCESS, artifact ID `10578984030` SHA-256 `8bfad2a7cf80b0d04fea755cbccaa224923a82c24e275f4574275659ae367b66`.
+
+Policy is in-memory and isolated: caller supplies explicit positive cooldown/max attempts and owner-issued session epoch GUID, stable GameId+exact PID/path. Lock-serialized admission charges one total per-session canary attempt; per family/action cooldown, no charge on rejected/cooling candidates, exhaustion across actions/families, exact ResetSession, reused PID/new epoch isolation, fail-closed invalid input and clock overflow. No arbitrary generic defaults, host wiring, legacy Guardian changes or claim of full historical multi-category Action Budget. Documentary-head CI for this checkpoint remains to be verified.
+
 #### Remaining item-3 sequence
 
-1. **cooldown + Action Budget** to bound repeated session interventions and prevent thrash;
-2. **runtime host wiring** that composes state → classifier → eligibility → bounded canary without changing startup discovery or specialized BlueStacks authority.
+1. **Trusted action-to-mutation authority:** prove that an authorized `GuardianAction.Id` maps only to its exact permitted Windows capability/target, not arbitrary caller-chosen `WindowsMutationRequest` metadata.
+2. **Comparable live experiment evidence:** validate exact before/after workload, temporal ordering, contamination and scene/load comparability before a canary gain can be retained or used for future learning; fail closed where evidence is insufficient.
+3. **Runtime host wiring:** compose state → classifier → exact action/mutation authorization → eligibility → budget → reversible canary → typed outcome/rollback and own session epoch, lease restoration, benchmark suspension/reconciliation. No new startup discovery, no change to specialized BlueStacks authority.
 
-Only after item 3 is closed does Track 6 move to learned action reliability. Post-session queue remains item 5.
+The remaining substeps are bounded implementation responsibilities inside the *already approved* item 3, not a new architecture. Item 4 learned reliability and item 5 post-session queue follow only after item 3 is closed.
 
 ### Track 6 constraints
 
-Guardian does not own deep Auto Tuner exploration. Gameplay mutation requires explicit `LIVE_SAFE` authority. Global Controlled Benchmark Lease continues to isolate controlled work. Stable workload identity is distinct from transient process evidence. Missing data remains Unknown. UI stays presentation/request only. No anti-cheat/integrity bypass.
+Guardian does not own deep Auto Tuner exploration. Gameplay mutation requires explicit `LIVE_SAFE` authority and actual capability safety; action metadata alone is insufficient. Global Controlled Benchmark Lease continues to isolate controlled work. Stable workload identity is distinct from transient process evidence; session lifecycle epoch must not be reissued per observation. Missing or noncomparable data remains Unknown/Inconclusive. UI stays presentation/request only. No anti-cheat/integrity bypass.
 
 Every slice uses:
 
