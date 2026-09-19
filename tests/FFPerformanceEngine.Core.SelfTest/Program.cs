@@ -134,6 +134,7 @@ try
     await ProfileChallengeRoundSelfTests.RunAsync();
     await ProfileChallengeTypedValidationSelfTests.RunAsync();
     await ControlledBenchmarkLeaseSelfTests.RunAsync();
+    await GenericGuardianControlledBenchmarkIntervalSelfTests.RunAsync();
     UniversalDiagnosticFoundationSelfTests.Run();
     CapabilityRecommendationRegistrySelfTests.Run();
     PersistentPcRecommendationCoordinatorSelfTests.Run();
