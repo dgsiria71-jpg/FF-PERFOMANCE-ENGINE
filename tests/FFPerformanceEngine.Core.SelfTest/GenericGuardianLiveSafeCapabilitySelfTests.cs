@@ -26,7 +26,6 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                 new WindowsCapabilityMutationAdapterRegistry(Array.Empty<IWindowsCapabilityMutationAdapter>()),
                 new SnapshotService(Path.Combine(root, "snapshots.json")),
                 new HistoryService(Path.Combine(root, "history.json")));
-
             var captures = 0;
             var capture = new PerformanceCaptureCoordinator(
                 (_, _, _) => Task.FromResult<TelemetrySample?>(null),
@@ -35,9 +34,6 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                     captures++;
                     return Task.FromResult<TelemetryFrame?>(null);
                 });
-            var executor = new GenericGuardianWindowsSessionCanaryExecutor(
-                transactions, capture, new GenericGuardianTypedCanaryOutcomeEvaluator(),
-                TimeSpan.FromMilliseconds(50));
             var candidate = new GenericGuardianSessionActionCandidate
             {
                 GameId = gameId,
@@ -49,6 +45,15 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                     Safety = ActionSafety.LiveSafe
                 }
             };
+            var catalog = new GenericGuardianSessionMutationCatalog(
+            [
+                new GenericGuardianSessionMutationDefinition(
+                    gameId, GuardianAnomalyKind.CpuContention, candidate.Action.Id,
+                    new WindowsMutationRequest("test.live", "performance"))
+            ]);
+            var executor = new GenericGuardianWindowsSessionCanaryExecutor(
+                transactions, capture, new GenericGuardianTypedCanaryOutcomeEvaluator(),
+                catalog, TimeSpan.FromMilliseconds(50));
             var eligibility = new GenericGuardianSessionActionEligibility
             {
                 State = new GuardianWorkloadStateSnapshot
@@ -67,8 +72,6 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                 EligibleCandidates = Array.AsReadOnly(new[] { candidate })
             };
 
-            // RED: a completely unrelated but LiveSafe capability currently bypasses
-            // the selected action identity and is allowed as far as typed capture.
             foreach (var forbidden in new[] { "test.other-live", "test.lobby", "test.restart", "test.unknown" })
             {
                 var result = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
@@ -77,9 +80,23 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                     Mutation = new WindowsMutationRequest(forbidden, "performance")
                 });
                 Require(!result.Attempted && !result.Kept && result.ActiveLease is null,
-                    $"A different, unsafe or unknown capability {forbidden} must not execute this Guardian action.");
+                    $"Different, unsafe or unknown capability {forbidden} must not execute this action.");
                 Require(captures == 0,
-                    $"Unbound capability {forbidden} must fail preflight BEFORE any measurement or mutation; captures={captures}.");
+                    $"Unbound capability {forbidden} must fail preflight BEFORE measurement; captures={captures}.");
+            }
+
+            foreach (var mutation in new[]
+            {
+                new WindowsMutationRequest("test.live", "different-target"),
+                new WindowsMutationRequest("test.live", "performance", "fabricated-current")
+            })
+            {
+                var result = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
+                {
+                    Candidate = candidate, Mutation = mutation
+                });
+                Require(!result.Attempted && captures == 0,
+                    "Different target or tampered expected-state precondition must be rejected before capture.");
             }
 
             var allowed = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
@@ -88,8 +105,8 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                 Mutation = new WindowsMutationRequest("test.live", "performance")
             });
             Require(!allowed.Attempted && captures == 1,
-                "The explicitly bound LiveSafe capability must reach typed before-capture; missing evidence blocks mutation.");
-            Console.WriteLine("PASS Track 6 Guardian capability safety: unrelated LiveSafe, unsafe and unknown mutations fail before capture");
+                "Only exactly registered LiveSafe mutation may reach typed before-capture; absent evidence must block mutation.");
+            Console.WriteLine("PASS Track 6 Guardian action mapping: unrelated LiveSafe, unsafe, unknown, altered target and precondition blocked before capture");
         }
         finally
         {
