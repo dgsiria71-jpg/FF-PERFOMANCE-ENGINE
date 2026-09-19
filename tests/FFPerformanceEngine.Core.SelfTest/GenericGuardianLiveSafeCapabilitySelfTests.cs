@@ -16,6 +16,7 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
             var descriptors = new[]
             {
                 Capability("test.live", ActionSafety.LiveSafe),
+                Capability("test.other-live", ActionSafety.LiveSafe),
                 Capability("test.lobby", ActionSafety.LobbySafe),
                 Capability("test.restart", ActionSafety.RestartRequired)
             };
@@ -66,7 +67,9 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                 EligibleCandidates = Array.AsReadOnly(new[] { candidate })
             };
 
-            foreach (var forbidden in new[] { "test.lobby", "test.restart", "test.unknown" })
+            // RED: a completely unrelated but LiveSafe capability currently bypasses
+            // the selected action identity and is allowed as far as typed capture.
+            foreach (var forbidden in new[] { "test.other-live", "test.lobby", "test.restart", "test.unknown" })
             {
                 var result = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
                 {
@@ -74,9 +77,9 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                     Mutation = new WindowsMutationRequest(forbidden, "performance")
                 });
                 Require(!result.Attempted && !result.Kept && result.ActiveLease is null,
-                    $"LiveSafe action metadata must not authorize unsafe or unknown capability {forbidden}.");
+                    $"A different, unsafe or unknown capability {forbidden} must not execute this Guardian action.");
                 Require(captures == 0,
-                    $"Unsafe or unknown capability {forbidden} must fail preflight before any measurement or mutation.");
+                    $"Unbound capability {forbidden} must fail preflight BEFORE any measurement or mutation; captures={captures}.");
             }
 
             var allowed = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
@@ -85,8 +88,8 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                 Mutation = new WindowsMutationRequest("test.live", "performance")
             });
             Require(!allowed.Attempted && captures == 1,
-                "A genuinely LiveSafe known capability must reach typed before-capture; absent evidence must still block mutation.");
-            Console.WriteLine("PASS Track 6 Guardian capability safety: unsafe and unknown Windows mutations fail before capture");
+                "The explicitly bound LiveSafe capability must reach typed before-capture; missing evidence blocks mutation.");
+            Console.WriteLine("PASS Track 6 Guardian capability safety: unrelated LiveSafe, unsafe and unknown mutations fail before capture");
         }
         finally
         {
