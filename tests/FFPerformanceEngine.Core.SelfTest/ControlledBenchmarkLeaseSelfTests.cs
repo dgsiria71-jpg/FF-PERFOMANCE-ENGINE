@@ -37,6 +37,8 @@ internal static class ControlledBenchmarkLeaseSelfTests
         await GlobalOwnershipIsCrossManagerAndCancellationSafe(defaultConstructor!, acquire!).ConfigureAwait(false);
         await LeaseSuspendsAndRestoresGuardian(guardianConstructor!, acquire!).ConfigureAwait(false);
         await GuardianLifecycleChangesRemainDeferredDuringLease(guardianConstructor!, acquire!).ConfigureAwait(false);
+        await AuthorityOwnedActivityIsGlobalAndDetectsTransientInterferenceAsync().ConfigureAwait(false);
+        await FailedGuardianLifecycleCannotLeaveActivityStuckAsync().ConfigureAwait(false);
 
         Require(typeof(AutoTunerRunCoordinator).GetConstructors().Any(ctor =>
                 ctor.GetParameters().Any(parameter => parameter.ParameterType == leaseInterface)),
@@ -49,6 +51,81 @@ internal static class ControlledBenchmarkLeaseSelfTests
             "ProfileChallengeRoundService must accept the same controlled benchmark lease authority.");
 
         Console.WriteLine("PASS global controlled benchmark lease, cancellation release, Guardian suspension/reconciliation, deferred lifecycle changes, and workload integration contract");
+        Console.WriteLine("PASS Track 0 benchmark activity probe: global real ownership, monotonic transitions, no transient interference accepted, failure cleanup");
+    }
+
+    private static async Task AuthorityOwnedActivityIsGlobalAndDetectsTransientInterferenceAsync()
+    {
+        var managerA = new ControlledBenchmarkLeaseManager();
+        var managerB = new ControlledBenchmarkLeaseManager();
+        Require(managerA is IControlledBenchmarkActivityProbe && managerB is IControlledBenchmarkActivityProbe,
+            "The concrete global manager, not a fabricated caller boolean, must implement the read-only activity probe.");
+        var baseline = managerA.SnapshotActivity();
+        var steady = managerB.SnapshotActivity();
+        Require(baseline.State == ControlledBenchmarkActivityState.Idle
+                && ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, steady),
+            "Two unmodified idle observations across manager instances should prove an uninterrupted idle epoch.");
+
+        var lease = await managerB.AcquireAsync("activity-selftest").ConfigureAwait(false);
+        var active = managerA.SnapshotActivity();
+        Require(active.State == ControlledBenchmarkActivityState.Active
+                && active.Generation != baseline.Generation
+                && !ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, active),
+            "One instance must observe the other instance's acquisition before any benchmark work can begin.");
+
+        using var cancelled = new CancellationTokenSource();
+        var cancelledWaiter = managerA.AcquireAsync("activity-cancelled", cancelled.Token);
+        Require(!cancelledWaiter.IsCompleted,
+            "The second manager cannot bypass global ownership while another lease is active.");
+        cancelled.Cancel();
+        await RequireCancellationAsync(cancelledWaiter).ConfigureAwait(false);
+        var afterCancel = managerA.SnapshotActivity();
+        Require(afterCancel.State == ControlledBenchmarkActivityState.Active
+                && afterCancel.Generation == active.Generation,
+            "A cancelled waiter may neither steal ownership nor fabricate an acquisition/release transition.");
+
+        await lease.DisposeAsync().ConfigureAwait(false);
+        var afterRelease = managerB.SnapshotActivity();
+        Require(afterRelease.State == ControlledBenchmarkActivityState.Idle
+                && afterRelease.Generation != active.Generation
+                && !ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, afterRelease),
+            "A completed benchmark that began and ended between idle samples must still be detected by its epoch.");
+        var idleAgain = managerA.SnapshotActivity();
+        Require(ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(afterRelease, idleAgain),
+            "Uninterrupted idle observations with identical epochs remain comparable.");
+        await lease.DisposeAsync().ConfigureAwait(false);
+        Require(managerA.SnapshotActivity().Generation == idleAgain.Generation,
+            "Idempotent disposal must not invent a second release event.");
+    }
+
+    private static async Task FailedGuardianLifecycleCannotLeaveActivityStuckAsync()
+    {
+        var manager = new ControlledBenchmarkLeaseManager(new ThrowingGuardian(throwOnSuspend: true));
+        var baseline = manager.SnapshotActivity();
+        await RequireFailureAsync(() => manager.AcquireAsync("failed-suspend"));
+        var released = manager.SnapshotActivity();
+        Require(released.State == ControlledBenchmarkActivityState.Idle
+                && released.Generation != baseline.Generation
+                && !ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, released),
+            "Failed Guardian suspension must release global ownership and record the interrupted interval.");
+
+        var resumeManager = new ControlledBenchmarkLeaseManager(new ThrowingGuardian(throwOnSuspend: false));
+        var lease = await resumeManager.AcquireAsync("failed-resume").ConfigureAwait(false);
+        Require(manager.SnapshotActivity().State == ControlledBenchmarkActivityState.Active,
+            "Lease must stay marked active until all Guardian reconciliation is attempted.");
+        await RequireFailureAsync(() => lease.DisposeAsync().AsTask());
+        Require(resumeManager.SnapshotActivity().State == ControlledBenchmarkActivityState.Idle,
+            "Even failed Guardian resume must never leak active-state or block a future global lease.");
+        await using var subsequent = await new ControlledBenchmarkLeaseManager().AcquireAsync("after-failure").ConfigureAwait(false);
+        Require(manager.SnapshotActivity().State == ControlledBenchmarkActivityState.Active,
+            "A subsequent lease must remain possible after reconciliation failure.");
+    }
+
+    private static async Task RequireFailureAsync(Func<Task> operation)
+    {
+        try { await operation().ConfigureAwait(false); }
+        catch (InvalidOperationException) { return; }
+        throw new InvalidOperationException("Expected injected Guardian lifecycle failure to propagate.");
     }
 
     private static async Task GlobalOwnershipIsCrossManagerAndCancellationSafe(ConstructorInfo defaultConstructor, MethodInfo acquire)
@@ -166,6 +243,17 @@ internal static class ControlledBenchmarkLeaseSelfTests
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private sealed class ThrowingGuardian(bool throwOnSuspend) : IControlledBenchmarkGuardian
+    {
+        public Task<ControlledBenchmarkGuardianState> SuspendAsync(CancellationToken cancellationToken = default)
+            => throwOnSuspend
+                ? Task.FromException<ControlledBenchmarkGuardianState>(new InvalidOperationException("suspend failure"))
+                : Task.FromResult(new ControlledBenchmarkGuardianState(false, null, TimeSpan.Zero));
+
+        public Task ResumeAsync(ControlledBenchmarkGuardianState state, CancellationToken cancellationToken = default)
+            => Task.FromException(new InvalidOperationException("resume failure"));
     }
 
     private sealed class FakeLiveRunner : IGuardianLiveSessionRunner
