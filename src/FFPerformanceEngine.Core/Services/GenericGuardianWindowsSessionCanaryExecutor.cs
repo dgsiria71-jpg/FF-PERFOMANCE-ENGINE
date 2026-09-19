@@ -71,28 +71,30 @@ public sealed record GenericGuardianSessionCanaryResult
 }
 
 /// <summary>
-/// Reversible generic Guardian orchestration for one explicit Windows session
-/// mutation. Snapshot/apply/verify/ownership/rollback remain owned by
-/// SystemOptimizationTransactionEngine; typed workload evidence remains owned by
-/// PerformanceCaptureCoordinator. This class never synthesizes actions, ranks
-/// candidates, persists Guardian knowledge, or defines family-specific thresholds.
+/// Reversible generic Guardian orchestration for one explicitly registered
+/// action-to-Windows-mutation binding. Transaction authority and typed capture
+/// remain with their proven owners. This class never synthesizes actions, ranks
+/// candidates, persists Guardian knowledge or defines family thresholds.
 /// </summary>
 public sealed class GenericGuardianWindowsSessionCanaryExecutor
 {
     private readonly SystemOptimizationTransactionEngine _transactions;
     private readonly PerformanceCaptureCoordinator _capture;
     private readonly IGenericGuardianSessionCanaryOutcomeEvaluator _evaluator;
+    private readonly GenericGuardianSessionMutationCatalog _catalog;
     private readonly TimeSpan _sampleDuration;
 
     public GenericGuardianWindowsSessionCanaryExecutor(
         SystemOptimizationTransactionEngine transactions,
         PerformanceCaptureCoordinator capture,
         IGenericGuardianSessionCanaryOutcomeEvaluator evaluator,
+        GenericGuardianSessionMutationCatalog catalog,
         TimeSpan? sampleDuration = null)
     {
         _transactions = transactions ?? throw new ArgumentNullException(nameof(transactions));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
+        _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _sampleDuration = sampleDuration ?? TimeSpan.FromSeconds(2);
         if (_sampleDuration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(sampleDuration));
@@ -242,8 +244,8 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 target.GameId.Trim(),
                 StringComparison.OrdinalIgnoreCase))
             return "Candidate stable GameId no longer matches the exact workload target.";
-        if (string.IsNullOrWhiteSpace(binding.Mutation.CapabilityId))
-            return "Guardian Windows session binding requires one explicit capability id.";
+        if (!_catalog.IsAuthorized(candidate, binding.Mutation))
+            return "Guardian action is not registered to this exact Windows capability, target value and expected-state precondition.";
         if (!_transactions.IsLiveSafeSessionCapability(binding.Mutation.CapabilityId))
             return "Guardian Windows session binding requires a currently Available, session-applicable LiveSafe capability; action metadata alone is insufficient.";
 
