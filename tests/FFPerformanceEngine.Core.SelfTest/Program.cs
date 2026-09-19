@@ -115,6 +115,7 @@ try
     await GenericGuardianWindowsSessionCanarySelfTests.RunAsync();
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
     await GenericGuardianLiveSafeCapabilitySelfTests.RunAsync();
+    GenericGuardianSessionActionBudgetSelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
