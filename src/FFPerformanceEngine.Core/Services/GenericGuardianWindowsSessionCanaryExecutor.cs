@@ -205,7 +205,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         }
     }
 
-    private static string? PreflightFailure(
+    private string? PreflightFailure(
         GenericGuardianSessionActionEligibility eligibility,
         GenericGuardianWindowsSessionActionBinding binding)
     {
@@ -244,6 +244,8 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
             return "Candidate stable GameId no longer matches the exact workload target.";
         if (string.IsNullOrWhiteSpace(binding.Mutation.CapabilityId))
             return "Guardian Windows session binding requires one explicit capability id.";
+        if (!_transactions.IsLiveSafeSessionCapability(binding.Mutation.CapabilityId))
+            return "Guardian Windows session binding requires a currently Available, session-applicable LiveSafe capability; action metadata alone is insufficient.";
 
         return null;
     }
