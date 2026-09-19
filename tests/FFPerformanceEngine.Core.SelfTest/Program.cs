@@ -116,6 +116,7 @@ try
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
     await GenericGuardianLiveSafeCapabilitySelfTests.RunAsync();
     GenericGuardianSessionActionBudgetSelfTests.Run();
+    GenericGuardianCanaryComparabilitySelfTests.Run();
     PerformanceTargetPolicySelfTests.Run();
     await PerformanceCaptureCoordinatorSelfTests.RunAsync();
     PerformancePresentationSelfTests.Run();
