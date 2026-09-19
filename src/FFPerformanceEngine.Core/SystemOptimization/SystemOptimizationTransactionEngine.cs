@@ -28,6 +28,20 @@ public sealed class SystemOptimizationTransactionEngine
         _history = history ?? throw new ArgumentNullException(nameof(history));
     }
 
+    // Read-only capability authorization for a live Guardian canary. The
+    // Guardian must not trust only the action's independently declared Safety.
+    // This does not grant execution or bypass the transaction's fresh checks.
+    public bool IsLiveSafeSessionCapability(string? capabilityId)
+    {
+        var id = NormalizeId(capabilityId);
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        return _capabilities.GetAll().Any(capability =>
+            string.Equals(capability.CapabilityId, id, StringComparison.OrdinalIgnoreCase)
+            && capability.Availability == CapabilityAvailability.Available
+            && capability.Safety == ActionSafety.LiveSafe
+            && capability.PersistenceScope is CapabilityPersistenceScope.SessionOnly or CapabilityPersistenceScope.PersistentAllowed);
+    }
+
     public async Task<SystemOptimizationSession> BeginSessionAsync(
         string label,
         IReadOnlyList<WindowsMutationRequest> mutations,
@@ -227,7 +241,7 @@ public sealed class SystemOptimizationTransactionEngine
                 && !string.Equals(snapshot.OriginalValue, request.ExpectedCurrentValue, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException(
-                    $"Windows capability '{id}' expected-state precondition changed between read and snapshot. Expected '{request.ExpectedCurrentValue}', snapshot captured '{snapshot.OriginalValue}'.");
+                    $"Capability '{id}' expected-state precondition changed between read and snapshot. Expected '{request.ExpectedCurrentValue}', snapshot captured '{snapshot.OriginalValue}'.");
             }
             entries.Add(new PreparedMutation(request, adapter, snapshot));
         }
