@@ -74,8 +74,10 @@ public sealed record GenericGuardianSessionCanaryResult
 /// Reversible generic Guardian orchestration for one explicitly registered
 /// action-to-Windows-mutation binding. The comparison source must be vetted by
 /// the future owning host; merely implementing its interface is NOT provenance.
-/// No production scene source is registered, so without explicit proof this
-/// executor fails closed before mutation. No automatic host activation exists.
+/// Every physical capture and the intervening mutation are now checked against
+/// the REAL process-wide Track 0 benchmark generation. This is observation,
+/// not global exclusion or scene/load proof. No production scene source is
+/// registered and no automatic generic host activation exists.
 /// </summary>
 public sealed class GenericGuardianWindowsSessionCanaryExecutor
 {
@@ -88,6 +90,8 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
     private readonly GenericGuardianCanarySessionKey? _sessionKey;
     private readonly GenericGuardianCanaryComparabilityPolicy _comparability;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly ControlledBenchmarkLeaseManager _benchmarkAuthority;
+    private readonly GenericGuardianControlledBenchmarkIntervalCapture _benchmarkCapture;
 
     public GenericGuardianWindowsSessionCanaryExecutor(
         SystemOptimizationTransactionEngine transactions,
@@ -98,7 +102,8 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         IGenericGuardianCanaryEvidenceSource? evidenceSource = null,
         GenericGuardianCanarySessionKey? sessionKey = null,
         GenericGuardianCanaryComparabilityPolicy? comparability = null,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        ControlledBenchmarkLeaseManager? benchmarkAuthority = null)
     {
         _transactions = transactions ?? throw new ArgumentNullException(nameof(transactions));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
@@ -111,6 +116,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         _sessionKey = sessionKey;
         _comparability = comparability ?? new GenericGuardianCanaryComparabilityPolicy();
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        // Concrete sealed manager; all instances share one static global gate/generation.
+        // A caller cannot substitute a forged IControlledBenchmarkActivityProbe.
+        _benchmarkAuthority = benchmarkAuthority ?? new ControlledBenchmarkLeaseManager();
+        _benchmarkCapture = new GenericGuardianControlledBenchmarkIntervalCapture(_benchmarkAuthority);
     }
 
     public async Task<GenericGuardianSessionCanaryResult> ExecuteAsync(
@@ -128,28 +137,34 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (preflightFailure is not null)
             return NotAttempted(candidate, preflightFailure);
 
-        // The exact workload and real lifecycle are already checked in preflight.
-        // The executor, not the evidence provider, times the actual capture calls.
+        // The monitor reads the real authority IMMEDIATELY around the capture delegate.
+        // A generation change includes a benchmark that acquired and released in between.
         var target = eligibility.State.Target;
         var beforeStartedAt = _clock();
-        var beforeCapture = await _capture
-            .CaptureWorkloadTypedAsync(target, _sampleDuration, cancellationToken)
-            .ConfigureAwait(false);
+        var beforeObservation = await _benchmarkCapture.CaptureAsync(
+            token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
+            cancellationToken).ConfigureAwait(false);
         var beforeCompletedAt = _clock();
-        var before = AcceptFrame(beforeCapture, target);
+        if (!beforeObservation.Attempted || !beforeObservation.UninterruptedIdle)
+            return NotAttempted(candidate,
+                "Track 0 controlled benchmark was active or changed during the before capture; no Windows mutation was attempted.");
+
+        var baseline = beforeObservation.Before;
+        var before = beforeObservation.Value is null
+            ? null : AcceptFrame(beforeObservation.Value, target);
         if (before is null)
-        {
             return NotAttempted(candidate,
                 "Typed before evidence is unavailable for the exact workload; Guardian canary will not mutate anything.");
-        }
 
         var beforeWindow = await _evidenceSource!.CaptureWindowAsync(
             target, before, beforeStartedAt, beforeCompletedAt, cancellationToken).ConfigureAwait(false);
         if (!AcceptWindow(beforeWindow, before, target, beforeStartedAt, beforeCompletedAt))
-        {
             return NotAttempted(candidate,
                 "Comparable before context is absent, unknown, contaminated or not bound to the actual capture; no mutation was attempted.");
-        }
+
+        if (!BenchmarkUninterruptedSince(baseline))
+            return NotAttempted(candidate,
+                "Track 0 controlled benchmark changed after before capture and before mutation; no mutation was attempted.");
 
         SystemOptimizationSession? session = null;
         try
@@ -161,52 +176,56 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 cancellationToken).ConfigureAwait(false);
             var mutationCompletedAt = _clock();
 
+            if (!BenchmarkUninterruptedSince(baseline))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Track 0 benchmark changed during the mutation; original Windows state was restored.")
+                    .ConfigureAwait(false);
+
             var afterStartedAt = _clock();
-            var afterCapture = await _capture
-                .CaptureWorkloadTypedAsync(target, _sampleDuration, cancellationToken)
-                .ConfigureAwait(false);
+            var afterObservation = await _benchmarkCapture.CaptureAsync(
+                token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
+                cancellationToken).ConfigureAwait(false);
             var afterCompletedAt = _clock();
-            var after = AcceptFrame(afterCapture, target);
+            if (!afterObservation.Attempted || !afterObservation.UninterruptedIdle
+                || !BenchmarkUninterruptedSince(baseline))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Track 0 benchmark was active or changed during/between canary captures; original state was restored.")
+                    .ConfigureAwait(false);
+
+            var after = afterObservation.Value is null
+                ? null : AcceptFrame(afterObservation.Value, target);
             if (after is null)
-            {
-                await session.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
-                return new GenericGuardianSessionCanaryResult
-                {
-                    Candidate = candidate,
-                    Attempted = true,
-                    RolledBack = true,
-                    Verdict = GenericGuardianSessionCanaryVerdict.Inconclusive,
-                    Before = before,
-                    Reason = "Typed after evidence is unavailable; the session mutation was restored because improvement cannot be proven."
-                };
-            }
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Typed after evidence is unavailable; the session mutation was restored because improvement cannot be proven.")
+                    .ConfigureAwait(false);
 
             var afterWindow = await _evidenceSource.CaptureWindowAsync(
                 target, after, afterStartedAt, afterCompletedAt, cancellationToken).ConfigureAwait(false);
             if (!AcceptWindow(afterWindow, after, target, afterStartedAt, afterCompletedAt)
                 || _comparability.Evaluate(beforeWindow, afterWindow, mutationStartedAt, mutationCompletedAt)
                    != GenericGuardianCanaryComparability.InScopeOnSuppliedEvidence)
-            {
-                await session.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
-                return new GenericGuardianSessionCanaryResult
-                {
-                    Candidate = candidate,
-                    Attempted = true,
-                    RolledBack = true,
-                    Verdict = GenericGuardianSessionCanaryVerdict.Inconclusive,
-                    Before = before,
-                    After = after,
-                    Reason = "Before/after comparison evidence is missing, changed, contaminated or temporally invalid; original session state was restored."
-                };
-            }
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "Before/after context is missing, changed, contaminated or temporally invalid; original state was restored.")
+                    .ConfigureAwait(false);
 
-            // The policy establishes only structural consistency of context
-            // supplied by an independently vetted source, never full causality.
+            // Source-supplied false flags cannot override the real global lease authority.
+            if (!BenchmarkUninterruptedSince(baseline))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "Track 0 benchmark changed after comparison evidence; original state was restored.")
+                    .ConfigureAwait(false);
+
             var verdict = NormalizeVerdict(_evaluator.Evaluate(candidate, before, after));
+            // The evaluator itself could be interrupted. Recheck immediately before
+            // transferring ownership, though only the future host can EXCLUDE a race.
+            if (!BenchmarkUninterruptedSince(baseline))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "Track 0 benchmark changed during outcome evaluation; original state was restored.")
+                    .ConfigureAwait(false);
+
             if (verdict == GenericGuardianSessionCanaryVerdict.Improved)
             {
                 var lease = new GenericGuardianSessionCanaryLease(session);
-                session = null; // Ownership is intentionally transferred to the kept lease.
+                session = null;
                 return new GenericGuardianSessionCanaryResult
                 {
                     Candidate = candidate,
@@ -216,7 +235,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     Before = before,
                     After = after,
                     ActiveLease = lease,
-                    Reason = "Supplied comparison passed and typed evaluator reported improvement; mutation remains reversible under an active lease."
+                    Reason = "Supplied scene comparison and real Track 0 idle generation passed; improvement remains reversible, but external interference/causality is not proven."
                 };
             }
 
@@ -254,6 +273,30 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
             ExceptionDispatchInfo.Capture(primaryFailure).Throw();
             throw;
         }
+    }
+
+    private bool BenchmarkUninterruptedSince(ControlledBenchmarkActivitySnapshot baseline)
+        => ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(
+            baseline, _benchmarkAuthority.SnapshotActivity());
+
+    private static async Task<GenericGuardianSessionCanaryResult> RestoreContaminatedAsync(
+        SystemOptimizationSession session,
+        GenericGuardianSessionActionCandidate candidate,
+        TelemetryFrame before,
+        TelemetryFrame? after,
+        string reason)
+    {
+        await session.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
+        return new GenericGuardianSessionCanaryResult
+        {
+            Candidate = candidate,
+            Attempted = true,
+            RolledBack = true,
+            Verdict = GenericGuardianSessionCanaryVerdict.Inconclusive,
+            Before = before,
+            After = after,
+            Reason = reason
+        };
     }
 
     private bool AcceptWindow(

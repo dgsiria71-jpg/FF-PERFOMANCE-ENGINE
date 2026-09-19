@@ -57,6 +57,7 @@ internal static class GenericGuardianControlledBenchmarkIntervalSelfTests
         }
         catch (InvalidOperationException exception) when (ReferenceEquals(exception, failure)) { }
 
+        await GenericGuardianBenchmarkCycleIntegrationSelfTests.RunAsync();
         Console.WriteLine("PASS Track 6 authority-bracketed benchmark capture: busy denied, transient and inter-window interference detected, failures preserved");
     }
 
