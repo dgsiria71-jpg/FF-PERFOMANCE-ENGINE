@@ -35,6 +35,7 @@ internal static class GenericGuardianWindowsProcessLifetimeSelfTests
                 && probe.Observe(current.Id, "relative.exe") is null,
             "Missing PID, missing executable and relative executable identity never produce a proof.");
 
+        GenericGuardianWindowsSessionLifecycleSelfTests.Run();
         Console.WriteLine("PASS Track 6 real Windows process lifetime: OS creation-time proof and fail-closed exact PID/path recheck; no scene attribution");
     }
 
