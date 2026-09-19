@@ -62,7 +62,9 @@ public sealed class GenericGuardianCanaryComparabilityPolicy
         return GenericGuardianCanaryComparability.InScopeOnSuppliedEvidence;
     }
 
-    private static bool IsValidWindow(GenericGuardianCanaryComparisonWindow window)
+    // Shared with the executor to reject unusable BEFORE evidence prior to mutation.
+    // This is structural validation, NOT attestation of any supplied string/flag.
+    internal static bool IsValidWindow(GenericGuardianCanaryComparisonWindow window)
     {
         if (window.SessionEpoch == Guid.Empty
             || window.Target is null

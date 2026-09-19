@@ -8,6 +8,9 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
 {
     internal static async Task RunAsync()
     {
+        await NoEvidenceSourceCannotStartMutationAsync();
+        await MissingOrUntrustedBeforeContextNeverMutatesAsync();
+        await ContextDriftOrInterferenceRollsBackWithoutEvaluatingAsync();
         await ImprovedCanaryKeepsUntilLeaseRestoresAsync();
         await NonImprovedVerdictsRestoreBeforeReturningAsync();
         await MissingBeforeNeverMutatesAsync();
@@ -16,7 +19,69 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         await TransactionFailureUsesExistingRollbackAsync();
         await EvaluatorFailureRestoresBeforeRethrowAsync();
         await PostApplyCaptureFailureRestoresBeforeRethrowAsync();
-        Console.WriteLine("PASS Track 6 generic Windows session canary execution, exact typed before/after evidence, KEEP lease and rollback safety");
+        Console.WriteLine("PASS Track 6 generic Windows canary: authoritative context required, comparison before KEEP, transactional rollback and lease safety");
+    }
+
+    private static async Task NoEvidenceSourceCannotStartMutationAsync()
+    {
+        using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved, provideEvidence: false);
+        var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+        Require(!result.Attempted && !result.Kept && result.ActiveLease is null
+                && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive
+                && h.CaptureCalls == 0 && h.Adapter.SnapshotCount == 0 && h.Adapter.ApplyCount == 0,
+            "Without an independently configured comparison source, even LiveSafe + Improved must fail BEFORE capture/mutation.");
+    }
+
+    private static async Task MissingOrUntrustedBeforeContextNeverMutatesAsync()
+    {
+        foreach (var change in new Action<FakeEvidenceSource>[]
+                 {
+                     source => source.MissingBefore = true,
+                     source => source.BeforeBenchmarkActive = null,
+                     source => source.BeforeBenchmarkActive = true,
+                     source => source.BeforeScene = " ",
+                     source => source.BeforeDrift = true,
+                     source => source.BeforeOtherMutation = null
+                 })
+        {
+            using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+            change(h.Evidence);
+            var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+            Require(!result.Attempted && !result.Kept && result.ActiveLease is null
+                    && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive
+                    && h.Adapter.SnapshotCount == 0 && h.Adapter.ApplyCount == 0 && h.Evaluator.Calls == 0,
+                "Missing, unknown or contaminated BEFORE context must fail closed before opening a Windows transaction.");
+        }
+    }
+
+    private static async Task ContextDriftOrInterferenceRollsBackWithoutEvaluatingAsync()
+    {
+        foreach (var change in new Action<FakeEvidenceSource>[]
+                 {
+                     source => source.MissingAfter = true,
+                     source => source.AfterScene = "different-scene",
+                     source => source.AfterMode = "different-mode",
+                     source => source.AfterLoad = "different-load",
+                     source => source.AfterEnvironment = "different-environment",
+                     source => source.AfterSource = "different-source",
+                     source => source.AfterBenchmarkActive = null,
+                     source => source.AfterBenchmarkActive = true,
+                     source => source.AfterDrift = true,
+                     source => source.AfterOtherMutation = true,
+                     source => source.AfterEpoch = Guid.NewGuid(),
+                     source => source.TamperAfterFrame = true,
+                     source => source.OverlapAfterMutation = true
+                 })
+        {
+            using var h = new Harness(GenericGuardianSessionCanaryVerdict.Improved);
+            change(h.Evidence);
+            var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
+            Require(result.Attempted && !result.Kept && result.RolledBack
+                    && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive
+                    && result.ActiveLease is null && h.Evaluator.Calls == 0
+                    && h.State[Harness.CapabilityId] == Harness.OriginalValue && h.Adapter.RollbackCount == 1,
+                "An unbound, changed or contaminated AFTER window cannot reach the outcome evaluator or leave a mutation active.");
+        }
     }
 
     private static async Task ImprovedCanaryKeepsUntilLeaseRestoresAsync()
@@ -25,7 +90,7 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         var result = await h.Executor.ExecuteAsync(h.Eligibility, h.Binding);
         Require(result.Attempted && result.Kept && !result.RolledBack
                 && result.Verdict == GenericGuardianSessionCanaryVerdict.Improved,
-            "Improved canary is attempted and kept with the evaluator verdict.");
+            "Improved canary is kept only with explicitly comparable test-owned before/after context.");
         Require(result.Before is not null && result.After is not null,
             "Kept canary retains typed before/after evidence.");
         var lease = result.ActiveLease;
@@ -33,8 +98,8 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                 && h.State[Harness.CapabilityId] == Harness.TargetValue,
             "Improved canary holds the mutation under an active reversible lease.");
         Require(h.Adapter.SnapshotCount == 1 && h.Adapter.ApplyCount == 1
-                && h.CaptureCalls == 2 && h.Evaluator.Calls == 1,
-            "One explicit mutation, snapshot, two captures and one evaluation.");
+                && h.CaptureCalls == 2 && h.Evaluator.Calls == 1 && h.Evidence.Calls == 2,
+            "One explicit mutation, snapshot, two captures, two comparison observations and one evaluation.");
         await lease!.RestoreAsync();
         Require(!lease.IsActive && h.State[Harness.CapabilityId] == Harness.OriginalValue
                 && h.Adapter.RollbackCount == 1,
@@ -186,13 +251,14 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         private readonly string _root;
         private int _captureCalls;
 
-        internal Harness(GenericGuardianSessionCanaryVerdict verdict)
+        internal Harness(GenericGuardianSessionCanaryVerdict verdict, bool provideEvidence = true)
         {
             _root = Path.Combine(Path.GetTempPath(), "dg-guardian-canary-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_root);
             State = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [CapabilityId] = OriginalValue };
             Adapter = new FakeAdapter(CapabilityId, State);
             Evaluator = new FakeEvaluator(verdict);
+            Evidence = new FakeEvidenceSource();
             var capabilities = new WindowsPerformanceCapabilityRegistry(
             [
                 new WindowsPerformanceCapability
@@ -232,8 +298,12 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                     GameId, GuardianAnomalyKind.CpuContention, candidate.Action.Id,
                     new WindowsMutationRequest(CapabilityId, TargetValue, OriginalValue))
             ]);
+            var key = new GenericGuardianCanarySessionKey(Guid.NewGuid(), GameId, 4242, @"C:\Games\session-canary.exe");
+            Evidence.Epoch = key.SessionEpoch;
             Executor = new GenericGuardianWindowsSessionCanaryExecutor(
-                transactions, capture, Evaluator, catalog, TimeSpan.FromMilliseconds(50));
+                transactions, capture, Evaluator, catalog, TimeSpan.FromMilliseconds(50),
+                evidenceSource: provideEvidence ? Evidence : null,
+                sessionKey: key);
             Eligibility = new GenericGuardianSessionActionEligibility
             {
                 State = new GuardianWorkloadStateSnapshot
@@ -262,6 +332,7 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         internal Dictionary<string, string> State { get; }
         internal FakeAdapter Adapter { get; }
         internal FakeEvaluator Evaluator { get; }
+        internal FakeEvidenceSource Evidence { get; }
         internal GenericGuardianWindowsSessionCanaryExecutor Executor { get; }
         internal GenericGuardianSessionActionEligibility Eligibility { get; }
         internal GenericGuardianWindowsSessionActionBinding Binding { get; }
@@ -276,7 +347,8 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
             _captureCalls++;
             if (ThrowOnCaptureCall == _captureCalls)
                 throw new OperationCanceledException("typed capture cancelled after apply", cancellationToken);
-            return Task.FromResult(_captureCalls == 1 ? Before : After);
+            var source = _captureCalls == 1 ? Before : After;
+            return Task.FromResult(source is null ? null : new TelemetryFrame(DateTimeOffset.UtcNow, source.Metrics));
         }
 
         public void Dispose()
@@ -294,6 +366,60 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                     TelemetryMetricQuality.Measured, 1d,
                     "guardian-canary-selftest", TelemetryMetricOrigin.Direct)
             ]);
+    }
+
+    // A deterministic TEST DOUBLE only. No product Game Adapter claims these scene/load facts.
+    private sealed class FakeEvidenceSource : IGenericGuardianCanaryEvidenceSource
+    {
+        public Guid Epoch { get; set; }
+        public Guid? AfterEpoch { get; set; }
+        public bool MissingBefore { get; set; }
+        public bool MissingAfter { get; set; }
+        public bool TamperAfterFrame { get; set; }
+        public bool OverlapAfterMutation { get; set; }
+        public bool? BeforeBenchmarkActive { get; set; } = false;
+        public bool? AfterBenchmarkActive { get; set; } = false;
+        public bool? BeforeDrift { get; set; } = false;
+        public bool? AfterDrift { get; set; } = false;
+        public bool? BeforeOtherMutation { get; set; } = false;
+        public bool? AfterOtherMutation { get; set; } = false;
+        public string BeforeScene { get; set; } = "scene.test";
+        public string AfterScene { get; set; } = "scene.test";
+        public string AfterMode { get; set; } = "mode.test";
+        public string AfterLoad { get; set; } = "load.test";
+        public string AfterEnvironment { get; set; } = "environment.test";
+        public string AfterSource { get; set; } = "fake-test-only";
+        public int Calls { get; private set; }
+
+        public Task<GenericGuardianCanaryComparisonWindow?> CaptureWindowAsync(
+            TelemetryWorkloadTarget target,
+            TelemetryFrame frame,
+            DateTimeOffset captureStartedAt,
+            DateTimeOffset captureCompletedAt,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
+            var after = Calls == 2;
+            if ((!after && MissingBefore) || (after && MissingAfter))
+                return Task.FromResult<GenericGuardianCanaryComparisonWindow?>(null);
+
+            var window = new GenericGuardianCanaryComparisonWindow(
+                after ? AfterEpoch ?? Epoch : Epoch,
+                target,
+                after ? AfterSource : "fake-test-only",
+                after ? AfterMode : "mode.test",
+                after ? AfterScene : BeforeScene,
+                after ? AfterLoad : "load.test",
+                after ? AfterEnvironment : "environment.test",
+                after && OverlapAfterMutation ? captureStartedAt.AddMinutes(-1) : captureStartedAt,
+                captureCompletedAt,
+                after && TamperAfterFrame ? new TelemetryFrame(frame.Timestamp, Array.Empty<TelemetryMetricObservation>()) : frame,
+                after ? AfterBenchmarkActive : BeforeBenchmarkActive,
+                after ? AfterDrift : BeforeDrift,
+                after ? AfterOtherMutation : BeforeOtherMutation);
+            return Task.FromResult<GenericGuardianCanaryComparisonWindow?>(window);
+        }
     }
 
     private sealed class FakeEvaluator(GenericGuardianSessionCanaryVerdict verdict)
@@ -339,8 +465,7 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                 CapabilityId, state[CapabilityId], state[CapabilityId]));
         }
 
-        public Task<WindowsCapabilityApplyResult> ApplyAsync(
-            string targetValue, CancellationToken cancellationToken = default)
+        public Task<WindowsCapabilityApplyResult> ApplyAsync(string targetValue, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ApplyCount++;

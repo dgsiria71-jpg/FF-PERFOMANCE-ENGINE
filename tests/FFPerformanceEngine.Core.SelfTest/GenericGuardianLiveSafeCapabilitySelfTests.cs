@@ -99,14 +99,18 @@ internal static class GenericGuardianLiveSafeCapabilitySelfTests
                     "Different target or tampered expected-state precondition must be rejected before capture.");
             }
 
+            var exactMutation = new WindowsMutationRequest("test.live", "performance");
+            Require(catalog.IsAuthorized(candidate, exactMutation)
+                    && transactions.IsLiveSafeSessionCapability(exactMutation.CapabilityId),
+                "Exactly registered action and actual LiveSafe session capability remain independently authorized.");
             var allowed = await executor.ExecuteAsync(eligibility, new GenericGuardianWindowsSessionActionBinding
             {
                 Candidate = candidate,
-                Mutation = new WindowsMutationRequest("test.live", "performance")
+                Mutation = exactMutation
             });
-            Require(!allowed.Attempted && captures == 1,
-                "Only exactly registered LiveSafe mutation may reach typed before-capture; absent evidence must block mutation.");
-            Console.WriteLine("PASS Track 6 Guardian action mapping: unrelated LiveSafe, unsafe, unknown, altered target and precondition blocked before capture");
+            Require(!allowed.Attempted && !allowed.Kept && allowed.ActiveLease is null && captures == 0,
+                "Even the authorized LiveSafe mutation must not capture without the independent comparison source and lifecycle epoch.");
+            Console.WriteLine("PASS Track 6 Guardian action mapping rejects unrelated/unsafe/altered mutation and defaults closed without comparison evidence");
         }
         finally
         {
