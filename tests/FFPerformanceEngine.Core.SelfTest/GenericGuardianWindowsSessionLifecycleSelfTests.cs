@@ -67,7 +67,7 @@ internal static class GenericGuardianWindowsSessionLifecycleSelfTests
             "A disappeared/invalid PID cannot be promoted to a session epoch.");
 
         var third = owner.Observe(active);
-        Require(third is not null && third.SessionEpoch != renewed.SessionEpoch
+        Require(third is not null && third.SessionEpoch != renewed!.SessionEpoch
                 && owner.IsCurrent(third, target),
             "A new eligible physical observation must establish a fresh epoch.");
         owner.Reset();
