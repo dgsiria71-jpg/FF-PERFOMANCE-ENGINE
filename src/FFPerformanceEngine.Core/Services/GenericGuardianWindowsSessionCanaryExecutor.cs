@@ -92,6 +92,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
     private readonly Func<DateTimeOffset> _clock;
     private readonly ControlledBenchmarkLeaseManager _benchmarkAuthority;
     private readonly GenericGuardianControlledBenchmarkIntervalCapture _benchmarkCapture;
+    private readonly GenericGuardianWindowsSessionLifecycleCoordinator? _sessionOwner;
 
     public GenericGuardianWindowsSessionCanaryExecutor(
         SystemOptimizationTransactionEngine transactions,
@@ -103,7 +104,8 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         GenericGuardianCanarySessionKey? sessionKey = null,
         GenericGuardianCanaryComparabilityPolicy? comparability = null,
         Func<DateTimeOffset>? clock = null,
-        ControlledBenchmarkLeaseManager? benchmarkAuthority = null)
+        ControlledBenchmarkLeaseManager? benchmarkAuthority = null,
+        GenericGuardianWindowsSessionLifecycleCoordinator? sessionOwner = null)
     {
         _transactions = transactions ?? throw new ArgumentNullException(nameof(transactions));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
@@ -120,6 +122,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         // A caller cannot substitute a forged IControlledBenchmarkActivityProbe.
         _benchmarkAuthority = benchmarkAuthority ?? new ControlledBenchmarkLeaseManager();
         _benchmarkCapture = new GenericGuardianControlledBenchmarkIntervalCapture(_benchmarkAuthority);
+        _sessionOwner = sessionOwner;
     }
 
     public async Task<GenericGuardianSessionCanaryResult> ExecuteAsync(
@@ -148,6 +151,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (!beforeObservation.Attempted || !beforeObservation.UninterruptedIdle)
             return NotAttempted(candidate,
                 "Track 0 controlled benchmark was active or changed during the before capture; no Windows mutation was attempted.");
+        if (!SessionStillCurrent(target))
+            return NotAttempted(candidate,
+                "The OS-owned workload session ended or changed during the before capture; no Windows mutation was attempted.");
 
         var baseline = beforeObservation.Before;
         var before = beforeObservation.Value is null
@@ -165,6 +171,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (!BenchmarkUninterruptedSince(baseline))
             return NotAttempted(candidate,
                 "Track 0 controlled benchmark changed after before capture and before mutation; no mutation was attempted.");
+        if (!SessionStillCurrent(target))
+            return NotAttempted(candidate,
+                "The OS-owned workload session ended or changed before mutation; no Windows mutation was attempted.");
 
         SystemOptimizationSession? session = null;
         try
@@ -180,6 +189,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 return await RestoreContaminatedAsync(session, candidate, before, null,
                     "Track 0 benchmark changed during the mutation; original Windows state was restored.")
                     .ConfigureAwait(false);
+            if (!SessionStillCurrent(target))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "The OS-owned workload session ended or changed during the mutation; original Windows state was restored.")
+                    .ConfigureAwait(false);
 
             var afterStartedAt = _clock();
             var afterObservation = await _benchmarkCapture.CaptureAsync(
@@ -190,6 +203,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 || !BenchmarkUninterruptedSince(baseline))
                 return await RestoreContaminatedAsync(session, candidate, before, null,
                     "Track 0 benchmark was active or changed during/between canary captures; original state was restored.")
+                    .ConfigureAwait(false);
+            if (!SessionStillCurrent(target))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "The OS-owned workload session ended or changed during the after capture; original Windows state was restored.")
                     .ConfigureAwait(false);
 
             var after = afterObservation.Value is null
@@ -208,6 +225,11 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     "Before/after context is missing, changed, contaminated or temporally invalid; original state was restored.")
                     .ConfigureAwait(false);
 
+            if (!SessionStillCurrent(target))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "The OS-owned workload session ended or changed after comparison evidence; original Windows state was restored.")
+                    .ConfigureAwait(false);
+
             // Source-supplied false flags cannot override the real global lease authority.
             if (!BenchmarkUninterruptedSince(baseline))
                 return await RestoreContaminatedAsync(session, candidate, before, after,
@@ -220,6 +242,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
             if (!BenchmarkUninterruptedSince(baseline))
                 return await RestoreContaminatedAsync(session, candidate, before, after,
                     "Track 0 benchmark changed during outcome evaluation; original state was restored.")
+                    .ConfigureAwait(false);
+            if (!SessionStillCurrent(target))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "The OS-owned workload session ended or changed during outcome evaluation; original Windows state was restored.")
                     .ConfigureAwait(false);
 
             if (verdict == GenericGuardianSessionCanaryVerdict.Improved)
@@ -278,6 +304,11 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
     private bool BenchmarkUninterruptedSince(ControlledBenchmarkActivitySnapshot baseline)
         => ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(
             baseline, _benchmarkAuthority.SnapshotActivity());
+
+    private bool SessionStillCurrent(TelemetryWorkloadTarget target)
+        => _sessionOwner is not null
+           && _sessionKey is not null
+           && _sessionOwner.IsCurrent(_sessionKey, target);
 
     private static async Task<GenericGuardianSessionCanaryResult> RestoreContaminatedAsync(
         SystemOptimizationSession session,
@@ -355,12 +386,13 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
 
         // Capability and candidate validity cannot replace independent scene
         // evidence. A default/empty provider must never unlock mutation.
-        if (_evidenceSource is null || _sessionKey is null
+        if (_evidenceSource is null || _sessionKey is null || _sessionOwner is null
             || _sessionKey.SessionEpoch == Guid.Empty
             || _sessionKey.ProcessId != target.ProcessId
             || !SameIdentity(_sessionKey.GameId, target.GameId)
-            || !SameIdentity(_sessionKey.ExecutablePath, target.ExecutablePath))
-            return "Guardian comparison source or exact real session epoch is absent or mismatched; mutation denied.";
+            || !SameIdentity(_sessionKey.ExecutablePath, target.ExecutablePath)
+            || !_sessionOwner.IsCurrent(_sessionKey, target))
+            return "Guardian comparison source or current OS-owned session epoch is absent, stale, forged or mismatched; mutation denied.";
 
         return null;
     }
