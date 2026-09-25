@@ -113,6 +113,7 @@ try
     GenericGuardianClassifierSupportSelfTests.Run();
     GenericGuardianSessionActionSelectorSelfTests.Run();
     await GenericGuardianWindowsSessionCanarySelfTests.RunAsync();
+    await GenericGuardianWindowsSessionOwnerExecutorSelfTests.RunAsync();
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
     await GenericGuardianLiveSafeCapabilitySelfTests.RunAsync();
     GenericGuardianSessionActionBudgetSelfTests.Run();

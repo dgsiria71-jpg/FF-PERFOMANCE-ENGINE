@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
@@ -298,27 +299,34 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
                     GameId, GuardianAnomalyKind.CpuContention, candidate.Action.Id,
                     new WindowsMutationRequest(CapabilityId, TargetValue, OriginalValue))
             ]);
-            var key = new GenericGuardianCanarySessionKey(Guid.NewGuid(), GameId, 4242, @"C:\Games\session-canary.exe");
+            using var process = Process.GetCurrentProcess();
+            var executable = process.MainModule?.FileName
+                ?? throw new InvalidOperationException("Real Windows canary self-test executable is unavailable.");
+            var state = new GuardianWorkloadStateSnapshot
+            {
+                State = GuardianWorkloadState.Active,
+                Confidence = GuardianWorkloadStateConfidence.High,
+                Target = new TelemetryWorkloadTarget
+                {
+                    GameId = GameId,
+                    ProcessId = process.Id,
+                    ExecutablePath = executable,
+                    BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
+                }
+            };
+            SessionOwner = new GenericGuardianWindowsSessionLifecycleCoordinator();
+            var key = SessionOwner.Observe(state)
+                ?? throw new InvalidOperationException("Windows failed to establish the canary self-test process session.");
             Evidence.Epoch = key.SessionEpoch;
             Executor = new GenericGuardianWindowsSessionCanaryExecutor(
                 transactions, capture, Evaluator, catalog, TimeSpan.FromMilliseconds(50),
                 evidenceSource: provideEvidence ? Evidence : null,
-                sessionKey: key);
+                sessionKey: key,
+                sessionOwner: SessionOwner);
             Eligibility = new GenericGuardianSessionActionEligibility
             {
-                State = new GuardianWorkloadStateSnapshot
-                {
-                    State = GuardianWorkloadState.Active,
-                    Confidence = GuardianWorkloadStateConfidence.High,
-                    Target = new TelemetryWorkloadTarget
-                    {
-                        GameId = GameId,
-                        ProcessId = 4242,
-                        ExecutablePath = @"C:\Games\session-canary.exe",
-                        BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
-                    }
-                },
-                Family = GuardianAnomalyKind.CpuContention,
+                State = state,
+                Family = candidate.Family,
                 EligibleCandidates = Array.AsReadOnly(new[] { candidate }),
                 Reason = "eligible self-test candidate"
             };
@@ -333,6 +341,7 @@ internal static class GenericGuardianWindowsSessionCanarySelfTests
         internal FakeAdapter Adapter { get; }
         internal FakeEvaluator Evaluator { get; }
         internal FakeEvidenceSource Evidence { get; }
+        internal GenericGuardianWindowsSessionLifecycleCoordinator SessionOwner { get; }
         internal GenericGuardianWindowsSessionCanaryExecutor Executor { get; }
         internal GenericGuardianSessionActionEligibility Eligibility { get; }
         internal GenericGuardianWindowsSessionActionBinding Binding { get; }

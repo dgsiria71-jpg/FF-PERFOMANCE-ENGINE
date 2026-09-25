@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
@@ -115,29 +116,36 @@ internal static class GenericGuardianBenchmarkCycleIntegrationSelfTests
             var catalog = new GenericGuardianSessionMutationCatalog([
                 new GenericGuardianSessionMutationDefinition(Game, candidate.Family, candidate.Action.Id, mutation)
             ]);
-            var key = new GenericGuardianCanarySessionKey(Guid.NewGuid(), Game, 4242, @"C:\Games\cycle.exe");
+            using var process = Process.GetCurrentProcess();
+            var executable = process.MainModule?.FileName
+                ?? throw new InvalidOperationException("Real Windows benchmark-cycle self-test executable is unavailable.");
+            var state = new GuardianWorkloadStateSnapshot
+            {
+                State = GuardianWorkloadState.Active, Confidence = GuardianWorkloadStateConfidence.High,
+                Target = new TelemetryWorkloadTarget
+                {
+                    GameId = Game, ProcessId = process.Id, ExecutablePath = executable,
+                    BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
+                }
+            };
+            SessionOwner = new GenericGuardianWindowsSessionLifecycleCoordinator();
+            var key = SessionOwner.Observe(state)
+                ?? throw new InvalidOperationException("Windows failed to establish the benchmark-cycle self-test process session.");
             var evidence = new EvidenceDouble(this, key.SessionEpoch);
             Executor = new GenericGuardianWindowsSessionCanaryExecutor(
                 transactions, capture, new ImprovedEvaluator(this), catalog,
                 sampleDuration: TimeSpan.FromMilliseconds(50), evidenceSource: evidence,
-                sessionKey: key, benchmarkAuthority: Authority);
+                sessionKey: key, benchmarkAuthority: Authority, sessionOwner: SessionOwner);
             Eligibility = new GenericGuardianSessionActionEligibility
             {
-                State = new GuardianWorkloadStateSnapshot
-                {
-                    State = GuardianWorkloadState.Active, Confidence = GuardianWorkloadStateConfidence.High,
-                    Target = new TelemetryWorkloadTarget
-                    {
-                        GameId = Game, ProcessId = 4242, ExecutablePath = @"C:\Games\cycle.exe",
-                        BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
-                    }
-                },
+                State = state,
                 Family = candidate.Family, EligibleCandidates = Array.AsReadOnly([candidate])
             };
             Binding = new GenericGuardianWindowsSessionActionBinding { Candidate = candidate, Mutation = mutation };
         }
 
         internal ControlledBenchmarkLeaseManager Authority { get; }
+        internal GenericGuardianWindowsSessionLifecycleCoordinator SessionOwner { get; }
         internal AdapterDouble Adapter { get; }
         internal GenericGuardianWindowsSessionCanaryExecutor Executor { get; }
         internal GenericGuardianSessionActionEligibility Eligibility { get; }
