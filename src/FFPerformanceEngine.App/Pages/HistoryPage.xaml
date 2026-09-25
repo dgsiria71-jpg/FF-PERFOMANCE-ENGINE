@@ -1,0 +1,127 @@
+<UserControl x:Class="FFPerformanceEngine.App.Pages.HistoryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="4">
+            <TextBlock Text="History" FontSize="30" FontWeight="SemiBold" />
+            <TextBlock Text="Memória local de mudanças, benchmarks e comparações A/B. Evidência observada só pode originar perfil quando uma segunda captura medida confirma exatamente a mesma configuração e ambiente estrutural."
+                       Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,0,18" TextWrapping="Wrap" />
+
+            <Border Style="{StaticResource GlassCard}" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Comparação A/B atual" Style="{StaticResource SectionTitle}" />
+                        <TextBlock x:Name="CurrentComparisonText" Text="Nenhuma comparação A/B ativa."
+                                   FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="CurrentComparisonDetailText"
+                                   Text="Capture A e B em Performance; depois salve aqui para reutilizar em outras sessões."
+                                   Foreground="{DynamicResource MutedTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button x:Name="SaveCurrentComparisonButton" Grid.Column="1" Style="{StaticResource PrimaryButton}"
+                            Content="Salvar A/B atual" Click="SaveCurrentComparison_Click"
+                            IsEnabled="False" Margin="20,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <TextBlock Text="Comparações A/B salvas" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+            <TextBlock x:Name="ComparisonHistoryEmptyText"
+                       Text="Nenhuma comparação histórica salva ainda."
+                       Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,0,10" />
+
+            <ItemsControl x:Name="ComparisonHistoryList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource GlassCard}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Label}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SavedAt, StringFormat={}{0:dd/MM/yyyy HH:mm:ss}}"
+                                                   Foreground="{DynamicResource MutedTextBrush}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="18,0,0,0">
+                                        <TextBlock Text="{Binding ValidationStatus}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                        <TextBlock Text="{Binding CanOriginateProfile, StringFormat=Elegível para perfil: {0}}"
+                                                   Foreground="{DynamicResource MutedTextBrush}" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                    <Border Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="0,0,6,0">
+                                        <StackPanel>
+                                            <TextBlock Text="A · BASELINE" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Baseline.Name}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding Baseline.AverageFps, StringFormat=FPS {0:0.0}}" Margin="0,5,0,0" />
+                                            <TextBlock Text="{Binding Baseline.AverageFrameTimeMs, StringFormat=Frame Time {0:0.00} ms}" />
+                                            <TextBlock Text="{Binding Baseline.AverageLatencyMs, StringFormat=Latência {0:0.00} ms}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Grid.Column="1" Background="{DynamicResource HoverBrush}" CornerRadius="12" Padding="12" Margin="6,0,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="B · CANDIDATO" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Candidate.Name}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding Candidate.AverageFps, StringFormat=FPS {0:0.0}}" Margin="0,5,0,0" />
+                                            <TextBlock Text="{Binding Candidate.AverageFrameTimeMs, StringFormat=Frame Time {0:0.00} ms}" />
+                                            <TextBlock Text="{Binding Candidate.AverageLatencyMs, StringFormat=Latência {0:0.00} ms}" />
+                                            <TextBlock Text="CONFIGURAÇÃO VINCULADA" FontSize="11" FontWeight="SemiBold" Margin="0,9,0,2"
+                                                       Foreground="{DynamicResource MutedTextBrush}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.InstanceName, StringFormat=Instância {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.CpuCores, StringFormat=CPU {0} cores}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.RamMb, StringFormat=RAM {0} MB}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Renderer, StringFormat=Renderer {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.FpsTarget, StringFormat=Target {0} FPS}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Resolution, StringFormat=Resolução {0}}" />
+                                            <TextBlock Text="{Binding Candidate.Configuration.Dpi, StringFormat=DPI {0}}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <WrapPanel Margin="0,12,0,0">
+                                    <Button Content="Abrir A/B" Click="OpenComparison_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Usar B como A" Click="UseCandidateAsBaseline_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Usar B como B" Click="UseCandidateAsCandidate_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Solicitar validação" Click="RequestValidation_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Validar com B atual" Click="CompleteValidation_Click" Tag="{Binding Id}" Padding="13,7" Margin="0,0,8,8" />
+                                    <Button Content="Criar perfil candidato" Click="CreateCandidateProfile_Click" Tag="{Binding Id}"
+                                            IsEnabled="{Binding CanOriginateProfile}" Style="{StaticResource PrimaryButton}"
+                                            Padding="13,7" Margin="0,0,8,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="Timeline de eventos" Style="{StaticResource SectionTitle}" Margin="0,8,0,10" />
+            <ItemsControl x:Name="HistoryList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource GlassCard}" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Timestamp, StringFormat={}{0:dd/MM HH:mm}}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Kind}" Foreground="{DynamicResource MutedTextBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Title}" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MutedTextBrush}" Margin="0,5,0,0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

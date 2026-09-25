@@ -1,0 +1,56 @@
+DG Performance Engine — Track 5 Universal Validated Profile Projection — COMPLETE
+Date: 2026-09-10
+
+Official branch: build/initial-product
+Application SHA: 4563ef6ab36d5dfdc29375b7156df9b357fa652d
+Commit: feat: project validated Custom profiles into universal provenance
+Windows CI: #1020
+Run id: 34435365759
+Conclusion: SUCCESS
+
+Scope closed
+------------
+- Added UniversalValidatedProfileProjection.
+- Added BlueStacksUniversalValidatedProfileBridge.TryProject(...).
+- Happy path uses a real specialized Custom Validated profile explicitly created by ProfileService.CreateCustomFromValidatedComparisonAsync.
+- Projection retains exact specialized PerformanceProfile, exact upstream UniversalValidatedPerformanceProjection, exact Slice 3 UniversalTuningCandidate, stable GameIdentity and AdapterId.
+- Existing specialized profile origin/persistence remains the authority.
+- No generic persisted profile schema was introduced.
+
+Fail-closed authority
+---------------------
+- profile must be Custom + Validated;
+- exact SourceComparisonId must match the specialized source History record;
+- upstream universal validation projection is rerun against the exact candidate space and cannot be substituted by caller metadata;
+- exact specialized Game, BlueStacks instance, CPU, RAM, renderer, FPS target, resolution and DPI must match source candidate;
+- exact environment fingerprint must match candidate configuration;
+- exact validation AverageFps, FrameTimeMs and LatencyMs must match the separate validation evidence copied by ProfileService;
+- wrong source/kind/evidence/config/fingerprint/metric/candidate/workload returns no projection;
+- universal projection creates no validation, winner, recommendation, mutation or persistence authority.
+
+Critical inspected constraint
+-----------------------------
+ProfileChallengeRoundService.CreateEvidence(...) currently captures PerformanceEvidenceSnapshot without PerformanceUniversalConfigurationContext. The challenge-round path therefore does not currently possess universal context. No context was fabricated and ProfileChallengeRoundService was not changed.
+
+TDD provenance
+--------------
+Verifier branch: ci/track5-universal-validated-profile-projection-verify
+Workflow commit: 0ce1d2ca75577579e2cb6f0ae01b4b9390316969
+Initial test commit: 0c92feef817725034b94f64649f0577d17ca643a
+Runner registration: d33ef0a6410f8d2b0716432dbb42c8f2d9688b07
+Fixture-only correction: 5c1291250aa16fed62edb4a26ef72c0d9f69bf08
+Clean RED: verifier #4 / run 34434229353 — failed only because BlueStacksUniversalValidatedProfileBridge did not exist.
+GREEN verifier SHA: 02daa1252efb1a8b22c0690b0f2a809c1c63a702
+GREEN verifier: #5 / run 34434322277 — Core + App self-tests + WPF build SUCCESS.
+Selective integration excluded the temporary verifier workflow.
+Official application CI: #1020 / run 34435365759 — SUCCESS through native, managed, Core, App, publish and artifact.
+
+Exact permanent official diff
+-----------------------------
+- src/FFPerformanceEngine.Core/Services/UniversalValidatedProfileProjection.cs — added
+- tests/FFPerformanceEngine.Core.SelfTest/UniversalValidatedProfileProjectionSelfTests.cs — added
+- tests/FFPerformanceEngine.Core.SelfTest/Program.cs — +1 test runner registration
+
+Next
+----
+Continue Track 5 at the challenge/promotion provenance seam. First inspect the specialized challenge outcome/freshness/incumbent replacement contracts. Universal provenance may be carried only when exact existing specialized authority can be proven. Do not add or fabricate UniversalContext in challenge-round capture merely to satisfy universal types.

@@ -1,0 +1,23 @@
+# Checkpoint — 2026-09-19 Track 6 OS-owned physical session epoch
+
+## Proven scope
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, `build/initial-product`; `main` untouched; draft PR #1. Exact application commit `d38ce821026c214719d3b7d49821b242041c908e`, Windows CI #1077 run `35467919294`, job `105963531609` SUCCESS: native configure/build/test, .NET build, Core and App self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `10591259255`, SHA-256 `18ee2017e65c3047f86938b66dee0cbbc0696a5ff98def5a46ac7238422151c3`.
+
+## TDD evidence
+
+Isolated `ci/track6-physical-session-owner-verify` based on documentary `f4fb0d138d859e219e27d4e7daab983fd70b67ed`: RED commit `ca2424757cecab3442a5c517465a3e3d942b929a`, Windows run `35467577760`, job `105962631690`, native PASS and precisely one expected missing `GenericGuardianWindowsSessionLifecycleCoordinator` CS0246, zero compiler warnings. First implementation `ec7da76302baf3d7f6c107c1acbe254db457fef4`, run `35467675110`: native PASS, .NET found one CS8602 nullable dereference in the test (no production compiler failure). Test nullability fix `1d1ffd687920ca497c786145423635b6a694ed32`, verifier run `35467771749` job `105963141142` full SUCCESS across native, .NET, Core, App and publish.
+
+Official selective diff from `f4fb0d...` contains exactly three code/test files: `src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionLifecycleCoordinator.cs` (new); `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsSessionLifecycleSelfTests.cs` (new); `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsProcessLifetimeSelfTests.cs` (one test registration). Temporary workflow excluded.
+
+## Implementation and limits
+
+`GenericGuardianWindowsSessionLifecycleCoordinator` uses concrete `GenericGuardianWindowsProcessLifetimeProbe`: only actual Windows PID, fully qualified executable path and OS process creation time can originate or preserve an owner-generated, nonempty Guid epoch for Active/High exact workload identity already resolved in Track3. Repeated identical physical observations preserve exact key object; changed or inaccessible PID/path/start time or invalid state invalidate ownership. `IsCurrent` accepts only the identical issued key object with matching GameId/PID/path and reopens the OS process to verify creation time. Reset invalidates the epoch. The Windows CI tests use the real test runner process; no fake game session is treated as production.
+
+This coordinator is currently STANDALONE. `GenericGuardianWindowsSessionCanaryExecutor` STILL accepts its own caller-supplied `GenericGuardianCanarySessionKey` and does NOT yet call the coordinator at preflight, before mutation or before KEEP; do not present recycled-PID prevention as complete end-to-end. Coordinator does not restore kept mutation leases: future owner host MUST restore all leases before reset/rebind. It cannot attest scene/mode/load/environment or external benchmarks; no production `IGenericGuardianCanaryEvidenceSource`, trusted catalog entries, owner-managed generic host, real-game HIL, auto-activation, physical FPS gain, or causal evidence exists. Track0 generation remains observation, not global exclusion. Preserve BlueStacks/FF specialized host and `main`.
+
+## EXACT continuation
+
+Next bounded TDD: enforce OS-owner-issued exact session identity throughout the canary executor, with physical rechecks before capture/mutation and before KEEP; invalid BEFORE denies any mutation, invalid AFTER rolls back with Inconclusive and no lease. The previous test harness uses fictitious PID 4242 and needs explicitly separate fake-target tests vs actual real-process fixture; never silently make production accept synthetic process proofs. Restore kept leases on teardown in the future host. Then obtain game-adapter-owned legitimate scene/mode/load/environment evidence covering both complete windows, investigate external interference with explicit blind spots and implement Track0 exclusive host coordination and real-game HIL before activation. Track6 item3 remains IN PROGRESS; items4 and5 remain pending.
+
+This checkpoint is documentary and requires a fresh exact-documentary-head Windows CI before being marked green.

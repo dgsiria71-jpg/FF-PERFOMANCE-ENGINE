@@ -1,0 +1,28 @@
+# Track 6 item 3 — Track 0 benchmark activity and interval observation checkpoint
+
+Date: 2026-09-19. Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched.
+
+## Verified application commits
+
+1. `ce166d97e9beadd11680351f2726d68f89296cac` — `feat: expose real process-wide controlled benchmark activity generation`. Official Windows CI #1070, run `35431194219`, job `105865970608`, SUCCESS: native configure/build/test, managed, Core/App, win-x64 publish, artifact upload/cleanup. Artifact `FFPerformanceEngine-win-x64`, ID `10580273799`, SHA-256 `3bdd0693798a5e27dbf7d1e63dd1f81eb184a2418a9432e9e09b410774587624`.
+2. `7c408740775bc6c62b707d4f1cae8dd9a018fd2a` — `feat: bracket Guardian capture intervals with Track 0 benchmark activity evidence`. Official Windows CI #1071, run `35455351572`, job `105929533499`, SUCCESS for all the same stages. Artifact `FFPerformanceEngine-win-x64`, ID `10587932292`, SHA-256 `304d6614493c6f1441c6d931673f680f9146e198e8888aa4527a1db69c2c0d10`.
+
+## Evidence: RED → GREEN → official
+
+Benchmark authority probe RED `9d1cc3f8902d94a184a8d87d54696014e74cdc6a`, run `35430972747`, job `105865360071`: native PASS and expected missing probe/snapshot API in managed build, zero warnings. Isolated GREEN `8823f96a0e0ff4b938e53de52faa8ddc90137007`, run `35431080435`, job `105865662204`, full native/managed/Core/App/publish SUCCESS. Official #1070 above. `ControlledBenchmarkLeaseManager` now implements separate read-only `IControlledBenchmarkActivityProbe`: one process-wide atomic monotonic generation, even Idle/odd Active; both successful and failed acquisitions/releases change generation. Cancellation while waiting does not claim ownership. The global lease remains single authority and its existing Guardian suspension/reconciliation behavior is preserved.
+
+Interval capture RED `19c6ce848e002df5459f66a1750b5517368c21c3`, run `35454993119`, job `105928599303`: native PASS, managed exactly one expected missing `GenericGuardianControlledBenchmarkIntervalCapture` CS0246, zero warnings. First GREEN `93427a602fa575d3f0f5de82e50e48fdc73cf627`, run `35455082799`, job `105928825061`, full SUCCESS. Cleanup-only verifier `8ccad1cb199ad839d5a8a9b972b2823bc50d3288`, run `35455202652`, job `105929137478`, full SUCCESS; comparison to baseline confirmed exactly one added line in Core test Program. Official selective application commit #1071 above touched exactly three code/test files, excluding temporary workflow.
+
+`GenericGuardianControlledBenchmarkIntervalCapture` takes the actual `ControlledBenchmarkLeaseManager` rather than an unverified caller-provided boolean. It snapshots real global ownership immediately before and after executing the capture callback, refuses capture if already Active, reports UninterruptedIdle only for matching Idle generations, preserves callback failures/cancellation. Tests verify active deny, transient acquisition+release DURING capture, a complete benchmark BETWEEN two individually clean captures, and exception propagation. Cross-window comparison must use the FIRST before snapshot and LAST after snapshot.
+
+## Non-negotiable limitations
+
+The new interval monitor is **NOT YET CALLED** by `GenericGuardianWindowsSessionCanaryExecutor` or a generic runtime host. It is a tested building block, not completed interference integration. A read-only probe detects transitions but does not prevent another benchmark acquiring the gate during a canary; exact host-level exclusion/coordination remains unimplemented. The probe only attests to controlled Track 0 lease activity in this process, not external tools or other mutations. No adapter-owned authentic scene/mode/load/environment fingerprint source exists for arbitrary games; existing fake evidence is TEST ONLY. Do not auto-register a source or enable generic Guardian, KEEP, profile promotion, learning or new startup discovery from this component. The mandatory comparator in the executor remains fail-closed when the source/epoch is absent and uses exact Track 2 rollback after mismatch.
+
+## Exact continuation
+
+1. Integrate authority snapshots around the executor's full physical before→mutation→after span, not just isolated capture windows: refuse before mutation if busy/transition, restore any mutation on subsequent transition, never KEEP after interference. Preserve the global benchmark manager's lease authority and specialized Guardian behavior. A probe alone cannot provide exclusion, so coordinate host ownership before claiming uncontaminated benchmarks.
+2. Only after actual adapter-owned stable scene/mode/load/environment source and real process epoch can be independently proven for a supported workload, vet and register `IGenericGuardianCanaryEvidenceSource`; leave unsupported games Unknown and disabled. No foreground-as-scene, fake source strings or caller-supplied `false` accepted as proof.
+3. Build owner-managed runtime host connecting exact session, classifier, eligibility, vetted action mapping, in-memory admission/cooldown, reversible executor, cleanup of kept lease at session end and Track 0 suspend/reconcile. HIL Windows validation before any automatic activation. Then Track6 item4 learned reliability and item5 post-session queue.
+
+Documentary commit needs its own exact Windows CI; do not mark documentary HEAD successful before checking it.

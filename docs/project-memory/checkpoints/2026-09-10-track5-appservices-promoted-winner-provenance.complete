@@ -1,0 +1,50 @@
+Track 5 Slice 12 — AppServices promoted-winner provenance composition — COMPLETE
+Date: 2026-09-10
+
+Official branch: build/initial-product
+Official application SHA: 2ea74c72f6373bc139a38da72fa257662ae8b965
+Commit: feat: compose persisted promoted winner provenance in AppServices
+Windows CI: #1032 — SUCCESS
+Run: 34500776106
+
+Purpose
+- Compose the proven Slice 11 persisted promoted-winner universal provenance resolver into the real application service graph.
+- Keep all receipt, revalidation, winner-role and current-Custom provenance authority in Core.
+- Keep the path explicit/on-demand; no new startup or discovery work.
+
+Permanent implementation
+- AppServices.UniversalPersistedPromotedProfileProvenance composes one shared UniversalPersistedPromotedProfileProvenanceService from Profiles, History and the existing UniversalValidatedProfileProvenance service.
+- ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync(profileId) loads only on explicit request, requires exactly one persisted profile, rejects Custom/missing source/missing instance before environment work, captures the current environment and exact matching BlueStacks instance, captures only the existing allow-listed settings, requires a non-empty allow-list, and delegates durable provenance authority to the Slice 11 Core resolver.
+- Supported profile/config/history I/O, permission, JSON and invalid-data failures fail closed to null.
+- AppServices construction only composes objects. InitializeAsync() remains unchanged for this Track 5 path: no promoted-winner provenance resolution, History scan, candidate generation or game discovery is added.
+
+TDD provenance
+- Temporary verifier branch: ci/track5-appservices-promoted-profile-provenance-verify
+- Verifier workflow commit: ab59d822598b2401ecb66165930f76bfcfbb6fb7
+- RED contract commit: d3f499aad06bc4c90b9f21dfd8d4c50560b9fbcc
+- Clean RED verifier #2 / run 34499988921: Core self-tests passed; App self-test failed only with CS1061 because AppServices did not expose UniversalPersistedPromotedProfileProvenance or ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync.
+- Minimal production GREEN SHA: 64930f07c36c446b26fc7f1c36b9ca3dc8c49c7c
+- GREEN verifier #3 / run 34500552262: Core self-tests + App self-tests + WPF build SUCCESS.
+- Selective official integration excluded the temporary verifier workflow.
+- Official integration SHA: 2ea74c72f6373bc139a38da72fa257662ae8b965
+- Official Windows CI #1032 / run 34500776106: native configure/build/test + managed build + Core + App + win-x64 publish + artifact upload SUCCESS.
+
+Official integration diff from Slice 11 documentary head ec3e854d05f2deaa53583e19ce0bdbcc83cc4d65
+- src/FFPerformanceEngine.App/AppServices.cs modified
+- tests/FFPerformanceEngine.App.SelfTest/Program.cs modified
+- temporary verifier workflow excluded
+
+Authority boundary
+- The App layer does not parse promotion receipts, reconstruct ProfileChallengeResult, evaluate challenge rounds, infer winner roles, validate evidence, manufacture GameId/AdapterId, mutate profiles or persist universal metadata.
+- Universal promoted-winner provenance remains read-only correlation over specialized durable authority and current capability reproving.
+- Observed != Validated, exact freshness/fingerprint, five specialized winner roles, Global Controlled Benchmark Lease, Guardian coordination, rollback and History remain unchanged.
+- CANONICAL_CONTEXT.md and DECISIONS_LOG.md are intentionally unchanged.
+
+Exact next action
+- Track 5: Profiles promoted-winner provenance presentation.
+- Consume only AppServices.ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync(...).
+- Reuse stable GameId, AdapterId and exact universal candidate values from a non-null projection.
+- Never parse receipts/revalidation History or reconstruct challenge state in WPF.
+- Null means hidden promoted-winner provenance presentation.
+- Preserve existing Custom provenance card plus all five winner-role/challenge/apply flows.
+- TDD RED first -> GREEN verifier -> selective official integration -> exact Windows CI -> memory sync -> documentary CI.

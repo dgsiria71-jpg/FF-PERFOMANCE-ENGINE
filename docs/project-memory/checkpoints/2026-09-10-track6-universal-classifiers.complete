@@ -1,0 +1,70 @@
+Track 6 item 2 — Universal classifiers — COMPLETE for current capability-honest foundation
+Date: 2026-09-10
+Branch: build/initial-product
+
+Architecture authority
+- docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md
+- Approved Track 6 order remains: generic workload state machine -> universal classifiers -> session optimizer actions -> learned action reliability -> post-session queue.
+
+Closing application authority
+- SHA: 26b9a0dbad71a742a612426af6120f9b074fe092
+- Windows CI: #1049
+- Run: 34530504651
+- Conclusion: SUCCESS
+- Full gate: native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload, cleanup.
+- Artifact: FFPerformanceEngine-win-x64
+- Artifact id: 10173386624
+- Artifact digest: sha256:b358a64c9cc98170b9326db4218b2a7b5422038b0ee677e87e40ed56f2e38002
+
+Item 2 Slice 1 — typed bottleneck classifier bridge
+- Plan: docs/superpowers/plans/2026-09-10-track6-universal-classifier-bridge.md
+- Application SHA: c132ec22c1f38fbacaa43ce630098d44674b3565
+- Windows CI #1043 / run 34526941137 SUCCESS.
+- Guardian classification requires Active state + exact capturable runtime target + typed frame and delegates to existing Track 4 UniversalBottleneckAnalyzer.
+- Missing/incomplete causal evidence remains Unknown.
+
+Item 2 Slice 2 — Guardian classifier taxonomy projection
+- Plan: docs/superpowers/plans/2026-09-10-track6-guardian-classifier-taxonomy.md
+- Application SHA: 5fd88d86abb9b00c4fb846486b7bb06026986962
+- Windows CI #1045 / run 34528667164 SUCCESS.
+- Documentary checkpoint: 72f4aba95c752fd694327190978affdbaab401de
+- Documentary Windows CI #1046 / run 34529109781 SUCCESS.
+- Evidence-backed projection: CPU -> CpuContention; GPU -> GpuSaturation; Memory -> MemoryPressure; VRAM -> VramPressure; FramePacing -> FrameTimeInstability; Thermal -> ThermalThrottling; Network -> NetworkInstability.
+- Unknown/None/StorageIo/Power/unmapped remain Guardian Unknown while raw analyzer detail is preserved.
+- No raw latency/system CPU/missing-render fallback heuristics were added.
+
+Item 2 Slice 3 — classifier support/availability contract
+- Plan: docs/superpowers/plans/2026-09-10-track6-guardian-classifier-support.md
+- Core: src/FFPerformanceEngine.Core/Services/GenericGuardianClassifierSupportCatalog.cs
+- Test: tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianClassifierSupportSelfTests.cs
+- RED SHA: 21317f8454ff152de9643341103e6701b4139ac4
+- RED verifier run: 34529495018
+- RED evidence: native passed; managed failed only because GenericGuardianClassifierSupportCatalog, GuardianAnomalySupportLevel and GuardianAnomalySupportDescriptor were absent; 19 intentional errors, 0 warnings.
+- GREEN verifier SHA: 3b080a88828e5eae969c9f07ad2af45895909153
+- GREEN verifier run: 34529941097
+- GREEN evidence: native + managed + Core + App + publish SUCCESS.
+- Temporary verifier workflow excluded from official cumulative diff.
+
+Permanent capability contract
+- GuardianAnomalySupportLevel = Fallback / EvidenceBacked / UnavailableEvidence.
+- Every approved GuardianAnomalyKind has exactly one canonical immutable descriptor.
+- Unknown = Fallback, CanClassify=false, and is not proof of health or causality.
+- EvidenceBacked exactly: CpuContention, GpuSaturation, MemoryPressure, VramPressure, FrameTimeInstability, ThermalThrottling, NetworkInstability.
+- UnavailableEvidence exactly: BackgroundLoad, RendererEngineStall, SchedulerImbalance, InputFrameLatencySpike.
+- CanClassify derives only from EvidenceBacked.
+- Catalog is genuinely read-only and has no side effects on classifier/analyzer evidence.
+
+Authority preserved
+- Observed != Validated.
+- Missing telemetry/capability/provenance remains absent/Unknown.
+- Stable GameId remains distinct from transient PID/path/process evidence.
+- KnownExecutable never authorizes live capture/action.
+- No discovery/startup mutation, action execution, canary, Profile, History, Knowledge, WPF or validation authority was introduced by item 2.
+- Existing specialized BlueStacks/Free Fire Guardian remains canonical and unchanged.
+- Global Controlled Benchmark Lease and Guardian suspend/reconcile remain intact.
+
+Closure decision
+Item 2 is GREEN for the current capability-honest foundation. Four approved causal families remain intentionally unavailable pending dedicated evidence. Their absence is explicit capability state, not a reason to fabricate heuristics.
+
+Exact continuation
+After the documentary close receives exact Windows CI, begin Track 6 item 3 — session optimizer actions — with a bounded passive candidate eligibility/selection Slice before any generic mutation/canary execution.

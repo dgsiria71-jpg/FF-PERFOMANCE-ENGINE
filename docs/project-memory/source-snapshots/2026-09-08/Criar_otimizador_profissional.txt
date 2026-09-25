@@ -1,0 +1,38 @@
+Continuei diretamente no `build/initial-product` e fechei o bloco de **A/B real da tela Performance**.
+
+Agora o A/B deixou de ser “baseline congelado vs valor atual”. Existe um contrato próprio de evidência com `PerformanceEvidenceSnapshot`, `PerformanceABComparison`, `PerformanceComparisonSession` e a ponte `PerformanceProfileEvidenceBridge`. A e B guardam nome, instante da captura, intervalo, qualidade da evidência, quantidade de amostras de FPS/Frame Time/latência e médias disponíveis. Os snapshots copiam os pontos medidos e normalizam novamente os agregados a partir desses pontos, portanto metadados antigos ou inconsistentes não conseguem fabricar FPS/Frame Time dentro da comparação. fileciteturn219file0L2-L2
+
+Na interface **Performance** entrou:
+
+- `Capturar A · Baseline`;
+- `Capturar B · Candidato`;
+- cartões separados para A e B;
+- qualidade `Medida / Parcial / Indisponível`;
+- contagem de evidência por métrica;
+- FPS, Frame Time e latência de cada lado;
+- intervalos e horário real de captura;
+- deltas explicitamente `B − A`;
+- snapshots permanecem congelados enquanto a telemetria ao vivo continua;
+- timeline principal agora respeita exatamente `Sessão` ou `Últimos 60 s`;
+- overlay A/B no mesmo gráfico;
+- A é tracejado, B é sólido;
+- os dois intervalos são alinhados por **progresso relativo 0–100%**, mas os tooltips continuam mostrando os timestamps reais;
+- lacunas e métricas ausentes continuam quebrando o traçado, sem interpolação falsa.
+
+Essa transformação da antiga comparação simples para a estrutura A/B aparece no commit funcional `8062c318...`, incluindo o serviço compartilhado e os novos controles da tela. fileciteturn188file0L2-L7
+
+Também conectei **Profiles** sem violar nossa arquitetura: a página agora consegue ler a última comparação da sessão pelo mesmo `PerformanceComparisonSession` e pelo `PerformanceProfileEvidenceBridge`. O candidato B aparece como evidência **Observed**, nunca é promovido automaticamente para `Validated`. Ou seja, já temos a ponte para Profiles sem duplicar cálculo nem transformar uma simples observação em vencedor validado. fileciteturn219file0L2-L2
+
+Fiz ainda outro ciclo TDD importante. Criei um teste adversarial em que um intervalo dizia possuir `99` amostras e `999 FPS`, mas na realidade não continha ponto de telemetria algum. O teste ficou RED; depois alterei a captura para recalcular os agregados exclusivamente da evidência copiada. Assim, nesse caso, FPS permanece `null`, qualidade vira indisponível e o delta A/B também permanece indisponível em vez de usar os `999 FPS` falsos.
+
+O head atual é:
+
+`c259c723c443a819bfae540017d0f76aecbceeef`
+
+E a verificação final está **GREEN** no Windows CI `34015937217`, run `268`: native configure, C++ build, testes nativos, build .NET/WPF, Core self-tests, publish e upload do aplicativo terminaram com `success`. fileciteturn220file0L2-L2
+
+Desde o ponto em que começamos este bloco, foram alterados somente os componentes coerentes com ele: `AppServices`, `PerformancePage`, `ProfilesPage`, novo Core de comparação A/B e seus self-tests. Não coloquei Supabase, Go, Charming ou ProductOS no executável apenas porque foram mencionados: ProductOS está ligado a outro projeto, Charming é runtime web e este produto continua sendo **Windows nativo WPF + C++**.
+
+O que ainda não vou chamar de verificado é a **aparência visual renderizada no Windows real**: o CI prova compilação, testes e publicação do WPF, mas não faz inspeção humana da janela renderizada. Funcionalmente o bloco está integrado e compilando.
+
+O próximo avanço natural é fazer o A/B deixar de ser apenas da sessão atual e virar **evidência histórica reutilizável**: salvar comparações no History, recuperar A/B antigos, comparar sessão contra sessão e permitir que um candidato B siga para uma etapa explícita de validação antes de poder originar um perfil.

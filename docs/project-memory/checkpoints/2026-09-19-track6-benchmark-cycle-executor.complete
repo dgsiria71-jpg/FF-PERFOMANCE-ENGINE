@@ -1,0 +1,32 @@
+# COMPLETE — Track 6 item 3: authority-owned benchmark generation across the executor canary cycle
+
+Date: 2026-09-19. Scope: bounded integration only. This file certifies the measured Windows CI state of the code change, NOT the generic Guardian host or a real game-scene measurement.
+
+## Source and provenance
+
+- Repository: `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, development branch `build/initial-product`, PR #1 draft; `main` remains unchanged. Work through ChatGPT + connected GitHub; no Codex workspace.
+- Previous documentary baseline `a325c3c8468a79028050881403549d7e3fd0fc8c`, CI #1072 (`35455622557`) SUCCESS.
+- Isolated verifier branch `ci/track6-canary-benchmark-cycle-verify`.
+- RED commit `ac4f470f70b2cc8ada63e6d0ed133da1ff15cf3f`, Windows verifier run `35458682978`, job `105938471199`: native tests passed; managed compilation failed exactly one expected CS1739 at `GenericGuardianBenchmarkCycleIntegrationSelfTests.cs:123` because constructor lacked `benchmarkAuthority`, zero compiler warnings.
+- GREEN verifier commit `8e72259061e6582e3e51084eb469d07b0b547434`, run `35458811672`, job `105938821799`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish and cleanup all SUCCESS.
+- Official code SHA `4921f0610631c756f182ab0ceb61c6b0a3577fa9`; exact official Windows CI #1073, run `35458945970`, job `105939186091`, all native/managed/Core/App/publish/upload/cleanup SUCCESS. Artifact `FFPerformanceEngine-win-x64`, ID `10588781988`, SHA-256 `d692f53a5a358ad6e8a67d6b78de22f2cd1850671adfd7e51ce05866a8d1f625`.
+- Official diff checked against `a325c3c...`: precisely 3 files: executor changed, new 236-line integration regression, one-line registration in existing interval selftest. Temporary verifier workflow excluded.
+
+## Exact implementation boundary
+
+`GenericGuardianWindowsSessionCanaryExecutor` now uses the concrete sealed `ControlledBenchmarkLeaseManager` (shared process-wide static generation even across instances) and `GenericGuardianControlledBenchmarkIntervalCapture` around BOTH actual typed capture calls. An active or changing Track0 benchmark during initial capture denies the mutation; a generation transition after before evidence but before mutation denies the mutation. After transaction start, a transition during mutation, during the second capture, during evidence collection or evaluator causes exact Track2 restore, Inconclusive, no retained lease/KEEP. The FIRST snapshot before capture is compared against the LAST authority snapshot around the entire cycle, detecting acquire+release even when both observations show Idle. Source-supplied `ControlledBenchmarkActive=false` does not override this gate. Test-only fake evidence deliberately reports false during injected actual lease transitions.
+
+Existing action→capability authorization, real LiveSafe descriptor check, exact target/epoch/frame/timestamp comparison, typed evaluator and kept lease rollback remain intact; no Track0 gate authority modification. `ControlledBenchmarkLeaseManager` is optional as a constructor argument only for sharing an explicit manager; if omitted, executor creates an actual concrete manager reading the SAME global static gate. Callers cannot inject a fake probe as benchmark authority.
+
+## Critical unfinished work — DO NOT mark Track6 item3 complete
+
+This is OBSERVATION, not mutual exclusion. The global lease may acquire immediately after the final read; host must coordinate ownership and reconcile Guardian suspension without altering Track0 authority. Signal covers only controlled Track0 leases inside this process, not external tools/other mutations. No independently attested `IGenericGuardianCanaryEvidenceSource` exists for actual scene/mode/load/environment over the physical window; `TelemetryFrame` and generic adapter do not provide it. Fake source is TEST ONLY. The generic host is NOT wired or auto-enabled, no real HIL, physical FPS gain, validated profiles or reliability learning established.
+
+## Exact continuation
+
+1. Investigate adapter-owned genuine scene/mode/load/environment/epoch evidence for an explicitly supported game; document capability or Unknown, never synthesize scene identifiers from foreground/input/render activity.
+2. Add verifiable external/other-mutation detection as supported, keep unknown Inconclusive.
+3. Design and implement owner-managed generic runtime host with exact lifecycle, verified action catalog, atomic budget, coordinated global exclusion and kept-lease restoration at session end; test Windows/HIL before enabling auto execution.
+4. Only then Track6 item4 learned reliability and item5 post-session queue. Preserve specialized FF/BlueStacks, Track0–5 invariants, PR draft, `main` untouched.
+
+Documentary commit containing this checkpoint must have its own exact Windows CI before it is marked GREEN.

@@ -1,0 +1,30 @@
+DG Performance Engine — Track 4 Universal Telemetry / Evidence completion checkpoint
+Date: 2026-09-09
+Branch: build/initial-product
+Code checkpoint: 71991379e01518adf2e1c539491a9c0339a56735
+Commit: feat: route Performance capture through selected workloads
+Windows CI: #993 SUCCESS
+Run id: 34407420906
+
+Closure audit basis:
+- canonical Track 4: metric schema v2; hardware channels; universal data quality; universal A/B configuration snapshot; compatibility migration;
+- detailed Track 4 success criteria in docs/superpowers/specs/2026-09-08-universal-telemetry-evidence-design.md;
+- exact code commit passed native configure/build/tests, managed build, Core self-tests, App self-tests, publish and artifact upload.
+
+Verified Track 4 state:
+- typed TelemetryFrame v2 with per-metric source/quality/coverage/origin;
+- unavailable data is absent/Unknown, never fabricated;
+- direct native CPU + physical memory, processor power/clock limits, WDDM GPU and PresentMon typed channels;
+- bounded realtime storage and deterministic typed aggregation;
+- typed diagnostics/bottleneck analysis and typed benchmark consumers;
+- universal A/B workload/configuration context with History compatibility and unchanged Observed/PendingValidation/Validated authority;
+- stable GameId resolves process capture only through exact bound RunningProcess evidence;
+- KnownExecutable never authorizes live capture;
+- ambiguous/unavailable selected workload blocks capture rather than silently falling back to another Guardian workload;
+- legacy Guardian/BlueStacks capture remains source-compatible when no universal workload is selected;
+- Performance WPF consumes application capture routing/presentation authority rather than deciding identity itself;
+- no startup discovery, fuzzy process matching, raw v2 telemetry disk database, anti-cheat bypass or weakened recommendation authority.
+
+Future VRAM/thermal/I/O/network providers remain allowed as capability-driven enrichment or later hardware-engine work. They are not fabricated and are not blockers for the completed Track 4 canonical milestone.
+
+Next track: Track 5 — Universal Auto Tuner + Profiles.

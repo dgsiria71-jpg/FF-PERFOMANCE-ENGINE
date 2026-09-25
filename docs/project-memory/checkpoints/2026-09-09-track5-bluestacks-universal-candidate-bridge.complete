@@ -1,0 +1,47 @@
+# Track 5 — Dynamic BlueStacks/FF Universal Candidate Bridge — COMPLETE
+
+Date: 2026-09-09
+Branch: `build/initial-product`
+Application SHA: `39246089fb28f510287e79639356a4e16d1b6b02`
+Commit: `feat: bridge dynamic BlueStacks candidates into universal tuning space`
+Windows CI: #1014 — SUCCESS
+Run id: `34422254555`
+
+## Verified scope
+
+- Added `BlueStacksUniversalTuningCandidateBinding`, preserving an exact one-to-one relation between a neutral `UniversalTuningCandidate` and the existing specialized `TuningCandidate`.
+- Added `BlueStacksUniversalTuningCandidateSpace` and pure/read-only `BlueStacksUniversalTuningCandidateBridge`.
+- Stable workload identity comes only from `LegacyGameIdentityBridge` and exact `GameAdapterResolver` resolution to the matching `BlueStacksFreeFireGameAdapter` for `FreeFire` or `FreeFireMax`.
+- The existing `AutoTunerEngine.GenerateCandidates(EnvironmentSnapshot, BlueStacksInstance?, AutoTunerMode)` remains the only source of the dynamic specialized candidate set.
+- The bridge preserves the specialized generator's surviving candidate order and its existing bounded budget; it may filter but never add/reorder/regenerate candidates.
+- Applicability remains owned by `BlueStacksAutoTunerRuntime.BuildCandidatePlan(...)` against the caller-supplied captured allow-listed BlueStacks instance settings.
+- Generated-but-unrepresentable candidates are absent from the universal binding set.
+- Five workload dimensions are projected under the resolved adapter namespace: CPU cores, RAM MB, renderer, FPS target and resolution.
+- Dimension values are descriptive marginals of the exact surviving bindings. They are not a license to rebuild a Cartesian product and manufacture combinations absent from the specialized generator.
+- Integer values use invariant text; renderer/resolution text stays lossless with the specialized candidate.
+- A captured BlueStacks instance prefix is required; missing/mismatched installed snapshot state fails closed to an empty candidate space.
+- Renderer correlation is fail closed: when captured `graphics_renderer` / `graphics_engine` proves a renderer different from a generated non-`Auto` candidate, the candidate is rejected because current BlueStacks runtime code does not have verified renderer mutation authority.
+- No renderer mutation was added.
+- No change was made to `AutoTunerRunCoordinator`, `AutoTunerSessionService`, `BlueStacksAutoTunerRuntime`, profile persistence, five winner roles, Custom Validated authority, typed PresentMon authority, Global Controlled Benchmark Lease, rollback or History.
+- No startup discovery/tuning side effect was introduced.
+
+## TDD provenance
+
+Temporary proving branch: `ci/track5-bluestacks-universal-candidate-bridge-verify`.
+
+- Initial RED: verifier #1 / run `34417641306` failed only because `BlueStacksUniversalTuningCandidateBridge` and its binding-space contracts did not exist.
+- Minimal production bridge was introduced after the observed RED.
+- An intermediate verifier exposed an over-strong test equality on `GameIdentity` record arrays; the test was corrected to compare stable identity fields (`GameId`, `AdapterId`, `LegacyGameKind`, launcher and engine) without changing production behavior.
+- Task 1 GREEN: verifier #4 / run `34417996142` on `e434f8e2a83f466408d91ab6e90a980b9de3d7e7` passed Core + App.SelfTest + WPF.
+- Task 2 RED: verifier #5 / run `34418189031` on `888cd58d59fe845304e428a79653989499d39c64` failed exactly because captured renderer drift was still admitted although current runtime cannot mutate renderer safely.
+- Task 2 GREEN: verifier #6 / run `34418407183` on `07180bd58fc5ff0b01ef3b9038056fe2693d30bb` passed Core + App.SelfTest + WPF after the minimal fail-closed renderer-correlation fix.
+- Selective atomic official integration copied only permanent plan/Core/test blobs and excluded `.github/workflows/core-track5-bluestacks-universal-candidate-bridge-verifier.yml`.
+- Exact official Windows CI #1014 / run `34422254555` passed the integrated application SHA, including native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
+
+## Preserved authority boundaries
+
+`Observed != Validated` remains unchanged.
+
+A universal BlueStacks candidate binding proves only exact correspondence to a specialized candidate that the existing generator emitted and the current installed-build planner can represent. It does not grant measured evidence, confidence, winner status, recommendation authority, persistence permission or mutation authority beyond the existing runtime path.
+
+The downstream authority chain remains controlled measurement → direct typed evidence → repeatability/evaluation → fingerprint/freshness → validation where applicable → ValidatedEvidence / existing winner-profile authority.
