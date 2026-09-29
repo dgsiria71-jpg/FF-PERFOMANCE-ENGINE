@@ -15,6 +15,15 @@ public sealed record GameAdapterCapabilities
     public bool ConfigMutation { get; init; }
     public bool BenchmarkPreparation { get; init; }
     public bool TelemetryAnnotations { get; init; }
+
+    /// <summary>
+    /// True only when this adapter owns a production source that can attest
+    /// comparable scene/mode/load/environment across the complete Guardian
+    /// canary capture interval. StateDetection, foreground package, input and
+    /// performance telemetry do not imply this capability.
+    /// </summary>
+    public bool CanaryContextEvidence { get; init; }
+
     public bool Rollback { get; init; }
 }
 
@@ -75,6 +84,7 @@ public sealed class BlueStacksFreeFireGameAdapter : IGameAdapter
         ConfigMutation = true,
         BenchmarkPreparation = true,
         TelemetryAnnotations = true,
+        CanaryContextEvidence = false,
         Rollback = true
     };
 
