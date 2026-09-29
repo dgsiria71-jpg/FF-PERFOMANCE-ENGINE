@@ -31,6 +31,7 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
     // therefore always changes the generation, even if both snapshots are Idle.
     private static long _activityGeneration;
     private readonly IControlledBenchmarkGuardian? _guardian;
+    private readonly PerformanceOperationCoordinationManager _coordination = new();
 
     public ControlledBenchmarkLeaseManager()
     {
@@ -56,8 +57,24 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
         if (string.IsNullOrWhiteSpace(owner))
             throw new ArgumentException("A controlled benchmark owner is required.", nameof(owner));
 
-        // Cancellation happens before any Guardian/runtime mutation when the gate is busy.
+        // Keep the historical benchmark-to-benchmark gate, then join the shared
+        // process-wide performance-operation gate before benchmark activity begins.
+        // Nothing else acquires GlobalGate after the shared gate, so this order
+        // cannot form a cycle with System Optimization or Guardian experiments.
         await GlobalGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        PerformanceOperationCoordinationLease? coordinationLease = null;
+        try
+        {
+            coordinationLease = await _coordination
+                .AcquireControlledBenchmarkAsync(owner, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            GlobalGate.Release();
+            throw;
+        }
+
         Interlocked.Increment(ref _activityGeneration); // Even -> odd, before suspend/caller work.
         ControlledBenchmarkGuardianState? guardianState = null;
         try
@@ -65,11 +82,12 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
             if (_guardian is not null)
                 guardianState = await _guardian.SuspendAsync(cancellationToken).ConfigureAwait(false);
 
-            return new Lease(GlobalGate, _guardian, guardianState);
+            return new Lease(GlobalGate, coordinationLease, _guardian, guardianState);
         }
         catch
         {
             Interlocked.Increment(ref _activityGeneration); // Always end failed acquisition.
+            await coordinationLease.DisposeAsync().ConfigureAwait(false);
             GlobalGate.Release();
             throw;
         }
@@ -77,6 +95,7 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
 
     private sealed class Lease(
         SemaphoreSlim gate,
+        PerformanceOperationCoordinationLease coordinationLease,
         IControlledBenchmarkGuardian? guardian,
         ControlledBenchmarkGuardianState? guardianState) : IAsyncDisposable
     {
@@ -100,6 +119,7 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
             finally
             {
                 Interlocked.Increment(ref _activityGeneration); // Odd -> even, after reconcile.
+                await coordinationLease.DisposeAsync().ConfigureAwait(false);
                 gate.Release();
             }
 
