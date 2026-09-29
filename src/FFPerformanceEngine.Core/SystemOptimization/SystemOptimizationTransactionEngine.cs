@@ -6,8 +6,12 @@ using FFPerformanceEngine.Core.Services;
 
 namespace FFPerformanceEngine.Core.SystemOptimization;
 
-public sealed class SystemOptimizationTransactionEngine
+public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationActivityProbe
 {
+    private static readonly object ActivityGate = new();
+    private static long _activityGeneration;
+    private static int _activeOperations;
+
     private readonly WindowsPerformanceCapabilityRegistry _capabilities;
     private readonly WindowsCapabilityMutationAdapterRegistry _adapters;
     private readonly SnapshotService _snapshots;
@@ -42,6 +46,12 @@ public sealed class SystemOptimizationTransactionEngine
             && capability.PersistenceScope is CapabilityPersistenceScope.SessionOnly or CapabilityPersistenceScope.PersistentAllowed);
     }
 
+    public SystemOptimizationActivitySnapshot SnapshotActivity()
+    {
+        lock (ActivityGate)
+            return new SystemOptimizationActivitySnapshot(_activityGeneration, _activeOperations);
+    }
+
     public async Task<SystemOptimizationSession> BeginSessionAsync(
         string label,
         IReadOnlyList<WindowsMutationRequest> mutations,
@@ -51,6 +61,7 @@ public sealed class SystemOptimizationTransactionEngine
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var activity = EnterActivity();
             EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
             var prepared = await PrepareAsync(label, SystemOptimizationScope.Session, mutations, cancellationToken).ConfigureAwait(false);
             AcquireSessionOwnership(prepared);
@@ -80,6 +91,7 @@ public sealed class SystemOptimizationTransactionEngine
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var activity = EnterActivity();
             EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
             var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
             await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
@@ -105,6 +117,7 @@ public sealed class SystemOptimizationTransactionEngine
         await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var activity = EnterActivity();
             var stored = (await _snapshots.LoadAsync(cancellationToken).ConfigureAwait(false))
                 .FirstOrDefault(snapshot => snapshot.Id == restorePointId)
                 ?? throw new KeyNotFoundException($"System optimization restore point '{restorePointId:D}' was not found.");
@@ -145,6 +158,32 @@ public sealed class SystemOptimizationTransactionEngine
         finally
         {
             _transactionGate.Release();
+        }
+    }
+
+    private static IDisposable EnterActivity()
+    {
+        lock (ActivityGate)
+        {
+            _activeOperations++;
+            _activityGeneration++;
+        }
+
+        return new ActivityScope();
+    }
+
+    private sealed class ActivityScope : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            lock (ActivityGate)
+            {
+                _activeOperations--;
+                _activityGeneration++;
+            }
         }
     }
 
