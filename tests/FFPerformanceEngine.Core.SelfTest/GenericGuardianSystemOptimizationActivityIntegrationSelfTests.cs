@@ -130,7 +130,7 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
 
             OwnAdapter = new AdapterDouble(OwnCapability, async () =>
             {
-                if (_stage == Interference.DuringMutation) _ = await RunForeignAsync();
+                if (_stage == Interference.DuringMutation) await RunForeignAsync();
             });
             var ownTransactions = Engine(
                 "own", OwnCapability, OwnAdapter, CapabilityPersistenceScope.SessionOnly);
@@ -295,7 +295,7 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
         }
 
         public string CapabilityId { get; }
-        public string State { get; private set; } = Original;
+        public string State { get; private set; } = Fixture.Original;
         public int SnapshotCount { get; private set; }
         public int ApplyCount { get; private set; }
         public int RollbackCount { get; private set; }
