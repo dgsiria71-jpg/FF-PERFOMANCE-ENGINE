@@ -1,0 +1,31 @@
+# Checkpoint — 2026-09-29 Track 6 adapter canary-context evidence audit
+
+## Verified application
+
+Repository dgsiria71-jpg/FF-PERFOMANCE-ENGINE, branch build/initial-product; main untouched. Application commit e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db, Windows CI #1081 run 36629806115, job 109615853887 SUCCESS across native build/tests, managed build, Core/App self-tests, win-x64 publish and artifact upload. Artifact FFPerformanceEngine-win-x64 ID 11061846924, SHA-256 0b52ebc12ef0b57e364f64635f90aaa5b7e76083794b89e786ba1033f7fa5772. Previous documentary cdbe99f46d827e6c42edb978ab82e200ca00b3fb is verified by Windows CI #1080 run 36150056411.
+
+## Audit result
+
+The current specialized BlueStacks/Free Fire implementation does not provide a production source capable of attesting comparable scene, mode, load and environment across a complete Guardian canary measurement interval.
+
+- ADB foreground query reads dumpsys window windows and recognizes exact Free Fire/Free Fire MAX package names. It proves foreground application identity, not internal gameplay scene.
+- GameStateDetector infers coarse states from BlueStacks running, foreground game, recent input, FPS, frame-time variance and optional startup/post-match hints. That is heuristic state detection, not scene provenance.
+- PresentMon and typed telemetry measure performance. They do not authenticate gameplay context.
+- Track3 process/install evidence binds identities and runtime processes, not internal scenes.
+- Existing IGenericGuardianCanaryEvidenceSource remains test-only in practice; no production source was found or invented.
+
+## TDD and implementation
+
+Isolated verifier ci/track6-adapter-canary-evidence-capability-verify. RED 94d2e12e6f8700e2dc5bcccd518e117dae177cbb, run 36629120397, job 109613566119: native PASS, managed build failed with exactly two CS1061 errors because GameAdapterCapabilities.CanaryContextEvidence did not exist, zero compiler warnings. GREEN ed76a89f221b425956dd22cf134792ce18d75f96, run 36629293337, job 109614132746: native, managed, Core/App, publish and artifact upload SUCCESS.
+
+Official selective commit e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db changed exactly two files: GameAdapterFramework.cs and GameAdapterFrameworkSelfTests.cs; the temporary workflow was excluded.
+
+GameAdapterCapabilities now has a separate CanaryContextEvidence capability. It defaults false. BlueStacks Free Fire/Free Fire MAX explicitly declare false while preserving StateDetection=true and all previously verified specialized functions. This makes the product contract state the truth: coarse state detection is not authority for generic canary scene comparability.
+
+## Boundary and continuation
+
+This slice does not create scene evidence. Generic canary actions remain disabled in production because no adapter-owned IGenericGuardianCanaryEvidenceSource exists. Do not infer scene from package/activity, input, FPS, frame-time variance, render activity or process identity.
+
+Next bounded work: investigate DG-internal System Optimization transaction activity as an OtherMutationDetected source/exclusion primitive. Determine process-wide behavior across engine instances and design it so the canary's own transaction is expected rather than self-contamination. External tools must remain explicitly unobserved unless separately proven. After that, owner-managed host exclusion/lease cleanup and real-game HIL remain prerequisites. Track6 item3 remains IN PROGRESS; item4 and item5 remain pending.
+
+This documentary commit requires a fresh exact-head Windows CI before being marked verified.

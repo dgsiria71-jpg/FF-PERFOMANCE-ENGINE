@@ -4,9 +4,9 @@ Current code/tests and exact Windows CI outrank older memory. Historical checkpo
 
 ## Current verified application — 2026-09-25
 
-Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `8187d93bf785ee786a7dbb5f1ec83c9d694962e2`**, official **Windows CI #1079 SUCCESS**, run `36149662557`, job `108119431062`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `10870847400`, SHA-256 `6f6a636614500e1e776e5eb5d89e61715c033425a8e9ebab7ec53b414ce7c8a1`.
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db`**, official **Windows CI #1081 SUCCESS**, run `36629806115`, job `109615853887`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11061846924`, SHA-256 `0b52ebc12ef0b57e364f64635f90aaa5b7e76083794b89e786ba1033f7fa5772`.
 
-Previous app SHA `d38ce821026c214719d3b7d49821b242041c908e`, official Windows CI #1077 run `35467919294` SUCCESS. Previous documentary SHA `658453d957d01cc2519889c1175ed8ebf6699146` CI #1078 run `35468210463` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
+Previous app SHA `8187d93bf785ee786a7dbb5f1ec83c9d694962e2`, official Windows CI #1079 run `36149662557` SUCCESS. Previous documentary SHA `cdbe99f46d827e6c42edb978ab82e200ca00b3fb` CI #1080 run `36150056411` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
 
 ## Track ledger
 
@@ -55,10 +55,17 @@ RED verifier `1d6d1ed8ca4607cd49ed8e4d77bb69a4c69b3ece`, run `36148963987`, job 
 
 This closes the previously documented caller-supplied epoch gap inside the executor. It does NOT supply scene/mode/load/environment identity, external-mutation detection, host lease cleanup or benchmark exclusion. A process can also exit after the last recheck; the future owner host must detect lifecycle end and restore retained leases. No product scene source or automatic generic Guardian exists.
 
+### NEW adapter scene-evidence audit and explicit capability boundary — bounded GREEN
+
+Production audit found no legitimate current source for complete-window scene/mode/load/environment identity. BlueStacks ADB foreground identifies only the Free Fire/Free Fire MAX package/activity; `GameStateDetector` is heuristic state classification from package, input, FPS and frame-time variance; PresentMon is performance telemetry. None can support `GenericGuardianCanaryComparisonWindow` scene provenance.
+
+RED `94d2e12e6f8700e2dc5bcccd518e117dae177cbb` / run `36629120397`: native PASS, two expected CS1061 errors for absent `CanaryContextEvidence`, zero warnings. GREEN `ed76a89f221b425956dd22cf134792ce18d75f96` / run `36629293337`: full Windows verifier SUCCESS. Official `e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db`, CI #1081 SUCCESS. Only `GameAdapterFramework.cs` and its existing self-test changed officially.
+
+`GameAdapterCapabilities.CanaryContextEvidence` is independent from `StateDetection`, defaults false, and BlueStacks Free Fire/Free Fire MAX explicitly declare false. This is an intentional fail-closed product capability declaration, not a missing implementation accidentally inferred as supported. No production `IGenericGuardianCanaryEvidenceSource` was fabricated.
 ## Scope boundary and EXACT next action
 
 `Observed != Validated`; stable GameId != PID; no fabricated telemetry, scene, capability or mutation mapping; preserve Track0 benchmark authority/Guardian suspension, Track2 exact rollback, Track4 typed metrics, Track5 provenance, specialized FF/BlueStacks. No startup discovery, automatic mutation, profile promotion or integrity bypass.
 
 Track0 generation is DETECTION, not mutual exclusion; it cannot detect external tools/other mutations. OS lifetime proof plus coordinator are now called by the canary executor and close the stale/caller-cloned epoch gap at its current boundaries, but they remain process-lifetime evidence only. `IGenericGuardianCanaryEvidenceSource` is still implemented only by TEST doubles; no production adapter scene/mode/load/environment source. No generic host, game HIL/FPS benefit, causal attribution or learned outcomes.
 
-Next: audit the specialized Free Fire/BlueStacks adapter and permitted owned signals for a genuine production scene/mode/load/environment source covering both full measurement windows; unsupported must remain Unknown/disabled and foreground/PresentMon cannot be promoted to scene proof. Then establish truthful external/other-mutation coverage and host-level Track0 exclusion, and build owner-managed lifecycle cleanup so every kept lease is restored before session reset/rebind. Windows/real-game HIL remains required before any activation. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
+Next: investigate truthful in-process **other-mutation activity** around System Optimization transactions and whether it can be observed/excluded across engine instances without confusing the Guardian canary's own transaction with contamination. External tools remain an explicit blind spot until separately proven. Then design host-level Track0 exclusion and lifecycle cleanup so every kept lease is restored before session reset/rebind. FF/BlueStacks scene evidence remains unsupported (`CanaryContextEvidence=false`), therefore generic canary activation remains disabled. Windows/real-game HIL remains required before activation. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
