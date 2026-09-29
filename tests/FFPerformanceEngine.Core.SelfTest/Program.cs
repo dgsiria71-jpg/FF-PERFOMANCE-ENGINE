@@ -114,6 +114,7 @@ try
     GenericGuardianSessionActionSelectorSelfTests.Run();
     await GenericGuardianWindowsSessionCanarySelfTests.RunAsync();
     await GenericGuardianWindowsSessionOwnerExecutorSelfTests.RunAsync();
+    await GenericGuardianSystemOptimizationActivityIntegrationSelfTests.RunAsync();
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
     await GenericGuardianLiveSafeCapabilitySelfTests.RunAsync();
     GenericGuardianSessionActionBudgetSelfTests.Run();
