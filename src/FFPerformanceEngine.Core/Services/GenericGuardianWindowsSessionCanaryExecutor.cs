@@ -140,6 +140,11 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (preflightFailure is not null)
             return NotAttempted(candidate, preflightFailure);
 
+        var systemBaseline = _transactions.SnapshotActivity();
+        if (systemBaseline.State != SystemOptimizationActivityState.Idle)
+            return NotAttempted(candidate,
+                "Another DG System Optimization operation is already active; no Guardian canary capture or mutation was attempted.");
+
         // The monitor reads the real authority IMMEDIATELY around the capture delegate.
         // A generation change includes a benchmark that acquired and released in between.
         var target = eligibility.State.Target;
@@ -154,6 +159,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (!SessionStillCurrent(target))
             return NotAttempted(candidate,
                 "The OS-owned workload session ended or changed during the before capture; no Windows mutation was attempted.");
+        if (!SystemOptimizationUninterruptedSince(systemBaseline))
+            return NotAttempted(candidate,
+                "DG System Optimization changed during the before capture; no Windows mutation was attempted.");
 
         var baseline = beforeObservation.Before;
         var before = beforeObservation.Value is null
@@ -174,6 +182,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         if (!SessionStillCurrent(target))
             return NotAttempted(candidate,
                 "The OS-owned workload session ended or changed before mutation; no Windows mutation was attempted.");
+        if (!SystemOptimizationUninterruptedSince(systemBaseline))
+            return NotAttempted(candidate,
+                "Another DG System Optimization operation occurred before mutation; no Guardian mutation was attempted.");
 
         SystemOptimizationSession? session = null;
         try
@@ -184,6 +195,12 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 [binding.Mutation],
                 cancellationToken).ConfigureAwait(false);
             var mutationCompletedAt = _clock();
+            var systemAfterMutation = _transactions.SnapshotActivity();
+
+            if (!ProvesOnlyExpectedCanaryMutation(systemBaseline, systemAfterMutation))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Another DG System Optimization operation overlapped or occurred during the canary mutation; original Windows state was restored.")
+                    .ConfigureAwait(false);
 
             if (!BenchmarkUninterruptedSince(baseline))
                 return await RestoreContaminatedAsync(session, candidate, before, null,
@@ -208,6 +225,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 return await RestoreContaminatedAsync(session, candidate, before, null,
                     "The OS-owned workload session ended or changed during the after capture; original Windows state was restored.")
                     .ConfigureAwait(false);
+            if (!SystemOptimizationUninterruptedSince(systemAfterMutation))
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Another DG System Optimization operation occurred during the after capture; original Windows state was restored.")
+                    .ConfigureAwait(false);
 
             var after = afterObservation.Value is null
                 ? null : AcceptFrame(afterObservation.Value, target);
@@ -229,6 +250,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 return await RestoreContaminatedAsync(session, candidate, before, after,
                     "The OS-owned workload session ended or changed after comparison evidence; original Windows state was restored.")
                     .ConfigureAwait(false);
+            if (!SystemOptimizationUninterruptedSince(systemAfterMutation))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "Another DG System Optimization operation occurred during comparison evidence; original Windows state was restored.")
+                    .ConfigureAwait(false);
 
             // Source-supplied false flags cannot override the real global lease authority.
             if (!BenchmarkUninterruptedSince(baseline))
@@ -247,6 +272,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 return await RestoreContaminatedAsync(session, candidate, before, after,
                     "The OS-owned workload session ended or changed during outcome evaluation; original Windows state was restored.")
                     .ConfigureAwait(false);
+            if (!SystemOptimizationUninterruptedSince(systemAfterMutation))
+                return await RestoreContaminatedAsync(session, candidate, before, after,
+                    "Another DG System Optimization operation occurred during outcome evaluation; original Windows state was restored.")
+                    .ConfigureAwait(false);
 
             if (verdict == GenericGuardianSessionCanaryVerdict.Improved)
             {
@@ -261,7 +290,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     Before = before,
                     After = after,
                     ActiveLease = lease,
-                    Reason = "Supplied scene comparison and real Track 0 idle generation passed; improvement remains reversible, but external interference/causality is not proven."
+                    Reason = "Supplied scene comparison, real Track 0 idle generation and DG System Optimization activity checks passed; improvement remains reversible, but external interference/causality is not proven."
                 };
             }
 
@@ -304,6 +333,18 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
     private bool BenchmarkUninterruptedSince(ControlledBenchmarkActivitySnapshot baseline)
         => ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(
             baseline, _benchmarkAuthority.SnapshotActivity());
+
+    private bool SystemOptimizationUninterruptedSince(SystemOptimizationActivitySnapshot baseline)
+        => SystemOptimizationActivitySnapshot.ProvesUninterruptedIdle(
+            baseline, _transactions.SnapshotActivity());
+
+    private static bool ProvesOnlyExpectedCanaryMutation(
+        SystemOptimizationActivitySnapshot before,
+        SystemOptimizationActivitySnapshot after)
+        => before.State == SystemOptimizationActivityState.Idle
+           && after.State == SystemOptimizationActivityState.Idle
+           && after.ActiveOperations == 0
+           && unchecked(after.Generation - before.Generation) == 2;
 
     private bool SessionStillCurrent(TelemetryWorkloadTarget target)
         => _sessionOwner is not null
