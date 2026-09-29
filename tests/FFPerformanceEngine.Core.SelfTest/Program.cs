@@ -157,6 +157,7 @@ try
     await WindowsCapabilityValidatedEvidenceResumeSelfTests.RunAsync();
     WindowsCapabilityExperimentPresentationSelfTests.Run();
     await SystemOptimizerTransactionSelfTests.RunAsync();
+    await SystemOptimizationActivityProbeSelfTests.RunAsync();
     await SystemOptimizerAuditFailureSelfTests.RunAsync();
     await SystemOptimizerDependencyOwnershipSelfTests.RunAsync();
     await SystemOptimizerExpectedStateSelfTests.RunAsync();
