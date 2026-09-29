@@ -147,7 +147,7 @@ internal static class GenericGuardianWindowsSessionHostLifecycleSelfTests
     {
         internal const string Original = "balanced";
         internal const string Mutated = "performance";
-        private const string Capability = "test.lifecycle.capability";
+        internal const string Capability = "test.lifecycle.capability";
         private readonly string _root;
         private readonly SystemOptimizationTransactionEngine _transactions;
 
