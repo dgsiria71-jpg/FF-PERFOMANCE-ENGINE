@@ -41,6 +41,10 @@ internal static class GameAdapterFrameworkSelfTests
                 && resolvedFf.Capabilities.Rollback,
             "Existing BlueStacks/Free Fire specialization must advertise the capabilities already implemented instead of being downgraded by the neutral adapter layer.");
 
+        Require(!resolvedFf.Capabilities.CanaryContextEvidence
+                && !resolvedMax.Capabilities.CanaryContextEvidence,
+            "Free Fire state detection must not be promoted to comparable canary scene/mode/load evidence without an adapter-owned production source.");
+
         var resolvedUnknown = resolver.Resolve(unknown);
         Require(resolvedUnknown.IsGeneric && resolvedUnknown.AdapterId == "generic",
             "Unknown games must resolve to the generic adapter instead of becoming unsupported or fabricating a specialized adapter.");
