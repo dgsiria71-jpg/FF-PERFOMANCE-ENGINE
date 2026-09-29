@@ -3,10 +3,10 @@
 ## Exact repository and application checkpoint
 
 - Repo `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, dev branch `build/initial-product`, draft PR #1, `main` untouched. Product DG Performance Engine; preserve `FFPerformanceEngine.*`, original FF/BlueStacks specialization and tested Tracks0–5. Work via ChatGPT+GitHub, not an invented Codex workspace.
-- **Latest application SHA `2084cbb452bfa6f00358127cdb65a378f57b5fc7`**, `feat: gate Guardian canary on real DG transaction activity`.
-- Exact **Windows CI #1085 SUCCESS**, run `36635338355`, job `109634469080`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
-- Artifact `FFPerformanceEngine-win-x64`, ID `11064550474`, SHA-256 `c5d6da8095f8acfb519b2070fdae832c195249c6b4368fd6f2be39a0e1476fc7`.
-- Previous app `78ee8384957f174824228d958be0d52c392d3ae2`, Windows CI #1083 run `36631208795` SUCCESS. Previous documentary SHA `02e295cbeff8e85d2ce0e912a1a7a93717caa1ed`, Windows CI #1084 run `36631569512` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
+- **Latest application SHA `d3b3e824108c15c9df6364c2942e6269b63a64d3`**, `feat: own retained Guardian leases across session lifecycle`.
+- Exact **Windows CI #1087 SUCCESS**, run `36636932424`, job `109639748436`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
+- Artifact `FFPerformanceEngine-win-x64`, ID `11065451244`, SHA-256 `8f5234e7e6b7fc6e7b266a120f7aa66eadfeab277168e8677c21be7ffcfe367b`.
+- Previous app `2084cbb452bfa6f00358127cdb65a378f57b5fc7`, Windows CI #1085 run `36635338355` SUCCESS. Previous documentary SHA `d6dcf5103b854e050f147916fc978a09c7f1acd3`, Windows CI #1086 run `36635892298` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
 - Mandatory startup read order: `AGENTS.md` → `docs/project-memory/README.md` → this handoff → `IMPLEMENTATION_STATUS.md` → `CANONICAL_CONTEXT.md` → canonical `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md` → affected code/tests. Actual branch/code/exact CI outrank old memory. Expanded master `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`; never invent original absent Track11–19 names.
 
 ## Verified Track state
@@ -52,14 +52,21 @@ TDD isolated branch `ci/track6-system-activity-executor-verify`: RED `08b49cf556
 
 The executor snapshots real process-wide DG System Optimization activity before the first physical capture. Before mutation, generation must remain exactly unchanged and Idle. Its own successful `BeginSessionAsync` is accepted only as one exact completed activity pair: Idle before, Idle after, generation delta exactly +2. Any extra or overlapping DG transaction changes the generation/count and is rejected. After mutation, the post-own-transaction snapshot must remain uninterrupted through after capture, comparison evidence and evaluator; contamination exact-restores the Track2 session and returns Inconclusive/no KEEP. TEST evidence may still report `OtherMutationDetected=false`; it cannot override this Core authority.
 
+### NEW owner-managed generic session lifecycle — application Windows CI #1087
+
+Valid TDD RED after correcting one test-fixture visibility mistake: `86cc4ac5b4aa3d137c1da8af31e8385186a05acf`, run `36636524244`, job `109638394175`, native PASS then exactly four expected CS0246 errors for missing `GenericGuardianWindowsSessionHostLifecycle`, zero warnings. GREEN `8d27461cfd95cdca4a92746f0c320ea0cbad0b3d`, run `36636697561`, job `109638978993`, all native/managed/Core/App/publish/upload SUCCESS. Official selective `d3b3e824108c15c9df6364c2942e6269b63a64d3`, CI #1087 full SUCCESS; exact diff three source/test files, verifier workflow excluded.
+
+`GenericGuardianWindowsSessionHostLifecycle` owns one concrete OS-backed coordinator plus every retained `GenericGuardianSessionCanaryLease`. An unchanged Active/High exact physical session reuses its key. Any state/identity/rebind transition first restores all retained leases using non-cancelable cleanup, then resets/rebinds the OS epoch. A rejected stale/copied-key KEEP is restored immediately rather than orphaned. Teardown attempts leases in reverse order; if any rollback fails, the old host session and failed lease remain owned and rebind/reset is aborted for retry. `DisposeAsync` follows the same restore-before-retire rule.
+
+
 ## CRITICAL boundaries — do not misrepresent
 
 OS process lifetime continuity is now enforced end-to-end inside the current canary executor path, but it still proves only **which Windows process lifetime** is being measured. It does NOT prove gameplay scene, mode, load or environment. No production `IGenericGuardianCanaryEvidenceSource` exists; test evidence strings/flags remain TEST ONLY. Generic adapter has no scene capability; BlueStacks/FF ADB foreground detects Android package, NOT in-game scene/mode/load. PresentMon/TelemetryFrame provide performance metrics, not authenticated gameplay context. Track0 generation is still observation, not mutual exclusion, and external benchmarks/other tools remain outside that detector. The final process check can also be followed by process exit before a future host notices; retained lease cleanup on session end remains a host responsibility. No generic host, real-game HIL, live FPS gain, production action registrations, profile promotion, learning or automatic Guardian activation. Specialized FF/BlueStacks intact; `main` untouched.
 
 ## EXACT continuation
 
-1. Bounded TDD design and implement the first **owner-managed generic session host lifecycle**: it must own the OS session epoch and every retained canary lease, and restore all retained leases before session invalidation/Reset/rebind or host disposal. Do not expose a retained lease whose cleanup is no longer owned.
-2. Then coordinate actual mutual exclusion/ownership between that host, Track0 controlled benchmarks and DG System Optimization operations, preserving specialized Guardian suspend/reconcile. Generation observation remains detection, not exclusion.
+1. Bounded TDD introduce a **real generic session experiment admission lease** that coordinates with Track0 controlled benchmarks and DG System Optimization, instead of merely observing their generations after the fact. It must fail closed under contention and remain cancellation-safe.
+2. Compose that exclusion into the owner-managed lifecycle/executor path, while preserving specialized Guardian suspend/reconcile and restoring retained leases before session retirement. Avoid deadlock with the canary's own Track2 transaction.
 3. Adapter-owned scene/mode/load/environment remains a hard activation prerequisite. Current FF/BlueStacks `CanaryContextEvidence=false`; generic canary stays disabled. Windows/real-game HIL before activation. Then Track6 item4 reliability and item5 post-session queue.
 
 Cycle: inspect → TDD RED Windows isolated → minimal GREEN/full verifier → selective official code commit/exact CI → docs/checkpoint → documentary exact CI. Do not touch `main`.
