@@ -2,11 +2,11 @@
 
 Current code/tests and exact Windows CI outrank older memory. Historical checkpoints are in `docs/project-memory/checkpoints/`; expanded master in `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`. Read HANDOFF_CURRENT for exact continuation; do not invent historical Track11–19 labels.
 
-## Current verified application — 2026-09-25
+## Current verified application — 2026-09-29
 
-Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `78ee8384957f174824228d958be0d52c392d3ae2`**, official **Windows CI #1083 SUCCESS**, run `36631208795`, job `109620603917`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11061424569`, SHA-256 `835e62b84d0576ed129ebd813353ebfdbf034ee66ebde024d934b4c644002a82`.
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `2084cbb452bfa6f00358127cdb65a378f57b5fc7`**, official **Windows CI #1085 SUCCESS**, run `36635338355`, job `109634469080`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11064550474`, SHA-256 `c5d6da8095f8acfb519b2070fdae832c195249c6b4368fd6f2be39a0e1476fc7`.
 
-Previous app SHA `e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db`, official Windows CI #1081 run `36629806115` SUCCESS. Previous documentary SHA `1d7905c339472b0bab579a0ddb5f6f4c1652ad7e` CI #1082 run `36630249932` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
+Previous app SHA `78ee8384957f174824228d958be0d52c392d3ae2`, official Windows CI #1083 run `36631208795` SUCCESS. Previous documentary SHA `02e295cbeff8e85d2ce0e912a1a7a93717caa1ed` CI #1084 run `36631569512` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
 
 ## Track ledger
 
@@ -68,11 +68,17 @@ RED `94d2e12e6f8700e2dc5bcccd518e117dae177cbb` / run `36629120397`: native PASS,
 
 RED `916e90731a7437e04bdaf0bc6aa85a1098e22b93` / run `36630504421`: native PASS, eight expected missing-API errors, zero warnings. GREEN `a6600eec7c25f9b16e188ca3405f02a41d6f42cb` / run `36630781473`: full verifier SUCCESS. Official `78ee8384957f174824228d958be0d52c392d3ae2`, CI #1083 SUCCESS. Official diff: new activity contract, transaction engine instrumentation, new cross-instance self-test and one Program registration.
 
-Coverage is intentionally narrow: DG System Optimization calls in this process only. It does not prove absence of external Windows changes and does not yet gate the Guardian canary. The next integration must recognize the canary's own transaction as exactly one expected operation rather than self-contamination.
+Coverage is intentionally narrow: DG System Optimization calls in this process only. It does not prove absence of external Windows changes.
+
+### NEW executor DG-activity integration — bounded GREEN, mutual exclusion/host still PENDING
+
+RED `08b49cf556e7df1bf9ee2cd9b5310c143c2ccd4b` / run `36634908240`, job `109633048281`: native + managed build PASS, Core self-test failed on the intended `AlreadyActive` behavior because the executor ignored real process-wide DG transaction activity. GREEN `a7153521bed59fe51cfeb7811f6c4bba1a2bc032` / run `36635116184`, job `109633740826`: full verifier SUCCESS. Official `2084cbb452bfa6f00358127cdb65a378f57b5fc7`, CI #1085 SUCCESS. Official diff exactly executor + new integration self-test + one Program registration; verifier workflow excluded.
+
+Executor now requires idle/unchanged DG activity throughout the before stage; accepts its own `BeginSessionAsync` only as exact generation delta +2 with Idle after; then requires the resulting generation to remain unchanged through after capture, comparison evidence and evaluator. Additional/overlapping DG operation before mutation denies; after mutation restores exact Track2 state and returns Inconclusive/no KEEP. Source-supplied `OtherMutationDetected=false` is not authority. Observation is still not mutual exclusion and does not detect external tools.
 ## Scope boundary and EXACT next action
 
 `Observed != Validated`; stable GameId != PID; no fabricated telemetry, scene, capability or mutation mapping; preserve Track0 benchmark authority/Guardian suspension, Track2 exact rollback, Track4 typed metrics, Track5 provenance, specialized FF/BlueStacks. No startup discovery, automatic mutation, profile promotion or integrity bypass.
 
 Track0 generation is DETECTION, not mutual exclusion; it cannot detect external tools/other mutations. OS lifetime proof plus coordinator are now called by the canary executor and close the stale/caller-cloned epoch gap at its current boundaries, but they remain process-lifetime evidence only. `IGenericGuardianCanaryEvidenceSource` is still implemented only by TEST doubles; no production adapter scene/mode/load/environment source. No generic host, game HIL/FPS benefit, causal attribution or learned outcomes.
 
-Next bounded TDD: wire real DG System Optimization activity into the generic canary. Before mutation requires an uninterrupted idle generation; the canary's own `BeginSessionAsync` must produce exactly one expected complete activity transition pair, while any additional operation from another engine before/during/after must deny or exact-rollback Inconclusive/no KEEP. Then host-level mutual exclusion/lifecycle cleanup. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, so generic canary activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
+Next bounded TDD: create the owner-managed generic session lifecycle boundary that owns the OS epoch plus all retained canary leases and restores them before Reset/rebind/disposal. Then add actual host-level exclusion/coordination with Track0 benchmarks and DG transactions; current generation probes are detection only. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, so generic canary activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.

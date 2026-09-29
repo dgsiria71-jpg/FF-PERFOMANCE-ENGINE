@@ -1,12 +1,12 @@
-# Current Handoff — 2026-09-25
+# Current Handoff — 2026-09-29
 
 ## Exact repository and application checkpoint
 
 - Repo `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, dev branch `build/initial-product`, draft PR #1, `main` untouched. Product DG Performance Engine; preserve `FFPerformanceEngine.*`, original FF/BlueStacks specialization and tested Tracks0–5. Work via ChatGPT+GitHub, not an invented Codex workspace.
-- **Latest application SHA `78ee8384957f174824228d958be0d52c392d3ae2`**, `feat: expose process-wide System Optimization activity generation`.
-- Exact **Windows CI #1083 SUCCESS**, run `36631208795`, job `109620603917`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
-- Artifact `FFPerformanceEngine-win-x64`, ID `11061424569`, SHA-256 `835e62b84d0576ed129ebd813353ebfdbf034ee66ebde024d934b4c644002a82`.
-- Previous app `e473b65b095e0c59a0fc8ff35df4f9ee6ffdd4db`, Windows CI #1081 run `36629806115` SUCCESS. Documentary SHA `1d7905c339472b0bab579a0ddb5f6f4c1652ad7e`, Windows CI #1082 run `36630249932` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
+- **Latest application SHA `2084cbb452bfa6f00358127cdb65a378f57b5fc7`**, `feat: gate Guardian canary on real DG transaction activity`.
+- Exact **Windows CI #1085 SUCCESS**, run `36635338355`, job `109634469080`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
+- Artifact `FFPerformanceEngine-win-x64`, ID `11064550474`, SHA-256 `c5d6da8095f8acfb519b2070fdae832c195249c6b4368fd6f2be39a0e1476fc7`.
+- Previous app `78ee8384957f174824228d958be0d52c392d3ae2`, Windows CI #1083 run `36631208795` SUCCESS. Previous documentary SHA `02e295cbeff8e85d2ce0e912a1a7a93717caa1ed`, Windows CI #1084 run `36631569512` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
 - Mandatory startup read order: `AGENTS.md` → `docs/project-memory/README.md` → this handoff → `IMPLEMENTATION_STATUS.md` → `CANONICAL_CONTEXT.md` → canonical `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md` → affected code/tests. Actual branch/code/exact CI outrank old memory. Expanded master `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`; never invent original absent Track11–19 names.
 
 ## Verified Track state
@@ -45,14 +45,21 @@ TDD isolated branch `ci/track6-adapter-canary-evidence-capability-verify`: RED `
 TDD branch `ci/track6-system-optimization-activity-verify`: RED `916e90731a7437e04bdaf0bc6aa85a1098e22b93`, run `36630504421`, job `109618218721`, native PASS then exactly eight expected missing-API compile errors, zero warnings. An intermediate contract-only run was intentionally incomplete. GREEN `a6600eec7c25f9b16e188ca3405f02a41d6f42cb`, run `36630781473`, job `109619394152`, all native/managed/Core/App/publish/upload SUCCESS. Official selective `78ee8384957f174824228d958be0d52c392d3ae2`, Windows CI #1083 SUCCESS; exactly four source/test files, temporary workflow excluded.
 
 The regression proves that an operation on a second engine instance is visible through the first instance, both while active and after it completes between two otherwise idle snapshots. This is observation only. It covers DG System Optimization calls inside this process; it does not detect Regedit, vendor tools, driver panels or other external mutation sources.
+
+### NEW executor-wide DG System Optimization interference gate — application Windows CI #1085
+
+TDD isolated branch `ci/track6-system-activity-executor-verify`: RED `08b49cf556e7df1bf9ee2cd9b5310c143c2ccd4b`, run `36634908240`, job `109633048281`. Native and managed build passed; Core self-tests failed exactly because an already-active second `SystemOptimizationTransactionEngine` was not blocking the canary. GREEN `a7153521bed59fe51cfeb7811f6c4bba1a2bc032`, run `36635116184`, job `109633740826`, all native/managed/Core/App/publish/upload steps SUCCESS. Official selective app `2084cbb452bfa6f00358127cdb65a378f57b5fc7`, Windows CI #1085 full SUCCESS; exact diff three source/test files, temporary workflow excluded.
+
+The executor snapshots real process-wide DG System Optimization activity before the first physical capture. Before mutation, generation must remain exactly unchanged and Idle. Its own successful `BeginSessionAsync` is accepted only as one exact completed activity pair: Idle before, Idle after, generation delta exactly +2. Any extra or overlapping DG transaction changes the generation/count and is rejected. After mutation, the post-own-transaction snapshot must remain uninterrupted through after capture, comparison evidence and evaluator; contamination exact-restores the Track2 session and returns Inconclusive/no KEEP. TEST evidence may still report `OtherMutationDetected=false`; it cannot override this Core authority.
+
 ## CRITICAL boundaries — do not misrepresent
 
 OS process lifetime continuity is now enforced end-to-end inside the current canary executor path, but it still proves only **which Windows process lifetime** is being measured. It does NOT prove gameplay scene, mode, load or environment. No production `IGenericGuardianCanaryEvidenceSource` exists; test evidence strings/flags remain TEST ONLY. Generic adapter has no scene capability; BlueStacks/FF ADB foreground detects Android package, NOT in-game scene/mode/load. PresentMon/TelemetryFrame provide performance metrics, not authenticated gameplay context. Track0 generation is still observation, not mutual exclusion, and external benchmarks/other tools remain outside that detector. The final process check can also be followed by process exit before a future host notices; retained lease cleanup on session end remains a host responsibility. No generic host, real-game HIL, live FPS gain, production action registrations, profile promotion, learning or automatic Guardian activation. Specialized FF/BlueStacks intact; `main` untouched.
 
 ## EXACT continuation
 
-1. TDD integrate the new DG transaction generation through `GenericGuardianWindowsSessionCanaryExecutor`. Initial/before stages require uninterrupted DG-idle. The canary's own successful `BeginSessionAsync` must account for exactly one expected complete operation (+2 generation, Idle afterward); any additional/overlapping DG operation before or after mutation must deny or rollback and never KEEP. Do not use source-supplied `OtherMutationDetected=false` as authority.
-2. Design true host coordination/exclusion: Track0 controlled benchmarks, DG transactions, specialized Guardian suspend/reconcile, session lifecycle and retained lease restoration before Reset/rebind. Observation alone is not mutual exclusion.
+1. Bounded TDD design and implement the first **owner-managed generic session host lifecycle**: it must own the OS session epoch and every retained canary lease, and restore all retained leases before session invalidation/Reset/rebind or host disposal. Do not expose a retained lease whose cleanup is no longer owned.
+2. Then coordinate actual mutual exclusion/ownership between that host, Track0 controlled benchmarks and DG System Optimization operations, preserving specialized Guardian suspend/reconcile. Generation observation remains detection, not exclusion.
 3. Adapter-owned scene/mode/load/environment remains a hard activation prerequisite. Current FF/BlueStacks `CanaryContextEvidence=false`; generic canary stays disabled. Windows/real-game HIL before activation. Then Track6 item4 reliability and item5 post-session queue.
 
 Cycle: inspect → TDD RED Windows isolated → minimal GREEN/full verifier → selective official code commit/exact CI → docs/checkpoint → documentary exact CI. Do not touch `main`.

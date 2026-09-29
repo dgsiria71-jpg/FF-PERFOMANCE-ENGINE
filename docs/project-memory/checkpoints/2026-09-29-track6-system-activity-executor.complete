@@ -1,0 +1,25 @@
+# Checkpoint — 2026-09-29 Track 6 Guardian canary DG System Optimization activity gate
+
+## Proven scope
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`; `main` untouched; draft PR #1. Exact application commit `2084cbb452bfa6f00358127cdb65a378f57b5fc7`, Windows CI #1085 run `36635338355`, job `109634469080` SUCCESS: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11064550474`, SHA-256 `c5d6da8095f8acfb519b2070fdae832c195249c6b4368fd6f2be39a0e1476fc7`.
+
+## TDD evidence
+
+Isolated branch `ci/track6-system-activity-executor-verify` based on documentary `02e295cbeff8e85d2ce0e912a1a7a93717caa1ed`. RED `08b49cf556e7df1bf9ee2cd9b5310c143c2ccd4b`, run `36634908240`, job `109633048281`: native and managed build passed; Core self-tests exited 1 on the deliberate `AlreadyActive` assertion, proving the executor ignored a real active second System Optimization engine. GREEN `a7153521bed59fe51cfeb7811f6c4bba1a2bc032`, run `36635116184`, job `109633740826`: native, managed, Core/App, publish and artifact upload all SUCCESS.
+
+Official selective diff from `02e295c...` contains exactly three files: `GenericGuardianWindowsSessionCanaryExecutor.cs`, new `GenericGuardianSystemOptimizationActivityIntegrationSelfTests.cs`, and one Program registration. Temporary verifier workflow excluded.
+
+## Implementation
+
+At executor entry, a real `SystemOptimizationActivitySnapshot` from the transaction engine must be Idle. Through before capture and before comparison evidence/mutation, generation must remain unchanged. The canary's own successful `BeginSessionAsync` is recognized narrowly as exactly one completed operation: Idle before and after, no active operations, generation delta exactly +2. Any overlapping or additional engine operation makes that proof fail.
+
+After the canary mutation, the exact post-own-operation snapshot becomes the new baseline. It must remain uninterrupted through after capture, comparison evidence and evaluator. Any process-local DG System Optimization operation in those stages invokes exact session restore and returns Inconclusive/no active lease/KEEP. The TEST evidence deliberately supplies `OtherMutationDetected=false`; Core activity remains authoritative.
+
+## Limits and exact continuation
+
+This is observation/detection, not mutual exclusion. A race remains after final reads, and operations outside the DG process (Regedit, vendor/driver tools, other software) are not covered. Scene/mode/load/environment provenance also remains absent in production; FF/FF MAX explicitly have `CanaryContextEvidence=false`.
+
+Next bounded TDD is an owner-managed generic session lifecycle boundary: own the exact OS session epoch and every retained canary lease, restore every lease before coordinator Reset/rebind/disposal, and never orphan a kept mutation. After that, introduce true host-level exclusion/coordination with Track0 controlled benchmarks and DG System Optimization plus specialized Guardian suspend/reconcile. Generic automatic activation and real-game HIL remain blocked. Track6 item3 remains IN PROGRESS; item4 reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being marked GREEN.
