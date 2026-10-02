@@ -60,7 +60,22 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
         CancellationToken cancellationToken = default)
     {
         await GlobalGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return new ExclusiveGateLease(GlobalGate);
+        ControlledBenchmarkGuardianState? guardianState = null;
+        try
+        {
+            if (_guardian is not null)
+                guardianState = await _guardian.SuspendAsync(cancellationToken).ConfigureAwait(false);
+
+            return new ExclusiveGateLease(
+                GlobalGate,
+                _guardian,
+                guardianState);
+        }
+        catch
+        {
+            GlobalGate.Release();
+            throw;
+        }
     }
 
     public async Task<IAsyncDisposable> AcquireAsync(
@@ -89,15 +104,36 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
         }
     }
 
-    private sealed class ExclusiveGateLease(SemaphoreSlim gate) : IAsyncDisposable
+    private sealed class ExclusiveGateLease(
+        SemaphoreSlim gate,
+        IControlledBenchmarkGuardian? guardian,
+        ControlledBenchmarkGuardianState? guardianState) : IAsyncDisposable
     {
         private int _disposed;
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+
+            Exception? resumeFailure = null;
+            try
+            {
+                if (guardian is not null && guardianState is not null)
+                    await guardian.ResumeAsync(
+                        guardianState,
+                        CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                resumeFailure = exception;
+            }
+            finally
+            {
                 gate.Release();
-            return ValueTask.CompletedTask;
+            }
+
+            if (resumeFailure is not null)
+                ExceptionDispatchInfo.Capture(resumeFailure).Throw();
         }
     }
 
