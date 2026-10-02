@@ -1,10 +1,46 @@
 using FFPerformanceEngine.App;
+using System.Reflection;
+using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
 using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
 
 await using var services = new AppServices();
+
+var genericRuntimeBudget = new GenericGuardianSessionActionBudget(
+    TimeSpan.FromMinutes(1),
+    maxAttemptsPerSession: 1);
+var genericRuntimeCatalog = new GenericGuardianSessionMutationCatalog(
+    Array.Empty<GenericGuardianSessionMutationDefinition>());
+await using var genericRuntime = services.CreateGenericGuardianWindowsRuntimeHost(
+    genericRuntimeBudget,
+    genericRuntimeCatalog,
+    Array.Empty<GenericGuardianSessionActionCandidate>(),
+    _ => null,
+    TimeSpan.FromMilliseconds(10));
+
+var runtimeBenchmarkField = typeof(GenericGuardianWindowsRuntimeHost).GetField(
+    "_benchmarkAuthority",
+    BindingFlags.Instance | BindingFlags.NonPublic)
+    ?? throw new InvalidOperationException("Runtime shared benchmark authority field is unavailable.");
+Require(ReferenceEquals(
+            runtimeBenchmarkField.GetValue(genericRuntime),
+            services.ControlledBenchmarks),
+    "AppServices generic runtime factory must inject the exact application ControlledBenchmarks authority connected to GuardianHost, never an unconnected default manager.");
+
+var emptyGenericCycle = await genericRuntime.RunCycleAsync(
+    new ResolvedGameCatalogResult(),
+    "fixture:missing-runtime",
+    systemOnline: true,
+    TimeSpan.FromMilliseconds(1),
+    new BottleneckAnalysisContext());
+Require(emptyGenericCycle.Observation.State.State == GuardianWorkloadState.Unresolved
+        && emptyGenericCycle.Session is null
+        && emptyGenericCycle.Admission is null
+        && emptyGenericCycle.Canary is null
+        && !emptyGenericCycle.Retained,
+    "AppServices runtime factory must remain on-demand/fail-closed with explicitly empty candidates/catalog/evidence and must not synthesize a generic action.");
 
 Require(services.UniversalTuningCandidates is not null,
     "AppServices must compose one shared universal BlueStacks candidate bridge without running it during construction.");
