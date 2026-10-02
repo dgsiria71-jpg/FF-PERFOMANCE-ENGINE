@@ -8,7 +8,7 @@ namespace FFPerformanceEngine.Core.SystemOptimization;
 
 public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationActivityProbe
 {
-    private static readonly SemaphoreSlim ProcessAdmissionGate = new(1, 1);
+    private static readonly SystemOptimizationProcessAdmissionGate ProcessAdmission = new();
     private static readonly object ActivityGate = new();
     private static long _activityGeneration;
     private static int _activeOperations;
@@ -70,12 +70,9 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         return BeginSessionCoreAsync(label, mutations, admission, cancellationToken);
     }
 
-    internal async Task<SystemOptimizationExperimentAdmissionLease> AcquireExperimentAdmissionAsync(
+    internal Task<SystemOptimizationExperimentAdmissionLease> AcquireExperimentAdmissionAsync(
         CancellationToken cancellationToken = default)
-    {
-        await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return new SystemOptimizationExperimentAdmissionLease(ProcessAdmissionGate);
-    }
+        => ProcessAdmission.AcquireExperimentAsync(cancellationToken);
 
     private async Task<SystemOptimizationSession> BeginSessionCoreAsync(
         string label,
@@ -84,11 +81,11 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(mutations);
-        var ownsProcessAdmission = admission is null;
-        if (ownsProcessAdmission)
-            await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        IAsyncDisposable? operationAdmission = null;
+        if (admission is null)
+            operationAdmission = await ProcessAdmission.AcquireOperationAsync(cancellationToken).ConfigureAwait(false);
         else
-            admission!.ThrowIfInactive();
+            admission.ThrowIfInactive();
 
         try
         {
@@ -122,8 +119,8 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         }
         finally
         {
-            if (ownsProcessAdmission)
-                ProcessAdmissionGate.Release();
+            if (operationAdmission is not null)
+                await operationAdmission.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -133,30 +130,26 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(mutations);
-        await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await using var operationAdmission = await ProcessAdmission
+            .AcquireOperationAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                using var activity = EnterActivity();
-                EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
-                var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
-                await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
-                return new PersistentOptimizationResult(
-                    true,
-                    prepared.TransactionId,
-                    prepared.RestorePointId,
-                    $"Persistent system optimization '{prepared.Label}' applied and verified.");
-            }
-            finally
-            {
-                _transactionGate.Release();
-            }
+            using var activity = EnterActivity();
+            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
+            var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
+            await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+            return new PersistentOptimizationResult(
+                true,
+                prepared.TransactionId,
+                prepared.RestorePointId,
+                $"Persistent system optimization '{prepared.Label}' applied and verified.");
         }
         finally
         {
-            ProcessAdmissionGate.Release();
+            _transactionGate.Release();
         }
     }
 
@@ -182,11 +175,11 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         if (restorePointId == Guid.Empty) throw new ArgumentException("A restore point identity is required.", nameof(restorePointId));
         cancellationToken.ThrowIfCancellationRequested();
 
-        var ownsProcessAdmission = admission is null;
-        if (ownsProcessAdmission)
-            await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        IAsyncDisposable? operationAdmission = null;
+        if (admission is null)
+            operationAdmission = await ProcessAdmission.AcquireOperationAsync(cancellationToken).ConfigureAwait(false);
         else
-            admission!.ThrowIfInactive();
+            admission.ThrowIfInactive();
 
         try
         {
@@ -238,8 +231,8 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         }
         finally
         {
-            if (ownsProcessAdmission)
-                ProcessAdmissionGate.Release();
+            if (operationAdmission is not null)
+                await operationAdmission.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -593,7 +586,77 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         SystemOptimizationRestoreEnvelope Envelope);
 }
 
-internal sealed class SystemOptimizationExperimentAdmissionLease(SemaphoreSlim gate) : IAsyncDisposable
+internal sealed class SystemOptimizationProcessAdmissionGate
+{
+    private readonly SemaphoreSlim _resource = new(1, 1);
+    private readonly SemaphoreSlim _readerMutex = new(1, 1);
+    private int _readerCount;
+
+    internal async Task<IAsyncDisposable> AcquireOperationAsync(
+        CancellationToken cancellationToken)
+    {
+        await _readerMutex.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _readerCount++;
+            if (_readerCount == 1)
+            {
+                try
+                {
+                    await _resource.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    _readerCount--;
+                    throw;
+                }
+            }
+
+            return new OperationLease(this);
+        }
+        finally
+        {
+            _readerMutex.Release();
+        }
+    }
+
+    internal async Task<SystemOptimizationExperimentAdmissionLease> AcquireExperimentAsync(
+        CancellationToken cancellationToken)
+    {
+        await _resource.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new SystemOptimizationExperimentAdmissionLease(_resource);
+    }
+
+    private async ValueTask ReleaseOperationAsync()
+    {
+        await _readerMutex.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            _readerCount--;
+            if (_readerCount < 0)
+                throw new InvalidOperationException("DG System Optimization admission reader count underflow.");
+            if (_readerCount == 0)
+                _resource.Release();
+        }
+        finally
+        {
+            _readerMutex.Release();
+        }
+    }
+
+    private sealed class OperationLease(SystemOptimizationProcessAdmissionGate owner) : IAsyncDisposable
+    {
+        private int _disposed;
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            await owner.ReleaseOperationAsync().ConfigureAwait(false);
+        }
+    }
+}
+
+internal sealed class SystemOptimizationExperimentAdmissionLease(SemaphoreSlim resource) : IAsyncDisposable
 {
     private int _disposed;
 
@@ -608,7 +671,7 @@ internal sealed class SystemOptimizationExperimentAdmissionLease(SemaphoreSlim g
     public ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            gate.Release();
+            resource.Release();
         return ValueTask.CompletedTask;
     }
 }
