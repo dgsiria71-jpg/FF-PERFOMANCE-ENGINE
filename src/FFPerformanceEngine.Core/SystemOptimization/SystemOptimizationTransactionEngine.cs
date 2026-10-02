@@ -701,12 +701,29 @@ public sealed class SystemOptimizationSession : IAsyncDisposable
     public string Label { get; }
     public bool IsRestored => Volatile.Read(ref _restored) != 0;
 
-    public async Task RestoreAsync(CancellationToken cancellationToken = default)
+    public Task RestoreAsync(CancellationToken cancellationToken = default)
+        => RestoreCoreAsync(_admission, cancellationToken);
+
+    internal Task RestoreUnderExperimentAsync(
+        SystemOptimizationExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        admission.ThrowIfInactive();
+        return RestoreCoreAsync(admission, cancellationToken);
+    }
+
+    private async Task RestoreCoreAsync(
+        SystemOptimizationExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         if (Interlocked.CompareExchange(ref _restored, 1, 0) != 0) return;
         try
         {
-            await _engine.RestoreSessionAsync(RestorePointId, _admission, cancellationToken).ConfigureAwait(false);
+            await _engine.RestoreSessionAsync(
+                RestorePointId,
+                admission,
+                cancellationToken).ConfigureAwait(false);
         }
         catch
         {
