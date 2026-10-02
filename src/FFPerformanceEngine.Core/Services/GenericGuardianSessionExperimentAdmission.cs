@@ -94,6 +94,19 @@ public sealed class GenericGuardianSessionExperimentAdmissionLease : IAsyncDispo
             cancellationToken);
     }
 
+    internal Task RestoreSystemOptimizationSessionAsync(
+        SystemOptimizationSession session,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (!IsActive)
+            throw new InvalidOperationException("The generic Guardian experiment admission lease is no longer active.");
+
+        return session.RestoreUnderExperimentAsync(
+            _systemAdmission,
+            cancellationToken);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
