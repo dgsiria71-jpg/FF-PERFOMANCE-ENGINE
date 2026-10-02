@@ -14,12 +14,21 @@ namespace FFPerformanceEngine.Core.Services;
 /// </summary>
 public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposable
 {
-    private readonly GenericGuardianWindowsSessionLifecycleCoordinator _sessionOwner = new();
+    private readonly GenericGuardianWindowsSessionLifecycleCoordinator _sessionOwner;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<GenericGuardianSessionCanaryLease> _retainedLeases = new();
     private GenericGuardianCanarySessionKey? _current;
     private int _retainedLeaseCount;
     private bool _disposed;
+
+    public GenericGuardianWindowsSessionHostLifecycle()
+        : this(new GenericGuardianWindowsSessionLifecycleCoordinator())
+    {
+    }
+
+    public GenericGuardianWindowsSessionHostLifecycle(
+        GenericGuardianWindowsSessionLifecycleCoordinator sessionOwner)
+        => _sessionOwner = sessionOwner ?? throw new ArgumentNullException(nameof(sessionOwner));
 
     public GenericGuardianCanarySessionKey? CurrentSession => Volatile.Read(ref _current);
     public int RetainedLeaseCount => Volatile.Read(ref _retainedLeaseCount);
@@ -97,10 +106,14 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
             }
 
             if (_retainedLeases.Any(item => item.RestorePointId == lease.RestorePointId))
+            {
+                await lease.ReleaseExperimentAdmissionAsync().ConfigureAwait(false);
                 return true;
+            }
 
             _retainedLeases.Add(lease);
             Volatile.Write(ref _retainedLeaseCount, _retainedLeases.Count);
+            await lease.ReleaseExperimentAdmissionAsync().ConfigureAwait(false);
             return true;
         }
         finally
