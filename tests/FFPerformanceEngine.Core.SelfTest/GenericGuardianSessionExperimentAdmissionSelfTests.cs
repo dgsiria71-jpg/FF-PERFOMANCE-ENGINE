@@ -9,7 +9,10 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
     {
         await LeaseExcludesTrack0AndOtherDgTransactionsButAllowsOwnedTransactionAsync();
         await CancellationWhileWaitingForDgAdmissionReleasesTrack0ExclusionAsync();
-        Console.WriteLine("PASS Track 6 generic experiment admission excludes Track0/DG contention and is cancellation-safe");
+        await ExperimentAdmissionSuspendsAndReconcilesSpecializedGuardianAsync();
+        await CancelledPartialAdmissionReconcilesSpecializedGuardianAsync();
+        await GuardianResumeFailureStillReleasesTrack0GateAsync();
+        Console.WriteLine("PASS Track 6 generic experiment admission excludes Track0/DG contention, suspends/reconciles specialized Guardian and is cancellation-safe");
     }
 
     private static async Task LeaseExcludesTrack0AndOtherDgTransactionsButAllowsOwnedTransactionAsync()
@@ -81,6 +84,111 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
             "A cancelled partial admission must release every already-acquired exclusion and permit a later admission.");
     }
 
+    private static async Task ExperimentAdmissionSuspendsAndReconcilesSpecializedGuardianAsync()
+    {
+        var guardian = new GuardianDouble();
+        using var f = new Fixture(blockOtherApply: false, guardian);
+        var admission = new GenericGuardianSessionExperimentAdmissionManager(
+            f.BenchmarkManager,
+            f.CanaryEngine);
+
+        var baseline = f.BenchmarkManager.SnapshotActivity();
+        var lease = await admission.AcquireAsync("guardian-reconcile");
+        await guardian.Suspended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var during = f.BenchmarkManager.SnapshotActivity();
+        Require(guardian.SuspendCount == 1 && guardian.ResumeCount == 0,
+            "Experiment admission must suspend the specialized Guardian before caller work begins.");
+        Require(ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, during),
+            "Experiment exclusion must not masquerade as an active Track0 benchmark or advance benchmark generation.");
+
+        await lease.DisposeAsync();
+        await guardian.Resumed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var after = f.BenchmarkManager.SnapshotActivity();
+        Require(guardian.ResumeCount == 1
+                && ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(baseline, after),
+            "Experiment release must reconcile the specialized Guardian without fabricating Track0 benchmark activity.");
+
+        await lease.DisposeAsync();
+        Require(guardian.ResumeCount == 1,
+            "Idempotent experiment disposal must not reconcile the specialized Guardian twice.");
+    }
+
+    private static async Task CancelledPartialAdmissionReconcilesSpecializedGuardianAsync()
+    {
+        var guardian = new GuardianDouble();
+        using var f = new Fixture(blockOtherApply: true, guardian);
+
+        var blocking = f.OtherEngine.ApplyPersistentAsync(
+            "blocking DG transaction for guardian reconcile",
+            [new WindowsMutationRequest(Fixture.OtherCapability, "blocked-reconcile")]);
+        await f.OtherAdapter.ApplyEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var baseline = f.BenchmarkManager.SnapshotActivity();
+        var admission = new GenericGuardianSessionExperimentAdmissionManager(
+            f.BenchmarkManager,
+            f.CanaryEngine);
+        using var cancellation = new CancellationTokenSource();
+        var pending = admission.AcquireAsync("cancelled-guardian-reconcile", cancellation.Token);
+
+        await guardian.Suspended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Require(!pending.IsCompleted,
+            "Partial admission must hold Track0 exclusion and suspended Guardian while waiting for DG exclusivity.");
+
+        cancellation.Cancel();
+        await RequireCancellationAsync(pending);
+        await guardian.Resumed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Require(guardian.SuspendCount == 1 && guardian.ResumeCount == 1,
+            "Cancelling while waiting for DG admission must reconcile the specialized Guardian exactly once.");
+        Require(ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(
+                baseline,
+                f.BenchmarkManager.SnapshotActivity()),
+            "Cancelled experiment admission must not fabricate benchmark activity.");
+
+        var benchmark = await f.OtherBenchmarkManager
+            .AcquireAsync("after-cancelled-guardian-reconcile")
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await benchmark.DisposeAsync();
+
+        f.OtherAdapter.ReleaseApply();
+        _ = await blocking.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    private static async Task GuardianResumeFailureStillReleasesTrack0GateAsync()
+    {
+        var guardian = new GuardianDouble(throwOnResume: true);
+        using var f = new Fixture(blockOtherApply: false, guardian);
+        var admission = new GenericGuardianSessionExperimentAdmissionManager(
+            f.BenchmarkManager,
+            f.CanaryEngine);
+
+        var lease = await admission.AcquireAsync("resume-failure");
+        await RequireFailureAsync(() => lease.DisposeAsync().AsTask());
+        Require(guardian.SuspendCount == 1 && guardian.ResumeCount == 1,
+            "Injected Guardian reconciliation failure must be attempted exactly once.");
+
+        var subsequent = await f.OtherBenchmarkManager
+            .AcquireAsync("after-resume-failure")
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await subsequent.DisposeAsync();
+    }
+
+    private static async Task RequireFailureAsync(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException("Expected injected specialized Guardian reconciliation failure.");
+    }
+
     private static async Task RequireCancellationAsync(Task task)
     {
         try
@@ -106,12 +214,16 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
         internal const string OtherCapability = "test.admission.other";
         private readonly string _root;
 
-        internal Fixture(bool blockOtherApply)
+        internal Fixture(
+            bool blockOtherApply,
+            IControlledBenchmarkGuardian? guardian = null)
         {
             _root = Path.Combine(Path.GetTempPath(), "dg-admission-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_root);
 
-            BenchmarkManager = new ControlledBenchmarkLeaseManager();
+            BenchmarkManager = guardian is null
+                ? new ControlledBenchmarkLeaseManager()
+                : new ControlledBenchmarkLeaseManager(guardian);
             OtherBenchmarkManager = new ControlledBenchmarkLeaseManager();
 
             CanaryAdapter = new BlockingAdapter(CanaryCapability, "balanced", false);
@@ -158,6 +270,39 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
         {
             OtherAdapter.ReleaseApply();
             try { Directory.Delete(_root, true); } catch { }
+        }
+    }
+
+    private sealed class GuardianDouble(bool throwOnResume = false) : IControlledBenchmarkGuardian
+    {
+        internal int SuspendCount { get; private set; }
+        internal int ResumeCount { get; private set; }
+        internal TaskCompletionSource<bool> Suspended { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource<bool> Resumed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<ControlledBenchmarkGuardianState> SuspendAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SuspendCount++;
+            Suspended.TrySetResult(true);
+            return Task.FromResult(new ControlledBenchmarkGuardianState(
+                WasRunning: true,
+                InstanceName: "Pie64",
+                Interval: TimeSpan.FromMilliseconds(250)));
+        }
+
+        public Task ResumeAsync(
+            ControlledBenchmarkGuardianState state,
+            CancellationToken cancellationToken = default)
+        {
+            ResumeCount++;
+            Resumed.TrySetResult(true);
+            return throwOnResume
+                ? Task.FromException(new InvalidOperationException("intentional experiment Guardian resume failure"))
+                : Task.CompletedTask;
         }
     }
 
