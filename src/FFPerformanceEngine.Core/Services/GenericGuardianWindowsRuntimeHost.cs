@@ -40,6 +40,7 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
     private readonly PerformanceCaptureCoordinator _capture;
     private readonly IGenericGuardianSessionCanaryOutcomeEvaluator _evaluator;
     private readonly ControlledBenchmarkLeaseManager _benchmarkAuthority;
+    private readonly GenericGuardianSessionExperimentAdmissionManager _teardownAdmission;
     private readonly Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> _evidenceSourceFactory;
     private readonly TimeSpan _canarySampleDuration;
     private readonly GenericGuardianWindowsSessionLifecycleCoordinator _sessionOwner;
@@ -72,6 +73,9 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
         _benchmarkAuthority = benchmarkAuthority ?? throw new ArgumentNullException(nameof(benchmarkAuthority));
+        _teardownAdmission = new GenericGuardianSessionExperimentAdmissionManager(
+            _benchmarkAuthority,
+            _transactions);
         _evidenceSourceFactory = evidenceSourceFactory ?? throw new ArgumentNullException(nameof(evidenceSourceFactory));
         if (canarySampleDuration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(canarySampleDuration));
@@ -113,9 +117,25 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
 
             var previousSession = _lifecycle.CurrentSession;
-            var session = await _lifecycle.ObserveAsync(
-                observation.State,
-                cancellationToken).ConfigureAwait(false);
+            GenericGuardianCanarySessionKey? session;
+            if (_lifecycle.RequiresTeardown(observation.State))
+            {
+                await using var teardownAdmission = await _teardownAdmission
+                    .AcquireAsync("DG Guardian runtime rebind teardown", cancellationToken)
+                    .ConfigureAwait(false);
+                session = await _lifecycle
+                    .ObserveUnderExperimentAsync(
+                        observation.State,
+                        teardownAdmission,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                session = await _lifecycle
+                    .ObserveAsync(observation.State, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             if (previousSession is not null && !ReferenceEquals(previousSession, session))
                 _budget.ResetSession(previousSession);
@@ -232,7 +252,20 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             var previousSession = _lifecycle.CurrentSession;
-            await _lifecycle.ResetAsync(cancellationToken).ConfigureAwait(false);
+            if (previousSession is not null || _lifecycle.RetainedLeaseCount != 0)
+            {
+                await using var admission = await _teardownAdmission
+                    .AcquireAsync("DG Guardian runtime teardown", cancellationToken)
+                    .ConfigureAwait(false);
+                await _lifecycle
+                    .ResetUnderExperimentAsync(admission, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await _lifecycle.ResetAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             if (previousSession is not null)
                 _budget.ResetSession(previousSession);
             _observation.Reset();
