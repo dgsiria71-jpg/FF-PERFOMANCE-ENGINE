@@ -57,7 +57,7 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
                 return current;
 
             if (current is not null || _retainedLeases.Count != 0)
-                await EndCurrentSessionCoreAsync().ConfigureAwait(false);
+                await EndCurrentSessionCoreAsync(null).ConfigureAwait(false);
 
             var next = _sessionOwner.Observe(state);
             Volatile.Write(ref _current, next);
@@ -126,14 +126,29 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
     /// Restores all retained leases before retiring the current OS-backed epoch.
     /// Once teardown starts, caller cancellation cannot interrupt restoration.
     /// </summary>
-    public async Task ResetAsync(CancellationToken cancellationToken = default)
+    public Task ResetAsync(CancellationToken cancellationToken = default)
+        => ResetCoreAsync(null, cancellationToken);
+
+    internal Task ResetUnderExperimentAsync(
+        GenericGuardianSessionExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        if (!admission.IsActive)
+            throw new InvalidOperationException("Generic Guardian teardown admission is not active.");
+        return ResetCoreAsync(admission, cancellationToken);
+    }
+
+    private async Task ResetCoreAsync(
+        GenericGuardianSessionExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            await EndCurrentSessionCoreAsync().ConfigureAwait(false);
+            await EndCurrentSessionCoreAsync(admission).ConfigureAwait(false);
         }
         finally
         {
@@ -150,7 +165,7 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
         try
         {
             if (_disposed) return;
-            await EndCurrentSessionCoreAsync().ConfigureAwait(false);
+            await EndCurrentSessionCoreAsync(null).ConfigureAwait(false);
             _disposed = true;
             disposeGate = true;
         }
@@ -161,7 +176,8 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
         }
     }
 
-    private async Task EndCurrentSessionCoreAsync()
+    private async Task EndCurrentSessionCoreAsync(
+        GenericGuardianSessionExperimentAdmissionLease? admission)
     {
         if (_retainedLeases.Count != 0)
         {
@@ -177,7 +193,12 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
 
                 try
                 {
-                    await lease.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
+                    if (admission is null)
+                        await lease.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
+                    else
+                        await lease.RestoreUnderExperimentAdmissionAsync(
+                            admission,
+                            CancellationToken.None).ConfigureAwait(false);
                     _retainedLeases.RemoveAt(index);
                 }
                 catch (Exception exception)
