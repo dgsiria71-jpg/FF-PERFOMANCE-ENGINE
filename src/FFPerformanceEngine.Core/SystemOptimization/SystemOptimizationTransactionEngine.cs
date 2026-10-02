@@ -8,6 +8,7 @@ namespace FFPerformanceEngine.Core.SystemOptimization;
 
 public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationActivityProbe
 {
+    private static readonly SemaphoreSlim ProcessAdmissionGate = new(1, 1);
     private static readonly object ActivityGate = new();
     private static long _activityGeneration;
     private static int _activeOperations;
@@ -52,33 +53,77 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
             return new SystemOptimizationActivitySnapshot(_activityGeneration, _activeOperations);
     }
 
-    public async Task<SystemOptimizationSession> BeginSessionAsync(
+    public Task<SystemOptimizationSession> BeginSessionAsync(
         string label,
         IReadOnlyList<WindowsMutationRequest> mutations,
         CancellationToken cancellationToken = default)
+        => BeginSessionCoreAsync(label, mutations, null, cancellationToken);
+
+    internal Task<SystemOptimizationSession> BeginSessionUnderExperimentAsync(
+        string label,
+        IReadOnlyList<WindowsMutationRequest> mutations,
+        SystemOptimizationExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        admission.ThrowIfInactive();
+        return BeginSessionCoreAsync(label, mutations, admission, cancellationToken);
+    }
+
+    internal async Task<SystemOptimizationExperimentAdmissionLease> AcquireExperimentAdmissionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new SystemOptimizationExperimentAdmissionLease(ProcessAdmissionGate);
+    }
+
+    private async Task<SystemOptimizationSession> BeginSessionCoreAsync(
+        string label,
+        IReadOnlyList<WindowsMutationRequest> mutations,
+        SystemOptimizationExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(mutations);
-        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var ownsProcessAdmission = admission is null;
+        if (ownsProcessAdmission)
+            await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        else
+            admission!.ThrowIfInactive();
+
         try
         {
-            using var activity = EnterActivity();
-            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
-            var prepared = await PrepareAsync(label, SystemOptimizationScope.Session, mutations, cancellationToken).ConfigureAwait(false);
-            AcquireSessionOwnership(prepared);
+            await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
-                return new SystemOptimizationSession(this, prepared.TransactionId, prepared.RestorePointId, prepared.Label);
+                using var activity = EnterActivity();
+                EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
+                var prepared = await PrepareAsync(label, SystemOptimizationScope.Session, mutations, cancellationToken).ConfigureAwait(false);
+                AcquireSessionOwnership(prepared);
+                try
+                {
+                    await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+                    return new SystemOptimizationSession(
+                        this,
+                        prepared.TransactionId,
+                        prepared.RestorePointId,
+                        prepared.Label,
+                        admission);
+                }
+                catch
+                {
+                    ReleaseSessionOwnership(prepared.RestorePointId);
+                    throw;
+                }
             }
-            catch
+            finally
             {
-                ReleaseSessionOwnership(prepared.RestorePointId);
-                throw;
+                _transactionGate.Release();
             }
         }
         finally
         {
-            _transactionGate.Release();
+            if (ownsProcessAdmission)
+                ProcessAdmissionGate.Release();
         }
     }
 
@@ -88,76 +133,113 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(mutations);
-        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            using var activity = EnterActivity();
-            EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
-            var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
-            await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
-            return new PersistentOptimizationResult(
-                true,
-                prepared.TransactionId,
-                prepared.RestorePointId,
-                $"Persistent system optimization '{prepared.Label}' applied and verified.");
+            await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                using var activity = EnterActivity();
+                EnsureCapabilitiesAreNotOwned(mutations.Select(mutation => mutation.CapabilityId));
+                var prepared = await PrepareAsync(label, SystemOptimizationScope.Persistent, mutations, cancellationToken).ConfigureAwait(false);
+                await ApplyPreparedAsync(prepared, cancellationToken).ConfigureAwait(false);
+                return new PersistentOptimizationResult(
+                    true,
+                    prepared.TransactionId,
+                    prepared.RestorePointId,
+                    $"Persistent system optimization '{prepared.Label}' applied and verified.");
+            }
+            finally
+            {
+                _transactionGate.Release();
+            }
         }
         finally
         {
-            _transactionGate.Release();
+            ProcessAdmissionGate.Release();
         }
     }
 
-    public async Task<SystemOptimizationRestoreResult> RestoreAsync(
+    public Task<SystemOptimizationRestoreResult> RestoreAsync(
         Guid restorePointId,
         CancellationToken cancellationToken = default)
+        => RestoreCoreAsync(restorePointId, null, cancellationToken);
+
+    internal Task<SystemOptimizationRestoreResult> RestoreSessionAsync(
+        Guid restorePointId,
+        SystemOptimizationExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken = default)
+        => RestoreCoreAsync(
+            restorePointId,
+            admission is { IsActive: true } ? admission : null,
+            cancellationToken);
+
+    private async Task<SystemOptimizationRestoreResult> RestoreCoreAsync(
+        Guid restorePointId,
+        SystemOptimizationExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         if (restorePointId == Guid.Empty) throw new ArgumentException("A restore point identity is required.", nameof(restorePointId));
         cancellationToken.ThrowIfCancellationRequested();
 
-        await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var ownsProcessAdmission = admission is null;
+        if (ownsProcessAdmission)
+            await ProcessAdmissionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        else
+            admission!.ThrowIfInactive();
+
         try
         {
-            using var activity = EnterActivity();
-            var stored = (await _snapshots.LoadAsync(cancellationToken).ConfigureAwait(false))
-                .FirstOrDefault(snapshot => snapshot.Id == restorePointId)
-                ?? throw new KeyNotFoundException($"System optimization restore point '{restorePointId:D}' was not found.");
-            if (!stored.Values.TryGetValue(SystemOptimizationSnapshotCodec.PayloadKey, out var payload))
-                throw new InvalidDataException($"Snapshot '{restorePointId:D}' is not a DG system optimization restore point.");
-
-            var envelope = SystemOptimizationSnapshotCodec.Decode(payload);
-            var restoringOwnedSession = _sessionOwnershipByRestorePoint.ContainsKey(restorePointId);
-            if (!restoringOwnedSession)
-                EnsureCapabilitiesAreNotOwned(envelope.Entries.Select(entry => entry.CapabilityId));
-
-            var failures = await RollbackEnvelopeAsync(envelope).ConfigureAwait(false);
-            if (failures.Count > 0)
+            await _transactionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
+                using var activity = EnterActivity();
+                var stored = (await _snapshots.LoadAsync(cancellationToken).ConfigureAwait(false))
+                    .FirstOrDefault(snapshot => snapshot.Id == restorePointId)
+                    ?? throw new KeyNotFoundException($"System optimization restore point '{restorePointId:D}' was not found.");
+                if (!stored.Values.TryGetValue(SystemOptimizationSnapshotCodec.PayloadKey, out var payload))
+                    throw new InvalidDataException($"Snapshot '{restorePointId:D}' is not a DG system optimization restore point.");
+
+                var envelope = SystemOptimizationSnapshotCodec.Decode(payload);
+                var restoringOwnedSession = _sessionOwnershipByRestorePoint.ContainsKey(restorePointId);
+                if (!restoringOwnedSession)
+                    EnsureCapabilitiesAreNotOwned(envelope.Entries.Select(entry => entry.CapabilityId));
+
+                var failures = await RollbackEnvelopeAsync(envelope).ConfigureAwait(false);
+                if (failures.Count > 0)
+                {
+                    await AppendHistoryAsync(
+                        envelope,
+                        restorePointId,
+                        "restore-incomplete",
+                        $"System optimization restore incomplete; {failures.Count} rollback error(s) require attention.",
+                        CancellationToken.None).ConfigureAwait(false);
+                    throw new AggregateException("System optimization restore could not return every capability to its original state.", failures);
+                }
+
+                ReleaseSessionOwnership(restorePointId);
                 await AppendHistoryAsync(
                     envelope,
                     restorePointId,
-                    "restore-incomplete",
-                    $"System optimization restore incomplete; {failures.Count} rollback error(s) require attention.",
+                    "restored",
+                    $"System optimization '{envelope.Label}' restored to its pre-transaction state.",
                     CancellationToken.None).ConfigureAwait(false);
-                throw new AggregateException("System optimization restore could not return every capability to its original state.", failures);
+
+                return new SystemOptimizationRestoreResult(
+                    true,
+                    envelope.TransactionId,
+                    restorePointId,
+                    "Original Windows capability state restored and verified.");
             }
-
-            ReleaseSessionOwnership(restorePointId);
-            await AppendHistoryAsync(
-                envelope,
-                restorePointId,
-                "restored",
-                $"System optimization '{envelope.Label}' restored to its pre-transaction state.",
-                CancellationToken.None).ConfigureAwait(false);
-
-            return new SystemOptimizationRestoreResult(
-                true,
-                envelope.TransactionId,
-                restorePointId,
-                "Original Windows capability state restored and verified.");
+            finally
+            {
+                _transactionGate.Release();
+            }
         }
         finally
         {
-            _transactionGate.Release();
+            if (ownsProcessAdmission)
+                ProcessAdmissionGate.Release();
         }
     }
 
@@ -511,18 +593,41 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         SystemOptimizationRestoreEnvelope Envelope);
 }
 
+internal sealed class SystemOptimizationExperimentAdmissionLease(SemaphoreSlim gate) : IAsyncDisposable
+{
+    private int _disposed;
+
+    internal bool IsActive => Volatile.Read(ref _disposed) == 0;
+
+    internal void ThrowIfInactive()
+    {
+        if (!IsActive)
+            throw new InvalidOperationException("The DG System Optimization experiment admission lease is no longer active.");
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            gate.Release();
+        return ValueTask.CompletedTask;
+    }
+}
+
 public sealed class SystemOptimizationSession : IAsyncDisposable
 {
     private readonly SystemOptimizationTransactionEngine _engine;
+    private readonly SystemOptimizationExperimentAdmissionLease? _admission;
     private int _restored;
 
     internal SystemOptimizationSession(
         SystemOptimizationTransactionEngine engine,
         Guid transactionId,
         Guid restorePointId,
-        string label)
+        string label,
+        SystemOptimizationExperimentAdmissionLease? admission = null)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+        _admission = admission;
         TransactionId = transactionId;
         RestorePointId = restorePointId;
         Label = label;
@@ -538,7 +643,7 @@ public sealed class SystemOptimizationSession : IAsyncDisposable
         if (Interlocked.CompareExchange(ref _restored, 1, 0) != 0) return;
         try
         {
-            await _engine.RestoreAsync(RestorePointId, cancellationToken).ConfigureAwait(false);
+            await _engine.RestoreSessionAsync(RestorePointId, _admission, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
