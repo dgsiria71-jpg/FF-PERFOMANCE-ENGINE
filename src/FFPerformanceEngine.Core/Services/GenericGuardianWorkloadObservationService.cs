@@ -127,6 +127,8 @@ public sealed class GenericGuardianWorkloadObservationService
         };
     }
 
+    public void Reset() => _stateMachine.Reset();
+
     private static bool TargetsMatchExactly(
         TelemetryWorkloadTarget expected,
         TelemetryWorkloadTarget actual)
