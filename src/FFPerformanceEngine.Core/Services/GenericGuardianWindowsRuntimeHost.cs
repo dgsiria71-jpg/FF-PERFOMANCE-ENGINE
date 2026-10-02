@@ -117,9 +117,25 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
                 cancellationToken).ConfigureAwait(false);
 
             var previousSession = _lifecycle.CurrentSession;
-            var session = await _lifecycle.ObserveAsync(
-                observation.State,
-                cancellationToken).ConfigureAwait(false);
+            GenericGuardianCanarySessionKey? session;
+            if (_lifecycle.RequiresTeardown(observation.State))
+            {
+                await using var teardownAdmission = await _teardownAdmission
+                    .AcquireAsync("DG Guardian runtime rebind teardown", cancellationToken)
+                    .ConfigureAwait(false);
+                session = await _lifecycle
+                    .ObserveUnderExperimentAsync(
+                        observation.State,
+                        teardownAdmission,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                session = await _lifecycle
+                    .ObserveAsync(observation.State, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             if (previousSession is not null && !ReferenceEquals(previousSession, session))
                 _budget.ResetSession(previousSession);
