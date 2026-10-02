@@ -4,9 +4,9 @@ Current code/tests and exact Windows CI outrank older memory. Historical checkpo
 
 ## Current verified application — 2026-10-02
 
-Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `06890f5398338b65db15d87f7007e4230679ea5c`**, official **Windows CI #1091 SUCCESS**, run `37054113461`, job `110994449150`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11247384372`, SHA-256 `9f0a046b976e3a4f3adb685f92e350868ca1e361adc9ca98a82d30deec85df5d`.
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `da6e59239ea221694f22787425ccd8c275413844`**, official **Windows CI #1093 SUCCESS**, run `37070160906`, job `111047477717`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11254142234`, SHA-256 `75be709871c1a3050edc737d518dc8a1ae78c31d2b47e730e3dc4f86d7f5cfdc`.
 
-Previous app SHA `d3116082f90f4cc3a9e29f785b730bb183de0205`, official Windows CI #1089 run `37048576315` SUCCESS. Previous documentary SHA `c1c810846a54f5cf63fdd51606d16ab3da90ea5d` CI #1090 run `37049132875` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
+Previous app SHA `06890f5398338b65db15d87f7007e4230679ea5c`, official Windows CI #1091 run `37054113461` SUCCESS. Previous documentary SHA `3bbb7476bb3b30119b4154a70825466df6296120` CI #1092 run `37054734156` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
 
 ## Track ledger
 
@@ -95,10 +95,18 @@ The executor acquires process-local experiment admission before BEFORE capture a
 
 This remains process-local exclusion. Experiment admission does not yet suspend/reconcile the specialized Guardian; external registry/vendor/driver tools and external benchmarks are not covered. No production scene/mode/load/environment source exists and FF/FF MAX `CanaryContextEvidence=false`; generic activation stays disabled.
 
+### NEW experiment-side specialized Guardian suspend/reconcile — bounded GREEN, concrete runtime still PENDING
+
+RED `ea6304773d6017894ab3b88b77b3b5e2b319d884` / run `37069676007`, job `111045870401`: native and managed build PASS; Core failed on the intended assertion because the specialized Guardian remained running after generic experiment admission. GREEN `f6dc17e604e8c816f6ec3cf802f83aeda65e3d6f` / run `37069869959`, job `111046513066`: full verifier SUCCESS. Official selective `da6e59239ea221694f22787425ccd8c275413844`, Windows CI #1093 run `37070160906`, job `111047477717` full SUCCESS; official diff exactly `ControlledBenchmarkLeaseManager.cs` plus the existing admission self-test, temporary workflow excluded.
+
+Generic experiment Track0 exclusion now suspends the configured `IControlledBenchmarkGuardian` only after owning the global Track0 gate, and reconciliation is non-cancelable and completes before gate release. Desired instance/settings changes while suspended stay deferred until release, matching controlled benchmark semantics. The experiment path deliberately does not advance benchmark activity generation, so it excludes Track0 work and the specialized Guardian without pretending a benchmark ran.
+
+Production composition remains pending: a default `ControlledBenchmarkLeaseManager` has no Guardian participant. The future concrete generic runtime must inject the same Guardian-connected manager used by the application; otherwise this newly proven primitive is not active in the product runtime path.
+
 ## Scope boundary and EXACT next action
 
 `Observed != Validated`; stable GameId != PID; no fabricated telemetry, scene, capability or mutation mapping; preserve Track0 benchmark authority/Guardian suspension, Track2 exact rollback, Track4 typed metrics, Track5 provenance, specialized FF/BlueStacks. No startup discovery, automatic mutation, profile promotion or integrity bypass.
 
 Track0 generation remains detection for non-admitted paths; admitted generic canaries now have real process-local Track0/DG mutual exclusion across the full experiment and KEEP transfer. OS lifetime proof remains process-lifetime evidence only. `IGenericGuardianCanaryEvidenceSource` is still implemented only by TEST doubles; no production adapter scene/mode/load/environment source. No complete generic runtime host, game HIL/FPS benefit, causal attribution or learned outcomes.
 
-Next bounded TDD: extend experiment Track0 exclusion with the specialized Guardian suspend/reconcile semantics already used by controlled benchmarks, preserving fixed lock order and cancellation-safe reconciliation. Then wire concrete runtime ownership/teardown around state→classifier/eligibility→budget/catalog→admitted executor→lifecycle and prove no lock-order deadlock or retained-lease orphan. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, so generic canary activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
+Next bounded TDD: wire concrete runtime ownership/teardown around state→classifier/eligibility→budget/catalog→admitted executor→lifecycle, injecting the same Guardian-connected benchmark manager into the executor/admission path. Prove no lock-order deadlock across Track0 gate, specialized Guardian suspension/reconciliation, DG admitted transaction and lifecycle cleanup, and prove retained leases restore before rebind/retirement. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, so generic canary activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
