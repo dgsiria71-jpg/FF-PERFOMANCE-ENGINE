@@ -4,9 +4,9 @@ Current code/tests and exact Windows CI outrank older memory. Historical checkpo
 
 ## Current verified application — 2026-10-02
 
-Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `da6e59239ea221694f22787425ccd8c275413844`**, official **Windows CI #1093 SUCCESS**, run `37070160906`, job `111047477717`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11254142234`, SHA-256 `75be709871c1a3050edc737d518dc8a1ae78c31d2b47e730e3dc4f86d7f5cfdc`.
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `10a475881fdfa95f2dc382255c15b0c119fd6959`**, official **Windows CI #1095 SUCCESS**, run `37075803417`, job `111065316147`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11256971093`, SHA-256 `92ca9f55a28df018c6b5f7fff42f837a480f695080e0a94f0baf50caaccb4fc8`.
 
-Previous app SHA `06890f5398338b65db15d87f7007e4230679ea5c`, official Windows CI #1091 run `37054113461` SUCCESS. Previous documentary SHA `3bbb7476bb3b30119b4154a70825466df6296120` CI #1092 run `37054734156` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
+Previous app SHA `da6e59239ea221694f22787425ccd8c275413844`, official Windows CI #1093 run `37070160906` SUCCESS. Previous documentary SHA `321b0b6648d1596d18f1fa617dd1840b1341413b` CI #1094 run `37070563101` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
 
 ## Track ledger
 
@@ -103,10 +103,18 @@ Generic experiment Track0 exclusion now suspends the configured `IControlledBenc
 
 Production composition remains pending: a default `ControlledBenchmarkLeaseManager` has no Guardian participant. The future concrete generic runtime must inject the same Guardian-connected manager used by the application; otherwise this newly proven primitive is not active in the product runtime path.
 
+### NEW concrete generic runtime owner and application factory — bounded GREEN, automatic activation still BLOCKED
+
+Runtime RED `38e0b9255e94b622271cc4dd71093ca580cc4e9d` / run `37074819893`, job `111062234498`: exactly one missing-runtime CS0246, zero warnings. Core GREEN `b44cf0020afeadc690c6bd1713b6d5aaba41ef6a` / run `37074990991` full SUCCESS. App composition RED `1af537a5ebc59712063bbcfd6923038256d73c3e` / run `37075225152`: Core full PASS, App failed on expected missing `CreateGenericGuardianWindowsRuntimeHost` CS1061. Final GREEN `d83be834ba6e2c46861d2a98400c55ca66fbf2de` / run `37075596445`, job `111064665575`: full verifier SUCCESS. Official `10a475881fdfa95f2dc382255c15b0c119fd6959`, Windows CI #1095 run `37075803417`, job `111065316147` full SUCCESS; official diff six files, temporary workflow excluded.
+
+The runtime serializes one on-demand generic Guardian cycle and composes observation, OS-owned lifecycle, existing classifier, explicit unique LiveSafe candidate eligibility, caller-supplied budget/catalog/evidence, admitted executor and KEEP lifecycle ownership. More than one eligible candidate is deliberately non-actionable because ranking is not yet proven; this does not spend budget. Missing binding/evidence also fails before budget. Reset/dispose restore lifecycle-owned leases before resetting budget and workload transition memory.
+
+`AppServices.CreateGenericGuardianWindowsRuntimeHost` is explicit/on-demand and supplies the shared application `ControlledBenchmarks` instance connected to `GuardianHost`; it does not invent or register candidates, mappings, evidence or budget values. Therefore the primitive can actually preserve specialized Guardian suspension when this application factory is used. There is still no startup-created runtime, continuous loop or auto mutation.
+
 ## Scope boundary and EXACT next action
 
 `Observed != Validated`; stable GameId != PID; no fabricated telemetry, scene, capability or mutation mapping; preserve Track0 benchmark authority/Guardian suspension, Track2 exact rollback, Track4 typed metrics, Track5 provenance, specialized FF/BlueStacks. No startup discovery, automatic mutation, profile promotion or integrity bypass.
 
 Track0 generation remains detection for non-admitted paths; admitted generic canaries now have real process-local Track0/DG mutual exclusion across the full experiment and KEEP transfer. OS lifetime proof remains process-lifetime evidence only. `IGenericGuardianCanaryEvidenceSource` is still implemented only by TEST doubles; no production adapter scene/mode/load/environment source. No complete generic runtime host, game HIL/FPS benefit, causal attribution or learned outcomes.
 
-Next bounded TDD: wire concrete runtime ownership/teardown around state→classifier/eligibility→budget/catalog→admitted executor→lifecycle, injecting the same Guardian-connected benchmark manager into the executor/admission path. Prove no lock-order deadlock across Track0 gate, specialized Guardian suspension/reconciliation, DG admitted transaction and lifecycle cleanup, and prove retained leases restore before rebind/retirement. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, so generic canary activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.
+Next bounded TDD: prove the concrete runtime across session rebind/ending/reset and failure/cancellation boundaries. A retained KEEP must restore before a new/retired epoch and budget reset; restore failure must preserve old ownership for retry. Exercise the full lock order with the shared Guardian-connected manager and prove no deadlock/orphan. Only then consider a continuous runtime loop. External mutation tools remain an explicit blind spot. FF/BlueStacks `CanaryContextEvidence=false`, no approved generic production candidates/mappings/budget defaults exist, and automatic activation remains disabled. Windows/real-game HIL remains required. Item4 reliability and item5 queue only after item3. New documentary HEAD needs exact Windows CI before marking verified.

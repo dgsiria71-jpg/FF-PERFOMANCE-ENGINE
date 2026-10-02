@@ -1,0 +1,33 @@
+# Checkpoint — 2026-10-02 Track 6 concrete generic Windows runtime owner
+
+## Verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Application commit `10a475881fdfa95f2dc382255c15b0c119fd6959`, message `feat: compose concrete generic Guardian runtime owner`. Windows CI #1095 run `37075803417`, job `111065316147` SUCCESS across native configure/build/test, managed build, Core/App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11256971093`, SHA-256 `92ca9f55a28df018c6b5f7fff42f837a480f695080e0a94f0baf50caaccb4fc8`.
+
+## TDD
+
+Isolated branch `ci/track6-generic-runtime-host-verify`.
+
+First RED `38e0b9255e94b622271cc4dd71093ca580cc4e9d`, run `37074819893`, job `111062234498`: native PASS, managed build failed with exactly one CS0246 because the concrete runtime host type did not exist; zero warnings. Minimal Core implementation reached GREEN at `b44cf0020afeadc690c6bd1713b6d5aaba41ef6a`, run `37074990991`, job `111063035720`, full native/managed/Core/App/publish/upload SUCCESS.
+
+Second RED `1af537a5ebc59712063bbcfd6923038256d73c3e`, run `37075225152`, job `111063494198`: solution build and Core tests passed; App self-test failed with the expected CS1061 because AppServices had no generic-runtime factory. Final GREEN `d83be834ba6e2c46861d2a98400c55ca66fbf2de`, run `37075596445`, job `111064665575`, full SUCCESS. Official selective integration contains six code/test files and excludes the temporary verifier workflow.
+
+## Runtime behavior
+
+`GenericGuardianWindowsRuntimeHost` is an explicit on-demand owner, not a startup service. One serialized cycle calls the existing generic workload observation service, feeds its exact state/frame into the existing bottleneck classifier, filters caller-supplied candidates through the existing LiveSafe selector, owns the OS-backed session lifecycle, requires exactly one eligible candidate, resolves that candidate through the exact mutation catalog, requires a session-bound evidence source, consumes the caller-configured budget, executes through the admitted reversible canary, and transfers Improved KEEP to lifecycle ownership.
+
+It does not rank multiple candidates. Zero or multiple eligible candidates fail closed. Missing catalog binding or missing evidence source fails before budget consumption. It creates no candidates, no mutation mappings, no cooldown/max-attempt defaults and no scene identities.
+
+The runtime owns teardown ordering. A successful Reset/Dispose restores retained lifecycle leases first; only after successful cleanup does it reset the retired session's budget and clear workload observation transition memory. The high-level regression uses the real Windows test process plus a GuardianSessionHost participant and proves a clean canary is kept under lifecycle ownership while the specialized Guardian is actually suspended/reconciled.
+
+## Application composition
+
+`AppServices.CreateGenericGuardianWindowsRuntimeHost` constructs the observation bridge from the app's existing PerformanceCapture, Windows foreground probe and GuardianRecentInput, reuses BottleneckAnalyzer/SystemOptimizer/PerformanceCapture, and injects the exact application `ControlledBenchmarks` object that was created with `GuardianHost`. The factory remains explicit/on-demand and requires the caller to provide budget, mutation catalog, candidate set and evidence-source factory. AppServices construction still performs no generic runtime cycle or automatic mutation.
+
+## Boundaries and continuation
+
+This does not activate generic Guardian automatically. There is no production `IGenericGuardianCanaryEvidenceSource`; FF/FF MAX still declare `CanaryContextEvidence=false`. There are no approved generic production action registrations, mappings or budget defaults. External registry/vendor/driver mutation tools remain outside process-local authority.
+
+Next bounded TDD must exercise the concrete runtime across real session rebind/ending/reset and cancellation/rollback-failure boundaries: retained state must restore before new epoch/retirement, budget must reset only after successful cleanup, and a failed restore must preserve old ownership for retry. The regression must cover the full lock order with the shared Guardian-connected manager and demonstrate no deadlock or orphan. Only afterward should a continuous/scheduled runtime loop be considered, and it remains disabled until scene evidence/action policy plus Windows/real-game HIL exist.
+
+Track6 item3 remains IN PROGRESS; item4 reliability and item5 post-session queue remain pending. This documentary commit requires its own exact-head Windows CI.
