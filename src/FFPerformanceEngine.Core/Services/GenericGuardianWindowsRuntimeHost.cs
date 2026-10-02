@@ -287,7 +287,22 @@ public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
             if (_disposed) return;
 
             var previousSession = _lifecycle.CurrentSession;
-            await _lifecycle.DisposeAsync().ConfigureAwait(false);
+            if (previousSession is not null || _lifecycle.RetainedLeaseCount != 0)
+            {
+                await using var admission = await _teardownAdmission
+                    .AcquireAsync(
+                        "DG Guardian runtime dispose teardown",
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                await _lifecycle
+                    .DisposeUnderExperimentAsync(admission)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await _lifecycle.DisposeAsync().ConfigureAwait(false);
+            }
+
             if (previousSession is not null)
                 _budget.ResetSession(previousSession);
             _observation.Reset();
