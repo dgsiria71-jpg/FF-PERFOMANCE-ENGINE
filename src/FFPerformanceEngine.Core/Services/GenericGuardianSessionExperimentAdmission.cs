@@ -79,6 +79,9 @@ public sealed class GenericGuardianSessionExperimentAdmissionLease : IAsyncDispo
 
     public bool IsActive => Volatile.Read(ref _disposed) == 0 && _systemAdmission.IsActive;
 
+    internal bool Owns(SystemOptimizationTransactionEngine transactions)
+        => ReferenceEquals(_transactions, transactions);
+
     public Task<SystemOptimizationSession> BeginSystemOptimizationSessionAsync(
         string label,
         IReadOnlyList<WindowsMutationRequest> mutations,
