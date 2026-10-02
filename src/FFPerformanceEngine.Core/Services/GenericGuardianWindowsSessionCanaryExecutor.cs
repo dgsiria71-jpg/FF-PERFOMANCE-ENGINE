@@ -125,10 +125,27 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         _sessionOwner = sessionOwner;
     }
 
-    public async Task<GenericGuardianSessionCanaryResult> ExecuteAsync(
+    public Task<GenericGuardianSessionCanaryResult> ExecuteAsync(
         GenericGuardianSessionActionEligibility eligibility,
         GenericGuardianWindowsSessionActionBinding binding,
         CancellationToken cancellationToken = default)
+        => ExecuteCoreAsync(eligibility, binding, null, cancellationToken);
+
+    public Task<GenericGuardianSessionCanaryResult> ExecuteAdmittedAsync(
+        GenericGuardianSessionActionEligibility eligibility,
+        GenericGuardianWindowsSessionActionBinding binding,
+        GenericGuardianSessionExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        return ExecuteCoreAsync(eligibility, binding, admission, cancellationToken);
+    }
+
+    private async Task<GenericGuardianSessionCanaryResult> ExecuteCoreAsync(
+        GenericGuardianSessionActionEligibility eligibility,
+        GenericGuardianWindowsSessionActionBinding binding,
+        GenericGuardianSessionExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(eligibility);
         ArgumentNullException.ThrowIfNull(binding);
@@ -139,6 +156,10 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         var preflightFailure = PreflightFailure(eligibility, binding);
         if (preflightFailure is not null)
             return NotAttempted(candidate, preflightFailure);
+        if (admission is not null
+            && (!admission.IsActive || !admission.Owns(_transactions)))
+            return NotAttempted(candidate,
+                "Generic Guardian experiment admission is inactive or belongs to a different System Optimization authority; mutation denied.");
 
         var systemBaseline = _transactions.SnapshotActivity();
         if (systemBaseline.State != SystemOptimizationActivityState.Idle)
@@ -190,10 +211,15 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         try
         {
             var mutationStartedAt = _clock();
-            session = await _transactions.BeginSessionAsync(
-                "DG Guardian session canary",
-                [binding.Mutation],
-                cancellationToken).ConfigureAwait(false);
+            session = admission is null
+                ? await _transactions.BeginSessionAsync(
+                    "DG Guardian session canary",
+                    [binding.Mutation],
+                    cancellationToken).ConfigureAwait(false)
+                : await admission.BeginSystemOptimizationSessionAsync(
+                    "DG Guardian session canary",
+                    [binding.Mutation],
+                    cancellationToken).ConfigureAwait(false);
             var mutationCompletedAt = _clock();
             var systemAfterMutation = _transactions.SnapshotActivity();
 
