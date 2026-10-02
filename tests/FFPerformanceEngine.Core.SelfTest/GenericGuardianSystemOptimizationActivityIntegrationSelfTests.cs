@@ -7,10 +7,9 @@ using FFPerformanceEngine.Core.Telemetry;
 
 internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTests
 {
-    private enum Interference
+    private enum CompetitionStage
     {
         None,
-        AlreadyActive,
         DuringBeforeCapture,
         AfterBeforeEvidence,
         DuringMutation,
@@ -23,60 +22,61 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
     {
         if (!OperatingSystem.IsWindows())
         {
-            Console.WriteLine("SKIP Track 6 DG System Optimization activity executor integration: Windows only");
+            Console.WriteLine("SKIP Track 6 DG System Optimization admitted executor integration: Windows only");
             return;
         }
 
-        foreach (var stage in Enum.GetValues<Interference>())
+        foreach (var stage in Enum.GetValues<CompetitionStage>())
+            await CompetingDgOperationIsExcludedAsync(stage);
+
+        await AlreadyActiveDgOperationCancellationIsSafeAsync();
+        Console.WriteLine("PASS Track 6 admitted canary excludes unrelated DG operations through KEEP/rollback and cancellation");
+    }
+
+    private static async Task CompetingDgOperationIsExcludedAsync(CompetitionStage stage)
+    {
+        using var f = new Fixture(stage, blockOtherApply: false);
+        var result = await f.Executor.ExecuteAsync(f.Eligibility, f.Binding);
+
+        Require(result.Attempted && result.Kept && result.ActiveLease is not null
+                && f.CanaryAdapter.ApplyCount == 1 && f.EvaluatorCalls == 1,
+            $"{stage}: admitted canary must reach KEEP while unrelated DG operations are excluded.");
+
+        if (stage != CompetitionStage.None)
+            Require(f.PendingInterference is { IsCompleted: false },
+                $"{stage}: unrelated DG operation started inside the experiment must remain blocked through KEEP return.");
+
+        await result.ActiveLease!.RestoreAsync();
+        if (f.PendingInterference is not null)
+            _ = await f.PendingInterference.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Require(f.CanaryAdapter.RollbackCount == 1 && f.CanaryAdapter.State == Fixture.Original,
+            $"{stage}: restoring KEEP must restore exact canary state and release DG exclusion.");
+    }
+
+    private static async Task AlreadyActiveDgOperationCancellationIsSafeAsync()
+    {
+        using var f = new Fixture(CompetitionStage.None, blockOtherApply: true);
+        var blocking = f.StartBlockingInterference();
+        await f.InterferenceAdapter.ApplyEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        try
         {
-            using var f = new Fixture(stage);
-            Task<PersistentOptimizationResult>? heldOperation = null;
-            if (stage == Interference.AlreadyActive)
-            {
-                heldOperation = f.StartBlockingInterference();
-                await f.InterferenceAdapter.ApplyEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            GenericGuardianSessionCanaryResult result;
-            try
-            {
-                result = await f.Executor.ExecuteAsync(f.Eligibility, f.Binding);
-            }
-            finally
-            {
-                f.InterferenceAdapter.ReleaseApply();
-                if (heldOperation is not null) await heldOperation;
-            }
-
-            if (stage == Interference.None)
-            {
-                Require(result.Attempted && result.Kept && result.ActiveLease is not null
-                        && f.CanaryAdapter.ApplyCount == 1 && f.EvaluatorCalls == 1,
-                    "A clean cycle must tolerate exactly the canary's own single DG transaction and may KEEP.");
-                await result.ActiveLease!.RestoreAsync();
-                Require(f.CanaryAdapter.RollbackCount == 1 && f.CanaryAdapter.State == Fixture.Original,
-                    "Clean KEEP must remain exactly reversible.");
-                continue;
-            }
-
-            if (stage is Interference.AlreadyActive or Interference.DuringBeforeCapture or Interference.AfterBeforeEvidence)
-            {
-                Require(!result.Attempted && !result.Kept && result.ActiveLease is null
-                        && f.CanaryAdapter.ApplyCount == 0 && f.CanaryAdapter.SnapshotCount == 0
-                        && f.CanaryAdapter.State == Fixture.Original,
-                    $"{stage}: real DG System Optimization interference before mutation must deny the canary.");
-                continue;
-            }
-
-            Require(result.Attempted && !result.Kept && result.RolledBack
-                    && result.Verdict == GenericGuardianSessionCanaryVerdict.Inconclusive
-                    && result.ActiveLease is null
-                    && f.CanaryAdapter.ApplyCount == 1 && f.CanaryAdapter.RollbackCount == 1
-                    && f.CanaryAdapter.State == Fixture.Original,
-                $"{stage}: any extra DG System Optimization operation after canary mutation must restore and deny KEEP.");
+            _ = await f.Executor.ExecuteAsync(f.Eligibility, f.Binding, cancellation.Token);
+            throw new InvalidOperationException("Expected admitted executor to wait behind the active DG operation until cancellation.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            f.InterferenceAdapter.ReleaseApply();
+            _ = await blocking.WaitAsync(TimeSpan.FromSeconds(5));
         }
 
-        Console.WriteLine("PASS Track 6 executor distinguishes its own +2 DG transaction generation from additional System Optimization interference");
+        Require(f.CaptureCalls == 0 && f.CanaryAdapter.ApplyCount == 0 && f.CanaryAdapter.SnapshotCount == 0,
+            "Cancellation while waiting for DG admission must occur before capture or canary mutation.");
     }
 
     private static void Require(bool condition, string message)
@@ -91,12 +91,12 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
         private const string InterferenceCapability = "test.system-activity.other";
         private const string Game = "test.system-activity.game";
         private readonly string _root;
-        private readonly Interference _stage;
+        private readonly CompetitionStage _stage;
         private int _captureCalls;
         private int _evidenceCalls;
         private int _interferenceCounter;
 
-        internal Fixture(Interference stage)
+        internal Fixture(CompetitionStage stage, bool blockOtherApply)
         {
             _stage = stage;
             _root = Path.Combine(Path.GetTempPath(), "dg-system-activity-executor-" + Guid.NewGuid().ToString("N"));
@@ -105,7 +105,7 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
             InterferenceAdapter = new AdapterDouble(
                 InterferenceCapability,
                 "old",
-                blockApply: stage == Interference.AlreadyActive);
+                blockApply: blockOtherApply);
             InterferenceEngine = CreateEngine(
                 "other",
                 InterferenceCapability,
@@ -115,9 +115,10 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
             CanaryAdapter = new AdapterDouble(
                 CanaryCapability,
                 Original,
-                onApply: async () =>
+                onApply: () =>
                 {
-                    if (_stage == Interference.DuringMutation) await InterfereAsync();
+                    if (_stage == CompetitionStage.DuringMutation) StartCompetition();
+                    return Task.CompletedTask;
                 });
             Transactions = CreateEngine(
                 "canary",
@@ -194,35 +195,43 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
         internal GenericGuardianWindowsSessionCanaryExecutor Executor { get; }
         internal GenericGuardianSessionActionEligibility Eligibility { get; }
         internal GenericGuardianWindowsSessionActionBinding Binding { get; }
+        internal Task<PersistentOptimizationResult>? PendingInterference { get; private set; }
+        internal int CaptureCalls => _captureCalls;
         internal int EvaluatorCalls { get; set; }
 
         internal Task<PersistentOptimizationResult> StartBlockingInterference()
             => InterferenceEngine.ApplyPersistentAsync(
                 "blocking external DG transaction",
-                [new WindowsMutationRequest(InterferenceCapability, "held-" + Interlocked.Increment(ref _interferenceCounter))]);
+                [new WindowsMutationRequest(
+                    InterferenceCapability,
+                    "held-" + Interlocked.Increment(ref _interferenceCounter))]);
 
-        private Task<PersistentOptimizationResult> InterfereAsync()
-            => InterferenceEngine.ApplyPersistentAsync(
+        private void StartCompetition()
+            => PendingInterference ??= InterferenceEngine.ApplyPersistentAsync(
                 "intervening DG transaction",
-                [new WindowsMutationRequest(InterferenceCapability, "value-" + Interlocked.Increment(ref _interferenceCounter))]);
+                [new WindowsMutationRequest(
+                    InterferenceCapability,
+                    "value-" + Interlocked.Increment(ref _interferenceCounter))]);
 
-        private async Task<TelemetryFrame?> CaptureAsync(int _, TimeSpan __, CancellationToken token)
+        private Task<TelemetryFrame?> CaptureAsync(int _, TimeSpan __, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
             _captureCalls++;
-            if ((_stage == Interference.DuringBeforeCapture && _captureCalls == 1)
-                || (_stage == Interference.DuringAfterCapture && _captureCalls == 2))
-                await InterfereAsync();
+            if ((_stage == CompetitionStage.DuringBeforeCapture && _captureCalls == 1)
+                || (_stage == CompetitionStage.DuringAfterCapture && _captureCalls == 2))
+                StartCompetition();
 
-            return new TelemetryFrame(DateTimeOffset.UtcNow, [
-                new TelemetryMetricObservation(
-                    TelemetryStandardMetrics.FrameFpsAverage,
-                    _captureCalls == 1 ? 100d : 110d,
-                    TelemetryMetricQuality.Measured,
-                    1d,
-                    "system-activity-test",
-                    TelemetryMetricOrigin.Direct)
-            ]);
+            return Task.FromResult<TelemetryFrame?>(new TelemetryFrame(
+                DateTimeOffset.UtcNow,
+                [
+                    new TelemetryMetricObservation(
+                        TelemetryStandardMetrics.FrameFpsAverage,
+                        _captureCalls == 1 ? 100d : 110d,
+                        TelemetryMetricQuality.Measured,
+                        1d,
+                        "system-activity-test",
+                        TelemetryMetricOrigin.Direct)
+                ]));
         }
 
         private SystemOptimizationTransactionEngine CreateEngine(
@@ -261,7 +270,7 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
 
         private sealed class EvidenceDouble(Fixture owner, Guid epoch) : IGenericGuardianCanaryEvidenceSource
         {
-            public async Task<GenericGuardianCanaryComparisonWindow?> CaptureWindowAsync(
+            public Task<GenericGuardianCanaryComparisonWindow?> CaptureWindowAsync(
                 TelemetryWorkloadTarget target,
                 TelemetryFrame frame,
                 DateTimeOffset captureStartedAt,
@@ -270,24 +279,25 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 owner._evidenceCalls++;
-                if ((owner._stage == Interference.AfterBeforeEvidence && owner._evidenceCalls == 1)
-                    || (owner._stage == Interference.AfterAfterEvidence && owner._evidenceCalls == 2))
-                    await owner.InterfereAsync();
+                if ((owner._stage == CompetitionStage.AfterBeforeEvidence && owner._evidenceCalls == 1)
+                    || (owner._stage == CompetitionStage.AfterAfterEvidence && owner._evidenceCalls == 2))
+                    owner.StartCompetition();
 
-                return new GenericGuardianCanaryComparisonWindow(
-                    epoch,
-                    target,
-                    "test-source",
-                    "test-mode",
-                    "test-scene",
-                    "test-load",
-                    "test-environment",
-                    captureStartedAt,
-                    captureCompletedAt,
-                    frame,
-                    ControlledBenchmarkActive: false,
-                    WorkloadDriftDetected: false,
-                    OtherMutationDetected: false);
+                return Task.FromResult<GenericGuardianCanaryComparisonWindow?>(
+                    new GenericGuardianCanaryComparisonWindow(
+                        epoch,
+                        target,
+                        "test-source",
+                        "test-mode",
+                        "test-scene",
+                        "test-load",
+                        "test-environment",
+                        captureStartedAt,
+                        captureCompletedAt,
+                        frame,
+                        ControlledBenchmarkActive: false,
+                        WorkloadDriftDetected: false,
+                        OtherMutationDetected: false));
             }
         }
 
@@ -299,8 +309,8 @@ internal static class GenericGuardianSystemOptimizationActivityIntegrationSelfTe
                 TelemetryFrame after)
             {
                 owner.EvaluatorCalls++;
-                if (owner._stage == Interference.DuringEvaluation)
-                    owner.InterfereAsync().GetAwaiter().GetResult();
+                if (owner._stage == CompetitionStage.DuringEvaluation)
+                    owner.StartCompetition();
                 return GenericGuardianSessionCanaryVerdict.Improved;
             }
         }
