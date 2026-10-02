@@ -416,6 +416,45 @@ public sealed class AppServices : IAsyncDisposable
     public void ClearPerformanceWorkloadContext()
         => PerformanceWorkloadContext.Clear();
 
+    public GenericGuardianWindowsRuntimeHost CreateGenericGuardianWindowsRuntimeHost(
+        GenericGuardianSessionActionBudget budget,
+        GenericGuardianSessionMutationCatalog mutationCatalog,
+        IEnumerable<GenericGuardianSessionActionCandidate> candidates,
+        Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceSourceFactory,
+        TimeSpan canarySampleDuration)
+    {
+        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(mutationCatalog);
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(evidenceSourceFactory);
+
+        var resolver = new TelemetryWorkloadTargetResolver();
+        var observation = new GenericGuardianWorkloadObservationService(
+            resolver,
+            new GenericGuardianWorkloadStateMachine(resolver),
+            new WindowsForegroundProcessProbe(),
+            GuardianRecentInput,
+            (target, duration, cancellationToken) =>
+                PerformanceCapture.CaptureWorkloadTypedAsync(
+                    target,
+                    duration,
+                    cancellationToken));
+
+        return new GenericGuardianWindowsRuntimeHost(
+            observation,
+            new GenericGuardianBottleneckClassifier(BottleneckAnalyzer),
+            new GenericGuardianSessionActionSelector(),
+            budget,
+            mutationCatalog,
+            candidates,
+            SystemOptimizer,
+            PerformanceCapture,
+            new GenericGuardianTypedCanaryOutcomeEvaluator(),
+            ControlledBenchmarks,
+            evidenceSourceFactory,
+            canarySampleDuration);
+    }
+
     public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
         string capabilityId,
         CancellationToken cancellationToken = default)
