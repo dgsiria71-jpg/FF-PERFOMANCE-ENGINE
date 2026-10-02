@@ -9,7 +9,8 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
     {
         await LeaseExcludesTrack0AndOtherDgTransactionsButAllowsOwnedTransactionAsync();
         await CancellationWhileWaitingForDgAdmissionReleasesTrack0ExclusionAsync();
-        Console.WriteLine("PASS Track 6 generic experiment admission excludes Track0/DG contention and is cancellation-safe");
+        await AdmissionSuspendsAndReconcilesSpecializedGuardianAsync();
+        Console.WriteLine("PASS Track 6 generic experiment admission excludes Track0/DG contention, suspends specialized Guardian and is cancellation-safe");
     }
 
     private static async Task LeaseExcludesTrack0AndOtherDgTransactionsButAllowsOwnedTransactionAsync()
@@ -81,6 +82,39 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
             "A cancelled partial admission must release every already-acquired exclusion and permit a later admission.");
     }
 
+    private static async Task AdmissionSuspendsAndReconcilesSpecializedGuardianAsync()
+    {
+        var runner = new FakeLiveRunner();
+        await using var host = new GuardianSessionHost(runner);
+        await host.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await runner.WaitForStartsAsync(1);
+        Require(host.IsRunning, "Specialized Guardian must be running before generic experiment admission.");
+
+        using var f = new Fixture(blockOtherApply: false, guardian: host);
+        var admission = new GenericGuardianSessionExperimentAdmissionManager(f.BenchmarkManager, f.CanaryEngine);
+        var baseline = f.BenchmarkManager.SnapshotActivity();
+
+        await using var lease = await admission.AcquireAsync("guardian-canary-with-specialized-suspension");
+        Require(!host.IsRunning && runner.CancelledInstances.Contains("Pie64") && runner.ResetCount == 1,
+            "Generic experiment admission must suspend/reset the specialized Guardian before experiment work begins.");
+        Require(f.BenchmarkManager.SnapshotActivity() == baseline
+                && baseline.State == ControlledBenchmarkActivityState.Idle,
+            "Guardian suspension for a generic experiment must not masquerade as Track0 benchmark activity.");
+
+        await host.StartAsync("Android11", TimeSpan.FromMilliseconds(40));
+        await Task.Delay(75);
+        Require(!host.IsRunning && runner.StartCount == 1,
+            "Guardian lifecycle changes during generic experiment admission must remain deferred.");
+
+        await lease.DisposeAsync();
+        await runner.WaitForStartsAsync(2);
+        Require(host.IsRunning
+                && string.Equals(host.InstanceName, "Android11", StringComparison.OrdinalIgnoreCase),
+            "Experiment admission release must reconcile the specialized Guardian to the latest desired instance.");
+        Require(f.BenchmarkManager.SnapshotActivity() == baseline,
+            "Generic experiment suspend/reconcile must leave Track0 generation unchanged.");
+    }
+
     private static async Task RequireCancellationAsync(Task task)
     {
         try
@@ -106,12 +140,14 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
         internal const string OtherCapability = "test.admission.other";
         private readonly string _root;
 
-        internal Fixture(bool blockOtherApply)
+        internal Fixture(bool blockOtherApply, IControlledBenchmarkGuardian? guardian = null)
         {
             _root = Path.Combine(Path.GetTempPath(), "dg-admission-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_root);
 
-            BenchmarkManager = new ControlledBenchmarkLeaseManager();
+            BenchmarkManager = guardian is null
+                ? new ControlledBenchmarkLeaseManager()
+                : new ControlledBenchmarkLeaseManager(guardian);
             OtherBenchmarkManager = new ControlledBenchmarkLeaseManager();
 
             CanaryAdapter = new BlockingAdapter(CanaryCapability, "balanced", false);
@@ -158,6 +194,60 @@ internal static class GenericGuardianSessionExperimentAdmissionSelfTests
         {
             OtherAdapter.ReleaseApply();
             try { Directory.Delete(_root, true); } catch { }
+        }
+    }
+
+    private sealed class FakeLiveRunner : IGuardianLiveSessionRunner
+    {
+        private readonly object _sync = new();
+        private readonly List<TaskCompletionSource> _startWaiters = [];
+
+        internal int StartCount { get; private set; }
+        internal int ResetCount { get; private set; }
+        internal List<string> CancelledInstances { get; } = [];
+
+        public async Task RunAsync(
+            string instanceName,
+            TimeSpan interval,
+            Action<GuardianLiveSessionStatus> publish,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                StartCount++;
+                foreach (var waiter in _startWaiters) waiter.TrySetResult();
+                _startWaiters.Clear();
+            }
+
+            publish(new GuardianLiveSessionStatus { Message = "live" });
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                CancelledInstances.Add(instanceName);
+            }
+        }
+
+        public Task ResetAsync(CancellationToken cancellationToken = default)
+        {
+            ResetCount++;
+            return Task.CompletedTask;
+        }
+
+        internal async Task WaitForStartsAsync(int count)
+        {
+            Task waiter;
+            lock (_sync)
+            {
+                if (StartCount >= count) return;
+                var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _startWaiters.Add(source);
+                waiter = source.Task;
+            }
+
+            await waiter.WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
 
