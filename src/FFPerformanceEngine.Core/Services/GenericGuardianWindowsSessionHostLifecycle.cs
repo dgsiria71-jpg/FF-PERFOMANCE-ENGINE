@@ -184,7 +184,20 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
         }
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
+        => DisposeCoreAsync(null);
+
+    internal ValueTask DisposeUnderExperimentAsync(
+        GenericGuardianSessionExperimentAdmissionLease admission)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        if (!admission.IsActive)
+            throw new InvalidOperationException("Generic Guardian teardown admission is not active.");
+        return DisposeCoreAsync(admission);
+    }
+
+    private async ValueTask DisposeCoreAsync(
+        GenericGuardianSessionExperimentAdmissionLease? admission)
     {
         if (_disposed) return;
 
@@ -193,7 +206,7 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
         try
         {
             if (_disposed) return;
-            await EndCurrentSessionCoreAsync(null).ConfigureAwait(false);
+            await EndCurrentSessionCoreAsync(admission).ConfigureAwait(false);
             _disposed = true;
             disposeGate = true;
         }
