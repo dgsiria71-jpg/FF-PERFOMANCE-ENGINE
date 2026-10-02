@@ -22,7 +22,9 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         await ResetRollbackFailurePreservesSessionAndBudgetForRetryAsync();
         await CancellationWhileWaitingForResetExclusionLeavesKeepOwnedAsync();
         await WorkloadRebindRestoresKeepUnderSharedExperimentExclusionAsync();
-        Console.WriteLine("PASS Track 6 concrete generic runtime composes observation/classification/budget/catalog/admitted canary/lifecycle and protected reset/rebind teardown fail-closed");
+        await EndingStateRestoresKeepUnderSharedExperimentExclusionAsync();
+        await DisposeRestoresKeepUnderSharedExperimentExclusionAsync();
+        Console.WriteLine("PASS Track 6 concrete generic runtime composes observation/classification/budget/catalog/admitted canary/lifecycle and protected reset/rebind/ending/dispose teardown fail-closed");
     }
 
     private static async Task CompleteCycleUsesSharedGuardianConnectedAuthorityAndOwnsKeepAsync()
@@ -297,6 +299,104 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
             "Old-session budget may reset only after protected rebind cleanup succeeds.");
     }
 
+    private static async Task EndingStateRestoresKeepUnderSharedExperimentExclusionAsync()
+    {
+        await using var guardianRunner = new FakeLiveRunner();
+        await using var guardianHost = new GuardianSessionHost(guardianRunner);
+        await guardianHost.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await guardianRunner.WaitForStartsAsync(1);
+
+        using var f = new Fixture(guardianHost, candidateCount: 1, maxAttempts: 1);
+        await using var runtime = f.CreateRuntime();
+        var kept = await RunKeptCycleAsync(runtime, f);
+        var oldSession = kept.Session
+            ?? throw new InvalidOperationException("Ending fixture requires an owner-issued old session.");
+
+        f.Adapter.RollbackObserver = () =>
+            Require(!guardianHost.IsRunning,
+                "Ending transition must suspend the specialized Guardian before retained KEEP restore.");
+
+        var ending = await runtime.RunCycleAsync(
+            f.CatalogWithoutRunningProcess(),
+            Fixture.GameId,
+            true,
+            TimeSpan.FromMilliseconds(10),
+            f.AnalysisContext);
+
+        Require(ending.Observation.State.State == GuardianWorkloadState.Ending
+                && ending.Session is null
+                && runtime.CurrentSession is null
+                && runtime.RetainedLeaseCount == 0
+                && f.Adapter.State == Fixture.Original
+                && f.Adapter.RollbackCount == 1
+                && guardianHost.IsRunning,
+            "Loss of the exact process after an Active lifecycle must restore retained state under exclusion before exposing Ending.");
+
+        var oldBudgetAfterEnding = f.Budget.TryAdmit(
+            oldSession,
+            kept.Eligibility,
+            f.Candidates[0]);
+        Require(oldBudgetAfterEnding.Allowed,
+            "Ending cleanup may reset the retired session budget only after retained restore succeeds.");
+    }
+
+    private static async Task DisposeRestoresKeepUnderSharedExperimentExclusionAsync()
+    {
+        await using var guardianRunner = new FakeLiveRunner();
+        await using var guardianHost = new GuardianSessionHost(guardianRunner);
+        await guardianHost.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await guardianRunner.WaitForStartsAsync(1);
+
+        using var f = new Fixture(guardianHost, candidateCount: 1, maxAttempts: 1);
+        var runtime = f.CreateRuntime();
+        Task<IAsyncDisposable>? competingBenchmark = null;
+        try
+        {
+            var kept = await RunKeptCycleAsync(runtime, f);
+            var oldSession = kept.Session
+                ?? throw new InvalidOperationException("Dispose fixture requires an owner-issued old session.");
+
+            f.Adapter.RollbackObserver = () =>
+            {
+                Require(!guardianHost.IsRunning,
+                    "Runtime disposal must suspend the specialized Guardian before restoring retained KEEP state.");
+                competingBenchmark = new ControlledBenchmarkLeaseManager()
+                    .AcquireAsync("competing-track0-during-runtime-dispose");
+                Require(!competingBenchmark.IsCompleted,
+                    "Track0 must remain excluded during retained rollback performed by runtime disposal.");
+            };
+
+            await runtime.DisposeAsync();
+
+            Require(f.Adapter.State == Fixture.Original
+                    && f.Adapter.RollbackCount == 1
+                    && guardianHost.IsRunning,
+                "Protected runtime disposal must restore retained state and reconcile the independently owned specialized Guardian.");
+
+            var benchmarkLease = await (competingBenchmark
+                ?? throw new InvalidOperationException("Dispose rollback observer did not start the competing benchmark."))
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            await benchmarkLease.DisposeAsync();
+
+            var budgetAfterDispose = f.Budget.TryAdmit(
+                oldSession,
+                kept.Eligibility,
+                f.Candidates[0]);
+            Require(budgetAfterDispose.Allowed,
+                "Runtime disposal may reset retired budget only after protected cleanup succeeds.");
+        }
+        finally
+        {
+            f.Adapter.RollbackObserver = null;
+            if (runtime.CurrentSession is not null || runtime.RetainedLeaseCount != 0)
+            {
+                try { await runtime.ResetAsync(); }
+                catch { }
+            }
+            await runtime.DisposeAsync();
+        }
+    }
+
     private static async Task<GenericGuardianWindowsRuntimeCycleResult> RunKeptCycleAsync(
         GenericGuardianWindowsRuntimeHost runtime,
         Fixture fixture)
@@ -492,6 +592,25 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         }
 
         internal ResolvedGameCatalogResult Catalog { get; }
+
+        internal ResolvedGameCatalogResult CatalogWithoutRunningProcess()
+            => new()
+            {
+                Games =
+                [
+                    new ResolvedGameCatalogEntry
+                    {
+                        Identity = new GameIdentity
+                        {
+                            GameId = GameId,
+                            Name = GameId,
+                            AdapterId = "generic"
+                        },
+                        Adapter = new GenericGameAdapter()
+                    }
+                ],
+                BoundEvidence = Array.Empty<BoundGameEvidence>()
+            };
 
         internal ResolvedGameCatalogResult CatalogFor(string gameId)
         {
