@@ -49,6 +49,20 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
                 : ControlledBenchmarkActivityState.Active);
     }
 
+    /// <summary>
+    /// Acquires the same process-wide machine-measurement gate used by Track 0
+    /// without marking a controlled benchmark active. This is reserved for the
+    /// generic Guardian experiment admission coordinator so a benchmark cannot
+    /// begin during a live canary experiment. It does not suspend Guardian by
+    /// itself and grants no benchmark authority.
+    /// </summary>
+    internal async Task<IAsyncDisposable> AcquireExperimentExclusionAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await GlobalGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new ExclusiveGateLease(GlobalGate);
+    }
+
     public async Task<IAsyncDisposable> AcquireAsync(
         string owner,
         CancellationToken cancellationToken = default)
@@ -72,6 +86,18 @@ public sealed class ControlledBenchmarkLeaseManager : IControlledBenchmarkLeaseM
             Interlocked.Increment(ref _activityGeneration); // Always end failed acquisition.
             GlobalGate.Release();
             throw;
+        }
+    }
+
+    private sealed class ExclusiveGateLease(SemaphoreSlim gate) : IAsyncDisposable
+    {
+        private int _disposed;
+
+        public ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                gate.Release();
+            return ValueTask.CompletedTask;
         }
     }
 
