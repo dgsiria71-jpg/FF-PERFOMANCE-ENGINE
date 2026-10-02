@@ -52,6 +52,9 @@ internal static class GenericGuardianExperimentAdmissionCompositionSelfTests
                     && host.RetainedLeaseCount == 1,
                 "KEEP transfer releases experiment exclusion but preserves the reversible session mutation under host ownership.");
 
+            await competingBenchmarkLease.DisposeAsync();
+            competingBenchmarkLease = null;
+
             await host.ResetAsync();
             Require(f.CanaryAdapter.State == Fixture.Original
                     && f.CanaryAdapter.RollbackCount == 1
