@@ -1,0 +1,29 @@
+# Checkpoint — 2026-10-02 Track 6 generic experiment admission exclusion
+
+## Proven application state
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. Application commit `d3116082f90f4cc3a9e29f785b730bb183de0205` passed Windows CI #1089, run `37048576315`, job `110976003390`: native configure/build/test, managed build, Core and App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11245582953`, SHA-256 `5fc4dbf29733c171db2f88d56b2e43364cfbcb6721eab414d87daab1baaae2fc`.
+
+## TDD evidence
+
+RED branch `ci/track6-generic-experiment-admission-verify`, commit `f02b8162e32e470e178ef16eb385a34bb0c903f0`, run `37047035030`, job `110970910809`: native PASS; managed build failed with exactly two expected CS0246 errors for missing `GenericGuardianSessionExperimentAdmissionManager`, zero warnings.
+
+The first complete implementation at `2cd2d44b9d190db08931ae7bf516a768230d81ba` compiled and its new admission regression printed PASS, but run `37047348927`, job `110972315883`, timed out in the full Core suite. Root cause: a simple global System Optimization mutex made the existing `GenericGuardianSystemOptimizationActivityIntegrationSelfTests.DuringMutation` nested second transaction wait on the first transaction that was synchronously waiting for the nested operation. This was treated as a real regression, not GREEN.
+
+Final verifier `539bebd38df7e95f75f27215b39c64ce3a15bc8c`, run `37048299932`, job `110975083785`, replaced that mutex with reader/exclusive-writer admission and passed native, managed, Core, App, publish and artifact upload. Official selective commit `d3116082f90f4cc3a9e29f785b730bb183de0205` contains exactly five source/test files and excludes the temporary workflow.
+
+## Implemented contract
+
+`GenericGuardianSessionExperimentAdmissionManager` acquires exclusion in a fixed process-local order: the shared Track0 measurement gate first, then the DG System Optimization exclusive experiment writer. A held admission blocks new `ControlledBenchmarkLeaseManager.AcquireAsync` calls and normal non-admitted `SystemOptimizationTransactionEngine` operations.
+
+The returned `GenericGuardianSessionExperimentAdmissionLease` owns an internal non-forgeable System Optimization admission token. Its own `BeginSystemOptimizationSessionAsync` can execute and restore the canary's Track2 session transaction while exclusion is held, avoiding self-deadlock. Normal System Optimization operations are readers, so existing concurrent/nested operation behavior remains intact when no experiment writer owns the gate.
+
+Cancellation during partial acquisition is fail-closed: if Track0 exclusion has already been acquired but DG admission cannot be obtained before cancellation, the Track0 gate is released before the cancellation propagates. Disposal releases DG then Track0 in reverse order and is idempotent.
+
+## Boundaries and exact continuation
+
+This is process-local exclusion only. It does not prove absence of external Regedit/vendor/driver mutations, does not authenticate gameplay scene/mode/load/environment and does not yet suspend/reconcile the specialized Guardian when a generic experiment acquires the Track0 gate. The admission manager is not yet called by `GenericGuardianWindowsSessionCanaryExecutor` or `GenericGuardianWindowsSessionHostLifecycle`; therefore current product behavior remains fail-closed and generic canary activation remains disabled.
+
+Next bounded slice: compose this verified admission lease into the owner lifecycle/executor. Admission must be acquired before the physical BEFORE interval, route only the canary's own Track2 mutation through the admitted path, remain held through AFTER/evaluator/KEEP transfer or rollback, and release on every exception/cancellation path. Then extend experiment exclusion to preserve specialized Guardian suspend/reconcile and wire concrete runtime teardown/retained lease cleanup. FF/FF MAX remain `CanaryContextEvidence=false`; real adapter scene evidence and Windows/real-game HIL remain prerequisites.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being called GREEN.
