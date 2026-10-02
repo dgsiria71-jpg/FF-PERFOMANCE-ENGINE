@@ -39,9 +39,37 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
     /// first restores all retained leases; only after successful cleanup may
     /// the old coordinator epoch be reset and a new one be issued.
     /// </summary>
-    public async Task<GenericGuardianCanarySessionKey?> ObserveAsync(
+    public Task<GenericGuardianCanarySessionKey?> ObserveAsync(
         GuardianWorkloadStateSnapshot? state,
         CancellationToken cancellationToken = default)
+        => ObserveCoreAsync(state, null, cancellationToken);
+
+    internal bool RequiresTeardown(GuardianWorkloadStateSnapshot? state)
+    {
+        var current = CurrentSession;
+        if (current is null)
+            return RetainedLeaseCount != 0;
+
+        return !IsEligibleState(state)
+               || !MatchesIdentity(current, state!.Target)
+               || !_sessionOwner.IsCurrent(current, state.Target);
+    }
+
+    internal Task<GenericGuardianCanarySessionKey?> ObserveUnderExperimentAsync(
+        GuardianWorkloadStateSnapshot? state,
+        GenericGuardianSessionExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        if (!admission.IsActive)
+            throw new InvalidOperationException("Generic Guardian teardown admission is not active.");
+        return ObserveCoreAsync(state, admission, cancellationToken);
+    }
+
+    private async Task<GenericGuardianCanarySessionKey?> ObserveCoreAsync(
+        GuardianWorkloadStateSnapshot? state,
+        GenericGuardianSessionExperimentAdmissionLease? admission,
+        CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -57,7 +85,7 @@ public sealed class GenericGuardianWindowsSessionHostLifecycle : IAsyncDisposabl
                 return current;
 
             if (current is not null || _retainedLeases.Count != 0)
-                await EndCurrentSessionCoreAsync(null).ConfigureAwait(false);
+                await EndCurrentSessionCoreAsync(admission).ConfigureAwait(false);
 
             var next = _sessionOwner.Observe(state);
             Volatile.Write(ref _current, next);
