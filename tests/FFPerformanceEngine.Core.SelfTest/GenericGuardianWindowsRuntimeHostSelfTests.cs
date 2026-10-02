@@ -21,7 +21,8 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         await ResetRestoresKeepUnderSharedExperimentExclusionAsync();
         await ResetRollbackFailurePreservesSessionAndBudgetForRetryAsync();
         await CancellationWhileWaitingForResetExclusionLeavesKeepOwnedAsync();
-        Console.WriteLine("PASS Track 6 concrete generic runtime composes observation/classification/budget/catalog/admitted canary/lifecycle and protected teardown fail-closed");
+        await WorkloadRebindRestoresKeepUnderSharedExperimentExclusionAsync();
+        Console.WriteLine("PASS Track 6 concrete generic runtime composes observation/classification/budget/catalog/admitted canary/lifecycle and protected reset/rebind teardown fail-closed");
     }
 
     private static async Task CompleteCycleUsesSharedGuardianConnectedAuthorityAndOwnsKeepAsync()
@@ -242,6 +243,60 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
             "After contention clears, protected reset must restore and retire the old session normally.");
     }
 
+    private static async Task WorkloadRebindRestoresKeepUnderSharedExperimentExclusionAsync()
+    {
+        await using var guardianRunner = new FakeLiveRunner();
+        await using var guardianHost = new GuardianSessionHost(guardianRunner);
+        await guardianHost.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await guardianRunner.WaitForStartsAsync(1);
+
+        using var f = new Fixture(guardianHost, candidateCount: 1, maxAttempts: 1);
+        await using var runtime = f.CreateRuntime();
+        var kept = await RunKeptCycleAsync(runtime, f);
+        var oldSession = kept.Session
+            ?? throw new InvalidOperationException("Rebind fixture requires an owner-issued old session.");
+
+        Task<IAsyncDisposable>? competingBenchmark = null;
+        f.Adapter.RollbackObserver = () =>
+        {
+            Require(!guardianHost.IsRunning,
+                "Workload rebind must suspend the specialized Guardian before restoring the prior retained KEEP.");
+            competingBenchmark = new ControlledBenchmarkLeaseManager()
+                .AcquireAsync("competing-track0-during-runtime-rebind");
+            Require(!competingBenchmark.IsCompleted,
+                "Track0 must remain excluded while old-session rollback executes during runtime rebind.");
+        };
+
+        const string newGameId = "test.runtime.rebound";
+        var rebound = await runtime.RunCycleAsync(
+            f.CatalogFor(newGameId),
+            newGameId,
+            true,
+            TimeSpan.FromMilliseconds(10),
+            f.AnalysisContext);
+
+        Require(rebound.Observation.State.State == GuardianWorkloadState.Starting
+                && rebound.Session is null
+                && runtime.CurrentSession is null
+                && runtime.RetainedLeaseCount == 0
+                && f.Adapter.State == Fixture.Original
+                && f.Adapter.RollbackCount == 1
+                && guardianHost.IsRunning,
+            "Rebind must restore/retire the old session under exclusion before exposing the new workload lifecycle.");
+
+        var benchmarkLease = await (competingBenchmark
+            ?? throw new InvalidOperationException("Rebind rollback observer did not start the competing benchmark."))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await benchmarkLease.DisposeAsync();
+
+        var oldBudgetAfterCleanup = f.Budget.TryAdmit(
+            oldSession,
+            kept.Eligibility,
+            f.Candidates[0]);
+        Require(oldBudgetAfterCleanup.Allowed,
+            "Old-session budget may reset only after protected rebind cleanup succeeds.");
+    }
+
     private static async Task<GenericGuardianWindowsRuntimeCycleResult> RunKeptCycleAsync(
         GenericGuardianWindowsRuntimeHost runtime,
         Fixture fixture)
@@ -437,6 +492,48 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         }
 
         internal ResolvedGameCatalogResult Catalog { get; }
+
+        internal ResolvedGameCatalogResult CatalogFor(string gameId)
+        {
+            var source = Catalog.BoundEvidence.Single().Observation;
+            return new ResolvedGameCatalogResult
+            {
+                Games =
+                [
+                    new ResolvedGameCatalogEntry
+                    {
+                        Identity = new GameIdentity
+                        {
+                            GameId = gameId,
+                            Name = gameId,
+                            AdapterId = "generic"
+                        },
+                        Adapter = new GenericGameAdapter()
+                    }
+                ],
+                BoundEvidence =
+                [
+                    new BoundGameEvidence
+                    {
+                        GameId = gameId,
+                        BindingReason = GameEvidenceBindingReason.ExactGameIdHint,
+                        SourceId = "runtime-selftest-rebind",
+                        Priority = 40,
+                        Observation = new GameEvidenceObservation
+                        {
+                            ObservationId = "runtime-selftest-rebind-running",
+                            Kind = GameEvidenceKind.RunningProcess,
+                            Confidence = 1,
+                            ObservedAtUtc = DateTimeOffset.UtcNow,
+                            GameIdHint = gameId,
+                            ProcessId = source.ProcessId,
+                            ExecutablePath = source.ExecutablePath,
+                            EvidenceText = "runtime self-test rebound exact process"
+                        }
+                    }
+                ]
+            };
+        }
         internal GenericGuardianWorkloadObservationService Observation { get; }
         internal GenericGuardianBottleneckClassifier Classifier { get; }
         internal GenericGuardianSessionActionSelector Selector { get; }
