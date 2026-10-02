@@ -43,18 +43,44 @@ public interface IGenericGuardianSessionCanaryOutcomeEvaluator
 public sealed class GenericGuardianSessionCanaryLease : IAsyncDisposable
 {
     private readonly SystemOptimizationSession _session;
+    private GenericGuardianSessionExperimentAdmissionLease? _experimentAdmission;
 
     internal GenericGuardianSessionCanaryLease(SystemOptimizationSession session)
-        => _session = session ?? throw new ArgumentNullException(nameof(session));
+        : this(session, null)
+    {
+    }
+
+    internal GenericGuardianSessionCanaryLease(
+        SystemOptimizationSession session,
+        GenericGuardianSessionExperimentAdmissionLease? experimentAdmission)
+    {
+        _session = session ?? throw new ArgumentNullException(nameof(session));
+        _experimentAdmission = experimentAdmission;
+    }
 
     public Guid TransactionId => _session.TransactionId;
     public Guid RestorePointId => _session.RestorePointId;
     public bool IsActive => !_session.IsRestored;
 
-    public Task RestoreAsync(CancellationToken cancellationToken = default)
-        => _session.RestoreAsync(cancellationToken);
+    public async Task RestoreAsync(CancellationToken cancellationToken = default)
+    {
+        await _session.RestoreAsync(cancellationToken).ConfigureAwait(false);
+        await ReleaseExperimentAdmissionAsync().ConfigureAwait(false);
+    }
 
-    public ValueTask DisposeAsync() => _session.DisposeAsync();
+    internal async ValueTask ReleaseExperimentAdmissionAsync()
+    {
+        var admission = Interlocked.Exchange(ref _experimentAdmission, null);
+        if (admission is not null)
+            await admission.DisposeAsync().ConfigureAwait(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_session.IsRestored)
+            await _session.RestoreAsync(CancellationToken.None).ConfigureAwait(false);
+        await ReleaseExperimentAdmissionAsync().ConfigureAwait(false);
+    }
 }
 
 public sealed record GenericGuardianSessionCanaryResult
@@ -92,6 +118,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
     private readonly Func<DateTimeOffset> _clock;
     private readonly ControlledBenchmarkLeaseManager _benchmarkAuthority;
     private readonly GenericGuardianControlledBenchmarkIntervalCapture _benchmarkCapture;
+    private readonly GenericGuardianSessionExperimentAdmissionManager _experimentAdmission;
     private readonly GenericGuardianWindowsSessionLifecycleCoordinator? _sessionOwner;
 
     public GenericGuardianWindowsSessionCanaryExecutor(
@@ -122,6 +149,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         // A caller cannot substitute a forged IControlledBenchmarkActivityProbe.
         _benchmarkAuthority = benchmarkAuthority ?? new ControlledBenchmarkLeaseManager();
         _benchmarkCapture = new GenericGuardianControlledBenchmarkIntervalCapture(_benchmarkAuthority);
+        _experimentAdmission = new GenericGuardianSessionExperimentAdmissionManager(
+            _benchmarkAuthority,
+            _transactions);
         _sessionOwner = sessionOwner;
     }
 
@@ -139,6 +169,13 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         var preflightFailure = PreflightFailure(eligibility, binding);
         if (preflightFailure is not null)
             return NotAttempted(candidate, preflightFailure);
+
+        GenericGuardianSessionExperimentAdmissionLease? experimentAdmission = null;
+        try
+        {
+            experimentAdmission = await _experimentAdmission
+                .AcquireAsync("DG Guardian session canary", cancellationToken)
+                .ConfigureAwait(false);
 
         var systemBaseline = _transactions.SnapshotActivity();
         if (systemBaseline.State != SystemOptimizationActivityState.Idle)
@@ -190,7 +227,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         try
         {
             var mutationStartedAt = _clock();
-            session = await _transactions.BeginSessionAsync(
+            session = await experimentAdmission.BeginSystemOptimizationSessionAsync(
                 "DG Guardian session canary",
                 [binding.Mutation],
                 cancellationToken).ConfigureAwait(false);
@@ -279,8 +316,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
 
             if (verdict == GenericGuardianSessionCanaryVerdict.Improved)
             {
-                var lease = new GenericGuardianSessionCanaryLease(session);
+                var lease = new GenericGuardianSessionCanaryLease(session, experimentAdmission);
                 session = null;
+                experimentAdmission = null;
                 return new GenericGuardianSessionCanaryResult
                 {
                     Candidate = candidate,
@@ -290,7 +328,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     Before = before,
                     After = after,
                     ActiveLease = lease,
-                    Reason = "Supplied scene comparison, real Track 0 idle generation and DG System Optimization activity checks passed; improvement remains reversible, but external interference/causality is not proven."
+                    Reason = "Supplied scene comparison and process-local Track0/DG experiment exclusion passed; improvement remains reversible, but external interference/causality is not proven."
                 };
             }
 
@@ -327,6 +365,12 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
 
             ExceptionDispatchInfo.Capture(primaryFailure).Throw();
             throw;
+        }
+        }
+        finally
+        {
+            if (experimentAdmission is not null)
+                await experimentAdmission.DisposeAsync().ConfigureAwait(false);
         }
     }
 
