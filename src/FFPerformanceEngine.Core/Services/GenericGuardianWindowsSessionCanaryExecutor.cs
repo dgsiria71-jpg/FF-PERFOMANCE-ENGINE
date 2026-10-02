@@ -68,6 +68,16 @@ public sealed class GenericGuardianSessionCanaryLease : IAsyncDisposable
         await ReleaseExperimentAdmissionAsync().ConfigureAwait(false);
     }
 
+    internal Task RestoreUnderExperimentAdmissionAsync(
+        GenericGuardianSessionExperimentAdmissionLease admission,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(admission);
+        return admission.RestoreSystemOptimizationSessionAsync(
+            _session,
+            cancellationToken);
+    }
+
     internal async ValueTask ReleaseExperimentAdmissionAsync()
     {
         var admission = Interlocked.Exchange(ref _experimentAdmission, null);
