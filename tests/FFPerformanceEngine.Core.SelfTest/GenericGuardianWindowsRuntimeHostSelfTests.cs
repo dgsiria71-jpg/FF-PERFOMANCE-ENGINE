@@ -24,7 +24,9 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         await WorkloadRebindRestoresKeepUnderSharedExperimentExclusionAsync();
         await EndingStateRestoresKeepUnderSharedExperimentExclusionAsync();
         await DisposeRestoresKeepUnderSharedExperimentExclusionAsync();
-        Console.WriteLine("PASS Track 6 concrete generic runtime composes observation/classification/budget/catalog/admitted canary/lifecycle and protected reset/rebind/ending/dispose teardown fail-closed");
+        await ContinuousCoordinatorRequiresExplicitStartAndStopRestoresKeepAsync();
+        await ContinuousCoordinatorCycleFailureRestoresKeepAndSurfacesFailureAsync();
+        Console.WriteLine("PASS Track 6 concrete generic runtime + explicit continuous coordinator remain fail-closed and restore on stop/failure");
     }
 
     private static async Task CompleteCycleUsesSharedGuardianConnectedAuthorityAndOwnsKeepAsync()
@@ -394,6 +396,126 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
                 catch { }
             }
             await runtime.DisposeAsync();
+        }
+    }
+
+    private static async Task ContinuousCoordinatorRequiresExplicitStartAndStopRestoresKeepAsync()
+    {
+        await using var guardianRunner = new FakeLiveRunner();
+        await using var guardianHost = new GuardianSessionHost(guardianRunner);
+        await guardianHost.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await guardianRunner.WaitForStartsAsync(1);
+
+        using var f = new Fixture(guardianHost, candidateCount: 1, maxAttempts: 1);
+        var runtime = f.CreateRuntime();
+        var requestCalls = 0;
+        var secondRequest = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(
+            runtime,
+            cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var call = Interlocked.Increment(ref requestCalls);
+                if (call >= 2) secondRequest.TrySetResult();
+                return ValueTask.FromResult<GenericGuardianWindowsRuntimeCycleRequest?>(
+                    new GenericGuardianWindowsRuntimeCycleRequest(
+                        f.Catalog,
+                        Fixture.GameId,
+                        SystemOnline: true,
+                        ObservationCaptureDuration: TimeSpan.FromMilliseconds(10),
+                        AnalysisContext: f.AnalysisContext));
+            },
+            TimeSpan.FromMilliseconds(20));
+
+        Require(!coordinator.IsRunning
+                && requestCalls == 0
+                && f.Adapter.ApplyCount == 0,
+            "Constructing the continuous coordinator must not start a loop, discover workloads or mutate anything.");
+
+        await coordinator.StartAsync();
+        await secondRequest.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitUntilAsync(
+            () => f.Adapter.ApplyCount == 1 && runtime.RetainedLeaseCount == 1,
+            "Explicitly started coordinator did not reach the retained KEEP fixture.");
+
+        Require(coordinator.IsRunning
+                && coordinator.LastFailure is null
+                && f.Adapter.State == Fixture.Mutated,
+            "Explicit Start must run serialized caller-supplied cycles and may retain only the already-authorized canary result.");
+
+        await coordinator.StopAsync();
+
+        Require(!coordinator.IsRunning
+                && f.Adapter.State == Fixture.Original
+                && f.Adapter.RollbackCount == 1
+                && runtime.CurrentSession is null
+                && runtime.RetainedLeaseCount == 0
+                && guardianHost.IsRunning,
+            "Explicit Stop must cancel the loop and protected-reset the runtime so no KEEP survives.");
+    }
+
+    private static async Task ContinuousCoordinatorCycleFailureRestoresKeepAndSurfacesFailureAsync()
+    {
+        await using var guardianRunner = new FakeLiveRunner();
+        await using var guardianHost = new GuardianSessionHost(guardianRunner);
+        await guardianHost.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await guardianRunner.WaitForStartsAsync(1);
+
+        using var f = new Fixture(guardianHost, candidateCount: 1, maxAttempts: 1);
+        var runtime = f.CreateRuntime();
+        var requestCalls = 0;
+
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(
+            runtime,
+            cancellationToken =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var call = Interlocked.Increment(ref requestCalls);
+                if (call >= 3)
+                    throw new InvalidOperationException("intentional continuous runtime request failure");
+
+                return ValueTask.FromResult<GenericGuardianWindowsRuntimeCycleRequest?>(
+                    new GenericGuardianWindowsRuntimeCycleRequest(
+                        f.Catalog,
+                        Fixture.GameId,
+                        SystemOnline: true,
+                        ObservationCaptureDuration: TimeSpan.FromMilliseconds(10),
+                        AnalysisContext: f.AnalysisContext));
+            },
+            TimeSpan.FromMilliseconds(20));
+
+        await coordinator.StartAsync();
+        await WaitUntilAsync(
+            () => !coordinator.IsRunning && coordinator.LastFailure is not null,
+            "Coordinator did not stop and expose the injected cycle-source failure.");
+
+        Require(coordinator.LastFailure is InvalidOperationException
+                && coordinator.LastFailure.Message.Contains("intentional continuous runtime request failure", StringComparison.Ordinal)
+                && f.Adapter.State == Fixture.Original
+                && f.Adapter.ApplyCount == 1
+                && f.Adapter.RollbackCount == 1
+                && runtime.CurrentSession is null
+                && runtime.RetainedLeaseCount == 0
+                && guardianHost.IsRunning,
+            "Unexpected loop failure must be surfaced and must protected-reset retained runtime state before the coordinator becomes stopped.");
+
+        await RequireThrowsAsync<InvalidOperationException>(
+            () => coordinator.StopAsync(),
+            "Explicit Stop after a background loop failure must surface the recorded failure rather than silently report success.");
+    }
+
+    private static async Task WaitUntilAsync(
+        Func<bool> condition,
+        string message)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (!condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+                throw new InvalidOperationException(message);
+            await Task.Delay(20);
         }
     }
 
