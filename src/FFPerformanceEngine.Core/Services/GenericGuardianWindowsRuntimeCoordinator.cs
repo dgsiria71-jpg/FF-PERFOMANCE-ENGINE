@@ -44,7 +44,7 @@ public sealed record GenericGuardianWindowsRuntimeLoopPlan
 /// If cleanup itself fails, ownership remains in the runtime and a later
 /// explicit Stop retries ResetAsync before a new Start is permitted.
 /// </summary>
-public sealed class GenericGuardianWindowsRuntimeCoordinator : IAsyncDisposable
+public sealed class GenericGuardianWindowsRuntimeCoordinator : IGenericGuardianWindowsRuntimeScheduler
 {
     private readonly IGenericGuardianWindowsRuntime _runtime;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
