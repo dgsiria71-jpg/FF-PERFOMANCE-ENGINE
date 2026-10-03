@@ -1,0 +1,37 @@
+DG Performance Engine — Track 5 universal tuning search-space slice checkpoint
+Date: 2026-09-09
+Branch: build/initial-product
+Application checkpoint: 797c8c7766adea3369948d9cb330bb7ba9a69d52
+Commit: feat: add capability-honest universal tuning search space
+Windows CI: #1000 SUCCESS
+Run id: 34411645032
+
+TDD provenance:
+- Task 1 RED: verifier run 34410887507 failed because UniversalTuningDimensionScope / UniversalTuningDimension / UniversalTuningCandidate did not exist.
+- Task 1 GREEN: verifier run #3 on 6feb03b019008092868602c6400e9272ab968200 passed Core + App.SelfTest + WPF.
+- Task 2 RED: verifier run 34411302456 failed only because UniversalTuningSystemDimensionFactory did not exist.
+- Task 2 GREEN: verifier run #5 / 34411435761 on 5c50b2a268246feefcfc2ba190176f9231d52d83 passed Core + App.SelfTest + WPF.
+- Selective official integration excluded the temporary verifier workflow.
+
+Verified behavior:
+- UniversalTuningDimension distinguishes System vs Workload scope and requires explicit Id, AuthorityId and candidate values.
+- UniversalTuningSearchSpacePlanner builds a deterministic bounded Cartesian product only from explicitly declared values.
+- blank identity/authority/value, duplicate dimension id and duplicate candidate value fail closed.
+- zero dimensions produce zero candidates; no empty/default tuning candidate is invented.
+- MaxCandidates truncates a deterministic prefix; no randomization or hidden exploration axis is introduced.
+- universal search-space candidates carry no evidence, confidence or recommendation authority.
+- UniversalTuningSystemDimensionFactory projects only an already-authorized WindowsCapabilityCandidatePlan with CanExplore=true.
+- Unavailable, MissingCurrentState, NoCandidateSpace, or Ready-with-zero-candidates remain absent from universal tuning space.
+- Windows target values are preserved exactly in ExplorationRank order; duplicate target values fail closed.
+- the bridge does not read the registry, generate new schema points, mutate Windows, consult recommendations, or publish recommendation authority.
+- existing BlueStacks/FF TuningCandidate and Auto Tuner paths remain source-compatible and unchanged.
+- no startup discovery or tuning side effect was added.
+
+Authority invariant:
+Support/search space is exploration only. It never means recommended, validated, or safe-to-persist. Existing typed evidence, repeatability, freshness/fingerprint, Global Controlled Benchmark Lease, validation challenge and winner-promotion gates remain authoritative.
+
+Track status:
+Track 5 remains ACTIVE. This checkpoint completes the first search-space/system-dimension foundation slice, not Track 5 as a whole.
+
+Next slice:
+Locate and reuse the existing Track 3 game-adapter contracts, then define capability-honest workload/game candidate dimensions without inventing universal renderer/quality semantics. Compose workload dimensions with the universal planner only after an adapter explicitly declares them.

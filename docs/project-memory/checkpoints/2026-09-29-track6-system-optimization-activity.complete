@@ -1,0 +1,25 @@
+# Checkpoint — 2026-09-29 Track 6 DG System Optimization activity observation
+
+## Verified application
+
+Application commit `78ee8384957f174824228d958be0d52c392d3ae2` on `build/initial-product`; Windows CI #1083 run `36631208795`, job `109620603917` SUCCESS across native build/test, managed build, Core/App self-tests, win-x64 publish and artifact upload. Artifact `FFPerformanceEngine-win-x64` ID `11061424569`, SHA-256 `835e62b84d0576ed129ebd813353ebfdbf034ee66ebde024d934b4c644002a82`. `main` untouched. Prior documentary `1d7905c339472b0bab579a0ddb5f6f4c1652ad7e` verified by Windows CI #1082 run `36630249932`.
+
+## TDD evidence
+
+Isolated branch `ci/track6-system-optimization-activity-verify`. RED `916e90731a7437e04bdaf0bc6aa85a1098e22b93`, run `36630504421`, job `109618218721`: native PASS; managed build failed with eight expected missing-symbol errors for the new activity API, zero compiler warnings. A contract-only intermediate commit/run was incomplete by construction. Final GREEN `a6600eec7c25f9b16e188ca3405f02a41d6f42cb`, run `36630781473`, job `109619394152`: all native, managed, Core, App, publish and upload steps SUCCESS.
+
+Official selective commit `78ee8384957f174824228d958be0d52c392d3ae2` contains exactly four code/test files: new `SystemOptimizationActivityProbe.cs`, instrumented `SystemOptimizationTransactionEngine.cs`, new cross-instance self-test, and one Program registration. Temporary verifier workflow excluded.
+
+## Proven behavior
+
+`SystemOptimizationActivitySnapshot` carries a process-wide generation and active-operation count. State is Active while count > 0. `ProvesUninterruptedIdle` requires both snapshots idle and identical generation. All `SystemOptimizationTransactionEngine` instances share one static observer state. `BeginSessionAsync`, `ApplyPersistentAsync` and `RestoreAsync` enter observation only after their per-instance transaction gate is acquired; exit always advances generation and decrements active count.
+
+The tests prove a second engine instance's operation is visible while active and remains detectable after it completes between two idle snapshots. Existing per-engine transaction serialization, dependency ownership, snapshots, rollback and History behavior are unchanged.
+
+## Limits and continuation
+
+This is detection of DG System Optimization operations inside this process, not mutual exclusion and not external Windows mutation evidence. Regedit, vendor tools, driver panels, other applications and kernel/driver changes are not covered. It is not yet consumed by the generic canary.
+
+Next TDD integrates this observer into `GenericGuardianWindowsSessionCanaryExecutor`: pre-mutation intervals require unchanged idle generation; successful own `BeginSessionAsync` must account for exactly one operation entry+exit (+2 generation, idle after); any additional overlapping/completed DG operation causes deny before mutation or rollback Inconclusive/no KEEP after mutation. A later owner host must provide actual exclusion and retained-lease cleanup. FF/BlueStacks scene evidence remains unsupported, so generic activation remains disabled.
+
+This documentary commit requires fresh exact-head Windows CI before being marked verified.

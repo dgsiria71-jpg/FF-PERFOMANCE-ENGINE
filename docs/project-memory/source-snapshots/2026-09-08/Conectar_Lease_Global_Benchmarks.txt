@@ -1,0 +1,64 @@
+Sim — essa expansão pode tornar o projeto muito mais forte. Em vez de abandonar o que já fizemos, eu trataria o **FF Performance Engine como a primeira especialização de um motor maior**: um otimizador profundo do Windows, capaz de reconhecer qualquer jogo, otimizar o PC como um todo e depois aplicar otimizações específicas para cada workload.
+
+O que já existe continua extremamente útil: Guardian, Auto Tuner, benchmarks A/B, Profiles, History, telemetria e rollback. A árvore atual já está separada em App/Core/Native e possui páginas próprias de Optimize, Performance, Guardian, Profiles, History e Expert, então temos uma base adequada para crescer em torno dela, em vez de reescrever tudo. fileciteturn9file0L2-L2
+
+Eu dividiria essa nova visão em **seis motores**, mas todos coordenados pelo mesmo Core:
+
+- **System Optimizer** — otimização do Windows independentemente de jogo: processos em background, prioridades, energia, memória, serviços apropriados, tarefas, apps de inicialização, I/O, armazenamento, cache e outras fontes reais de overhead.
+- **Game Optimizer** — detecta o jogo aberto e cria um contexto específico. Free Fire/BlueStacks vira apenas o primeiro adaptador; depois poderemos suportar jogos nativos, Steam, Epic, Riot, Battle.net etc.
+- **Hardware Performance Engine** — entende CPU, GPU, RAM, armazenamento, energia, temperatura e gargalos. O objetivo não é simplesmente colocar tudo em 100%, e sim direcionar os recursos para o workload certo e evitar desperdício/competição.
+- **Deep Cleaner** — limpeza segura de temporários, caches descartáveis, logs antigos, restos de instalação/update, dumps e outros arquivos recuperáveis. Eu evitaria a filosofia de “registry cleaner agressivo”, porque apagar coisas indiscriminadamente não gera FPS e pode causar instabilidade.
+- **Adaptive Guardian 2.0** — deixa de observar apenas BlueStacks e passa a observar o PC inteiro durante jogos. Pode detectar CPU contention, pressão de RAM, processos que surgiram, consumo de disco, alterações de energia e regressões durante a sessão.
+- **Universal Auto Tuner** — o ponto mais importante. Ele testa configurações, mede resultado real e aprende **por máquina + jogo + perfil**, em vez de aplicar um pacote genérico de “tweaks gamer”. Nosso A/B e History atuais viram a base científica desse sistema.
+
+Isso também muda uma ideia importante: **“extrair o máximo do PC” não deveria significar aplicar permanentemente o ajuste mais agressivo possível**. Um PC pode estar limitado por GPU, CPU, temperatura, energia, VRAM, RAM ou pelo próprio engine do jogo. O nosso motor deve descobrir o gargalo e aplicar agressividade onde ela realmente produz ganho. Assim podemos obter mais FPS, frame time mais estável e menor latência sem criar regressões inúteis.
+
+Eu também manteria dois níveis separados de otimização:
+
+**Estado permanente do PC** → limpeza, startup, configurações estáveis, plano de energia apropriado e outras melhorias que fazem sentido fora dos jogos.
+
+**Estado de sessão de jogo** → quando um jogo inicia, o Engine entra em modo de desempenho, aplica ajustes temporários, prioriza aquele workload, reduz interferência e monitora. Quando o jogo fecha, ele restaura aquilo que não deveria ficar permanentemente alterado.
+
+Isso encaixa perfeitamente com o princípio de rollback que já usamos no projeto.
+
+E tem uma consequência interessante: nosso sistema de **Profiles** pode evoluir de algo como:
+
+`Free Fire → Recommended / Max FPS / Low Latency`
+
+para:
+
+`Máquina → Jogo → Perfil → Evidência`
+
+Por exemplo:
+
+```text id="91cw60"
+Meu PC
+├── Global System Profile
+│   ├── Balanced
+│   ├── Performance
+│   └── Extreme
+│
+├── Cyberpunk 2077
+│   ├── Recommended
+│   ├── Maximum FPS
+│   ├── Lowest Latency
+│   └── Custom Validated
+│
+├── Valorant
+│   ├── Recommended
+│   ├── Maximum FPS
+│   └── Lowest Latency
+│
+└── Free Fire / BlueStacks
+    └── nossos perfis atuais
+```
+
+Ou seja: **não perdemos o FF Performance Engine atual; nós o transformamos no primeiro módulo especializado do novo motor universal.**
+
+Também acho que futuramente o nome “FF Performance Engine” ficará pequeno demais para o produto. Não precisamos renomear agora, mas arquitetonicamente podemos começar a chamar o núcleo de algo neutro, como `Performance Engine Core`, deixando `FF/BlueStacks` como um `GameAdapter`.
+
+A primeira decisão que precisamos fechar é só uma, porque ela afeta toda essa nova arquitetura:
+
+**Você quer que o produto tenha os três modos `Equilibrado`, `Desempenho` e `Extremo`, sendo o modo Extremo explicitamente voltado a extrair o máximo possível do hardware durante o jogo — mesmo aceitando mais consumo de energia, ventoinhas/temperatura e redução de processos em segundo plano?**
+
+Minha recomendação é **sim, os três modos**, com `Desempenho` como padrão e `Extremo` como opção consciente do usuário.

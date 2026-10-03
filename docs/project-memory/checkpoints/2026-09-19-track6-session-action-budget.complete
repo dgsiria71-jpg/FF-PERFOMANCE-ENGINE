@@ -1,0 +1,27 @@
+# Track 6 Item 3 Slice 4 — Generic Guardian session cooldown + Action Budget — COMPLETE
+
+Date 2026-09-19. Branch `build/initial-product`. At creation: official application GREEN; documentary SHA awaits its exact-head Windows CI.
+
+## Authorized bounded scope
+
+The existing 2026-09-06 unified architecture section 11.7 mandates cooldown and Action Budget. This slice is ONLY an independent, in-memory admission policy for generic live Windows session canary attempts; historical recovery/graphics/Windows budget categories remain separate future work. No invented 45s or 3-attempt defaults. No runtime host, executor, selector, legacy BlueStacks/FF Guardian, UI, Windows mutation, History, Profile, benchmark lease or learning changes.
+
+Files:
+- Plan `docs/superpowers/plans/2026-09-19-track6-session-action-budget.md`.
+- Production `src/FFPerformanceEngine.Core/Services/GenericGuardianSessionActionBudget.cs`.
+- Test `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianSessionActionBudgetSelfTests.cs` plus single Program registration.
+
+Contracts: the caller must supply positive cooldown, positive max attempts, and a session key with stable GameId, exact PID/path and nonempty owner-issued lifecycle GUID. `TryAdmit` independently checks Active/High, exact capturable target, same GameId/PID/path, supported anomaly family, reference-contained explicit LiveSafe action with nonblank Id, and immutable session identity. Lock-serialized admission charges one global canary-attempt slot immediately, applies cooldown per family+Action.Id, never charges cooldown/ineligible attempts, and refuses once budget exhausted even if cooldown expires. Explicit ResetSession affects only the exact epoch/target; owning host must first restore all active leases. A new lifecycle GUID distinguishes reused PIDs; the owning future host must never issue a fresh epoch per observation just to replenish quota. Clock/time arithmetic overflow fails closed. Policy grants no action-to-mutation authorization or stable process identity of its own.
+
+## TDD and exact Windows evidence
+
+Verifier branch `ci/track6-session-action-budget-verify`.
+RED SHA `65e397bb20b0be0f4dfd602a202a8aeb5e9e04a7`; run `35425142105`, job `105849666159` expected FAILURE: native configure/build/test SUCCESS, managed failed with precisely three `CS0246` missing `GenericGuardianCanarySessionKey`, 0 warnings. No unrelated compile failures.
+Production introduced in verifier `860573e80ae607a61bb31918b97c226de4547221`. Registered test only after implementation.
+Verifier GREEN SHA `735a6b029f858901cd6abfb7fba7bd26f77924d1`; run `35425247577`, job `105849950299` SUCCESS: native configure/build/test, managed build (0 warnings, 0 errors), full Core/App self-tests and win-x64 publish. Log explicitly printed `PASS Track 6 generic Guardian canary cooldown, exact session epoch and atomic Action Budget` and all Core tests passed. Cases include same-action cooling, shared global ceiling across actions and families, expiry/exhaustion precedence, per-session isolation, reused PID/new epoch, same epoch/PID mismatch, exact reset, invalid candidate or session failure, clock overflow and concurrency (3 admitted max out of 32).
+Official selectively integrated only production, test, Program registration and plan, excluding temporary verifier workflow. Application SHA `e1e049b76422b7b8873d28c40be54a50b31b7ef1`; Windows CI #1062, run `35425367060`, job `105850257167`: SUCCESS on native/managed/Core/App/publish/upload/cleanup.
+Artifact `FFPerformanceEngine-win-x64`, ID `10578984030`, SHA-256 `8bfad2a7cf80b0d04fea755cbccaa224923a82c24e275f4574275659ae367b66`.
+
+## Next exact action, authority boundaries
+
+First verify documentary-head Windows CI GREEN for this checkpoint. Track 6 item3 remains open. Next bounded work must prove an authoritative Action.Id↔exact Windows capability/mutation binding, then enforce comparable un-contaminated before/after evidence and owning session lifecycle before generic runtime host can automatically execute canaries. No blind host wiring, no invented causal results. Item4 learned reliability and item5 post-session queue remain pending. `Observed != Validated`, Global Controlled Benchmark Lease, Track2 transaction/rollback, Track4 typed capture, Track5 profiles and specialized Guardian unchanged. PR #1 remains draft; main untouched.

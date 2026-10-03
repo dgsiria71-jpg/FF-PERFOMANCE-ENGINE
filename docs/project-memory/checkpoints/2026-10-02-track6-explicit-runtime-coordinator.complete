@@ -1,0 +1,27 @@
+# Checkpoint — 2026-10-02 Track 6 explicit generic runtime coordinator
+
+## Verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Application commit `ae3cceba0884819f096b1444b190a513e5188d59`, message `feat: add explicit generic Guardian runtime coordinator`. Windows CI #1100 run `37082107706`, job `111084672597` SUCCESS across native configure/build/test, managed build, Core/App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11258303427`, SHA-256 `c0a3bad7b61810f5194b8fe0fea6c7290578aaf2b7c8a352f7af81abf0f200c9`.
+
+## TDD evidence
+
+Core RED `57e7b6c2ff77951b70b154f7797c06af10b61693`, run `37081507238`, job `111082834666`: native passed; managed failed with exactly two expected CS0246 errors for the missing runtime scheduler contracts, zero warnings. Core GREEN `52bbb3051ace6065a8e0701abde02632575a054b`, run `37081667021`, job `111083321888`: all steps SUCCESS.
+
+Application RED `2778cc662923f8a466a00a734aec44dd05ea3801`, run `37081802019`, job `111083720447`: managed/Core passed; App self-test failed with exactly one expected CS1061 for the missing explicit AppServices coordinator factory, zero warnings. Final verifier `22b8965b3bf320c7db019102165d4ed3dd8810cf`, run `37081924814`, job `111084109500`: all steps SUCCESS. Official selective integration contains six code/test files; temporary workflow excluded.
+
+## Implemented behavior
+
+`GenericGuardianWindowsRuntimeCoordinator` wraps the already-protected on-demand runtime through `IGenericGuardianWindowsRuntime`. Construction is inert. The loop plan contains only caller-supplied already-resolved inputs. Start is explicit. Cycles are awaited sequentially and cannot overlap.
+
+Stop cancels scheduling, waits for an active cycle and invokes protected runtime reset with `CancellationToken.None`. Cycle failure stops scheduling and attempts reset automatically. Failed automatic cleanup is aggregated with the primary failure and remains retryable via explicit Stop. A failed/completed schedule cannot be restarted until Stop completes the lifecycle boundary. Dispose performs Stop/reset before disposing the runtime and aborts disposal if cleanup fails.
+
+`AppServices.CreateGenericGuardianWindowsRuntimeCoordinator` is explicit only and delegates to the existing runtime factory, preserving the shared Guardian-connected `ControlledBenchmarks` authority. AppServices still does not create/start this coordinator automatically and still has no generic production policy defaults.
+
+## Boundaries and continuation
+
+This infrastructure does not enable automatic generic Guardian. FF/FF MAX remain `CanaryContextEvidence=false`; no production `IGenericGuardianCanaryEvidenceSource` exists; no approved generic production candidate/action mapping/default budget policy exists; external mutation tools remain outside current process-local authority; no real-game HIL or causal FPS benefit is proven.
+
+Next: add a production activation-readiness gate before scheduled Start. It must require truthful adapter context capability, registered production evidence source and explicit approved policy inputs, while current FF/FF MAX remain NotReady. Do not fabricate missing scene/mode/load/environment evidence or policies. Track6 item3 remains IN PROGRESS.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being marked GREEN.

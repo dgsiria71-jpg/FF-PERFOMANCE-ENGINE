@@ -1,0 +1,52 @@
+# Track 5 — Universal Winner/Profile Result Projection — COMPLETE
+
+Date: 2026-09-09
+Branch: `build/initial-product`
+Application SHA: `f24c8c25612182db3c12351185fa54be227a8252`
+Commit: `feat: project Track 5 tuning results into universal context`
+Windows CI: #1016 — SUCCESS
+Run id: `34425901211`
+
+## Verified scope
+
+- Added a pure/read-only universal result projection seam over the existing specialized `TuningResult` path.
+- Added `UniversalTuningEvidenceProjection`, retaining the exact existing `CandidateEvidence` object plus its exact Slice 3 `UniversalTuningCandidate` binding.
+- Added `UniversalTuningWinnerProjection`, retaining the exact existing `PerformanceProfile`, its exact source `CandidateEvidence`, and its exact Slice 3 universal candidate binding.
+- Added `UniversalTuningResultProjection`, retaining stable `GameIdentity`, exact resolved `AdapterId`, the exact source `TuningResult`, evidence projections and winner projections.
+- Added `BlueStacksUniversalTuningResultBridge.Project(...)` as correlation-only logic. It performs no measurement, scoring, validation, winner selection, persistence, mutation or discovery.
+- Existing `AutoTunerEngine.SelectWinners(...)` remains the only authority producing the specialized five winner roles.
+- The projection preserves the exact existing winner roles and order: Maximum FPS, Lowest Latency, Stability, Quality and Recommended.
+- The projection preserves `EvidenceLevel` exactly. `Observed` evidence remains `Observed`; universal binding metadata cannot promote it to `Validated`.
+- A result with only `Observed` evidence and no specialized winners projects with zero winners. The universal layer never invents a winner.
+- Stable workload consistency is fail closed: `TuningResult.Game` must match `candidateSpace.Identity.LegacyGameKind`.
+- Adapter authority is fail closed: `candidateSpace.AdapterId` and `candidateSpace.Identity.AdapterId` must both be nonblank and match after normalization.
+- Every source `CandidateEvidence` must map to exactly one Slice 3 specialized↔universal binding. Missing or ambiguous bindings fail closed.
+- Every specialized winner must trace to exactly one existing source evidence configuration and then to exactly one Slice 3 binding. Missing/ambiguous winner provenance fails closed.
+- Correlation uses the existing specialized candidate/profile fields; no fuzzy process/path/name matching was introduced.
+- No new profile schema or persisted universal profile authority was introduced.
+- No change was made to `AutoTunerRunCoordinator`, `AutoTunerSessionService`, `AutoTunerEngine` scoring/selection, `ProfileService`, Profile Challenge, typed PresentMon benchmark authority, Global Controlled Benchmark Lease, rollback or History.
+- No startup discovery/tuning side effect was introduced.
+
+## TDD provenance
+
+Temporary proving branch: `ci/track5-universal-winner-profile-projection-verify`.
+
+- Plan commit: `67f5ddcdfdb2214948e52bfb6acf2e9c606fdf16`.
+- Initial RED: verifier #1 / run `34423384376` on `726ba12f6e185a5a333ea66d7e86edb098577614` failed only because `BlueStacksUniversalTuningResultBridge` did not exist.
+- Task 1 minimal production: `f9250eab9c18e998b9586a937e865fde7a494067`.
+- Task 1 GREEN: verifier #2 / run `34423487642` on `f9250eab9c18e998b9586a937e865fde7a494067` passed Core + App.SelfTest + WPF.
+- Task 2 RED — cross-workload: verifier #3 / run `34423652214` on `644dec7a627f3309b33e3b41a6d9796c96647fc1` failed exactly because a Free Fire MAX result could be projected onto a Free Fire candidate space when numeric candidate values matched.
+- Cross-workload GREEN: verifier #4 / run `34423775408` on `2f19ba53d74651c1326aa3fbc9b299994d365f8b` passed Core + App.SelfTest + WPF after the minimal workload gate.
+- Task 2 RED — adapter authority: verifier #5 / run `34425347150` on `07c28539e0c3a1ed1d0b555c524bb1c804ca5940` failed exactly because a tampered candidate-space adapter id was accepted.
+- Adapter authority GREEN: verifier #6 / run `34425467591` on `383f12477c83910de17dac2e260140abc98543ac` passed Core + App.SelfTest + WPF after the minimal adapter-identity gate.
+- Final regression coverage: verifier #7 / run `34425669336` on `53ee4ee732d044c92960434368631e912b386390` passed Core + App.SelfTest + WPF. It proved existing `.Single(...)` correlation already fails closed for missing/ambiguous candidate bindings and winners without exact source evidence, and proved `Observed` evidence does not create winners or gain authority.
+- Selective official integration copied only the permanent plan/Core/test/harness blobs and excluded `.github/workflows/core-track5-universal-winner-profile-projection-verifier.yml`.
+- Exact official Windows CI #1016 / run `34425901211` passed application SHA `f24c8c25612182db3c12351185fa54be227a8252`, including native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup.
+
+## Preserved authority boundaries
+
+`Observed != Validated` remains unchanged.
+
+Universal result/winner projection proves only stable workload/adapter correlation and exact provenance back to the existing specialized evidence + candidate binding. It does not create evidence, confidence, validation, winners, recommendation authority, mutation authority or persistence permission.
+
+The downstream authority chain remains controlled direct typed measurement → repeatability/evaluation → exact workload/configuration correlation → machine fingerprint/freshness → explicit validation/promotion authority where applicable.

@@ -1,0 +1,17 @@
+# Track 6 item 3 — mandatory executor comparability gate checkpoint
+
+Date 2026-09-19. Repo `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Scope is executor fail-closed gate only, not authentic source or host activation.
+
+Baseline documentary `9f19d09a7bd200ab543b92749f02d6c6294d80d1` exact Windows CI #1067 run `35428992670` SUCCESS.
+
+RED test commit `f86ae42d633a33aa239349bae10d22c9506d6c0d`, isolated branch `ci/track6-executor-comparability-gate-verify`, Windows verifier run `35430191463`, job `105863265404`: native tests passed, .NET build failed exactly one expected absent interface `IGenericGuardianCanaryEvidenceSource` CS0246, 0 warnings.
+
+First implementation `97c876bc0cf75d4bae02aa7cd63de5053431a8ad`, run `35430314996`, job `105863591778`: native and managed build pass 0 warnings/errors, new mandatory-context canary test PASS, old `GenericGuardianLiveSafeCapabilitySelfTests` fails because it expected capture with no comparison source. Preserve as failure provenance, not GREEN.
+
+Corrected existing test's obsolete expectation while verifying catalog action binding and actual LiveSafe independently. GREEN verifier `921b47f4d161116074031fbe8e806a15d6c6b391`, run `35430452533`, job `105863943795` all native configure/build/test, managed, Core, App, publish and cleanup SUCCESS.
+
+Official app `853ab298965d587abad71dc0d3af258f4ff9fc75`, Windows CI **#1068** run `35430572705`, job `105864269265` complete SUCCESS including upload. Artifact `FFPerformanceEngine-win-x64` ID `10580437246`, SHA-256 `3de5362763133de86ad9d6c39231926273f3e0cccb0bc98acd63e3b126adb0e6`. Selective diff exactly 5 production/test files and no temporary workflow.
+
+New interface `IGenericGuardianCanaryEvidenceSource` is an injectable contract, NOT a production provider. Executor requires matching session epoch and exact GameId/PID/path, references to the captured frame and real capture envelope; missing provider/invalid BEFORE ⇒ zero captures or no Windows mutation; invalid/changed/contaminated AFTER ⇒ Track2 rollback, no outcome evaluator and no KEEP; comparable Improved remains reversible under explicit lease. Regression tests contain a clearly identified fake scene/context source only under SelfTest. No real scene, mode, load, environment or independent Track0 benchmark status implementation; no host, startup auto-activation, profile/winner promotion or real-world FPS proof.
+
+Next: expose real Track0 benchmark-interference read-only source and independently proven adapter-owned scene/load interval evidence, compose source only when available, then owner-managed generic host binding action catalog, real lifecycle epoch, atomic admission budget, kept leases and benchmark suspension/restoration. Unknown remains Inconclusive/no mutation. Documentary HEAD CI must still be verified for this docs-only commit.

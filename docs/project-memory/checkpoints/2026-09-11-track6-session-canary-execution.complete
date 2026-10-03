@@ -1,0 +1,67 @@
+# Track 6 Item 3 Slice 2 — Reversible Session Canary Execution — COMPLETE
+
+Date: 2026-09-11
+
+## Scope
+
+Bounded continuation of Track 6 item 3. Adds a generic reversible Windows live-session canary executor over one already-eligible explicit `LiveSafe` candidate. Does not close item 3.
+
+## Plan / implementation / test
+
+- Plan: `docs/superpowers/plans/2026-09-10-track6-session-canary-execution.md`
+- Core: `src/FFPerformanceEngine.Core/Services/GenericGuardianWindowsSessionCanaryExecutor.cs`
+- Test: `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianWindowsSessionCanarySelfTests.cs`
+
+## TDD evidence
+
+- Verifier branch: `ci/track6-session-canary-execution-verify`
+- RED SHA: `d8c167f9dd5f174c56b1a49ac77fa77488dee9ec`
+- RED run: `34545776498`
+- RED evidence: native configure/build/test passed; managed build failed only because the new canary contracts were absent: 6 `CS0246`, 0 warnings.
+- Production precursor: `26af2d51667596f9f0a356022196d172bf3c2569`
+- Final verifier GREEN SHA: `380169a047415e17b6fcfbd85a471f88fdb743b9`
+- GREEN run: `34546198986`
+- GREEN evidence: native configure/build/test, managed build, Core self-tests, App self-tests and win-x64 publish all SUCCESS.
+
+## Official application evidence
+
+- Application SHA: `cef217f4d4f053109ee6bed34483d773f02605bf`
+- Commit: `feat: add reversible Guardian Windows session canary`
+- Windows CI: #1053
+- Run: `34546467152`
+- Conclusion: SUCCESS
+- Artifact: `FFPerformanceEngine-win-x64`
+- Artifact id: `10179230537`
+- Artifact digest: `sha256:b8d3821173725bc2859ce82eef3d5fc76f146a79eb815d6757f01abd867780b0`
+
+## Permanent behavior / authority
+
+- execution accepts exactly one explicit candidate already present by reference in the supplied eligibility result and exactly one explicit `WindowsMutationRequest`;
+- preflight independently rechecks `Active`, `High`, exact capturable `TelemetryWorkloadTarget`, stable GameId match and `ActionSafety.LiveSafe`;
+- typed before evidence is mandatory before mutation;
+- `SystemOptimizationTransactionEngine.BeginSessionAsync()` remains the sole snapshot/apply/verify/ownership/rollback authority;
+- `PerformanceCaptureCoordinator.CaptureWorkloadTypedAsync()` remains the typed before/after measurement seam on the exact same workload target;
+- outcome semantics are injected through `IGenericGuardianSessionCanaryOutcomeEvaluator`; the executor defines no universal threshold;
+- only `Improved` keeps the mutation active;
+- `Regressive`, `Inconclusive`, unavailable after evidence, post-apply capture/evaluator failure or cancellation restore exact prior state before returning/throwing;
+- cleanup after mutation is active uses `CancellationToken.None` so caller cancellation cannot skip restoration;
+- kept state is session-only and exposed through `GenericGuardianSessionCanaryLease`; lease restore/dispose delegates to the proven transaction engine;
+- transaction-engine durable snapshot/History behavior remains intact;
+- no extra Guardian Knowledge/History persistence is added by this slice;
+- no Global Controlled Benchmark Lease is acquired by live Guardian canary execution; controlled benchmark operations keep their existing lease/suspend/reconcile authority.
+
+## Explicitly not included
+
+- family-specific definitions of improvement;
+- cooldown or Action Budget;
+- runtime/application host wiring;
+- learned ranking/action reliability (Track 6 item 4);
+- post-session queue (item 5);
+- persistent optimization/recommendation authority;
+- profile/winner/ValidatedEvidence authority;
+- WPF/startup/discovery changes;
+- changes to specialized BlueStacks/FF Guardian behavior.
+
+## Next gate
+
+This documentary checkpoint must receive exact Windows CI before the next implementation slice begins. Item 3 remains open; next bounded slice is family-specific canary outcome policy using only capability-honest typed evidence, followed later by cooldown/Action Budget and runtime host wiring.

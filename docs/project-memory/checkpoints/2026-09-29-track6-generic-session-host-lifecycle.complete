@@ -1,0 +1,25 @@
+# Checkpoint — 2026-09-29 Track 6 owner-managed generic session lifecycle
+
+## Proven scope
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`; `main` untouched; draft PR #1. Exact application commit `d3b3e824108c15c9df6364c2942e6269b63a64d3`, Windows CI #1087 run `36636932424`, job `109639748436` SUCCESS: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11065451244`, SHA-256 `8f5234e7e6b7fc6e7b266a120f7aa66eadfeab277168e8677c21be7ffcfe367b`.
+
+## TDD evidence
+
+The first verifier run exposed one fixture visibility mistake in addition to the intended missing type and therefore was not accepted as RED. After correcting only that test defect, valid RED commit `86cc4ac5b4aa3d137c1da8af31e8385186a05acf`, run `36636524244`, job `109638394175`: native PASS, managed compile exactly four CS0246 errors for absent `GenericGuardianWindowsSessionHostLifecycle`, zero warnings. GREEN `8d27461cfd95cdca4a92746f0c320ea0cbad0b3d`, run `36636697561`, job `109638978993`: native, managed, Core/App, publish and upload all SUCCESS.
+
+Official selective diff from documentary `d6dcf5103b854e050f147916fc978a09c7f1acd3` contains exactly three files: new lifecycle owner, new lifecycle self-test and one Program registration. Temporary verifier workflow excluded.
+
+## Implementation
+
+`GenericGuardianWindowsSessionHostLifecycle` encapsulates a concrete OS-backed `GenericGuardianWindowsSessionLifecycleCoordinator` and all retained `GenericGuardianSessionCanaryLease` instances. Repeated Active/High observations of the same physical target retain the exact key. Any invalid state, changed target or rebind first restores retained leases in reverse order with non-cancelable cleanup; only after complete success does it reset the coordinator and issue/clear the epoch.
+
+`RetainAsync` accepts only an active Improved KEEP bound by reference to the exact current owner key. A stale/copied key or otherwise invalid transfer restores the active lease immediately. If teardown rollback fails, the owner aggregates the failure, does not reset/rebind, and keeps the failed lease plus old session for retry. Reset and disposal share the same restore-before-retire invariant.
+
+## Limits and exact continuation
+
+This is a lifecycle/cleanup owner, not the complete Guardian host. It does not classify, admit, execute, provide scene evidence, own action budget policy, or create mutual exclusion. Track0 and DG activity generations are still detection-only and race after the final observation. External tools remain outside coverage. FF/FF MAX remain `CanaryContextEvidence=false`.
+
+Next bounded TDD: design a real generic-session experiment admission/exclusion lease that coordinates with Track0 controlled benchmarks and DG System Optimization while avoiding deadlock with the canary's own System Optimization session. Then compose it with this lifecycle owner/executor and specialized Guardian suspend/reconcile. Real adapter scene/mode/load/environment evidence and Windows/game HIL remain activation prerequisites. Track6 item3 remains IN PROGRESS; items4 and5 remain pending.
+
+This documentary commit itself requires fresh exact-head Windows CI before being marked GREEN.

@@ -1,0 +1,57 @@
+DG Performance Engine — Track 5 Universal Promoted Profile Projection — COMPLETE
+Date: 2026-09-10
+
+Official branch: build/initial-product
+Application SHA: 807bc763db9dd58522f7b3890c5f31ff3f6a2bb0
+Commit: feat: project validated profile promotions into universal provenance
+Windows CI: #1022
+Run id: 34436368817
+Conclusion: SUCCESS
+
+Scope closed
+------------
+- Added UniversalPromotedProfileProjection.
+- Added BlueStacksUniversalProfileChallengeBridge.TryProjectPromotion(...).
+- Projection begins only after a real specialized ProfileChallengeService promotion is already authorized and persisted.
+- Retains exact specialized ProfileChallengeResult, promoted winner profile, upstream Custom Validated universal provenance, exact second/revalidation History round, exact Slice 3 UniversalTuningCandidate, stable GameIdentity and AdapterId.
+- No generic persisted profile schema was introduced.
+
+Fail-closed authority
+---------------------
+- specialized result must already be Promoted + Status.Promoted;
+- at least two specialized evidence rounds and an existing specialized winner role are required;
+- PromotedProfileId must identify the exact promoted profile;
+- promoted profile must be Validated, exact target role and SourceComparisonId must identify the exact revalidation round;
+- full upstream Custom Validated universal provenance is re-projected instead of trusting caller metadata;
+- revalidation baseline/candidate must be Measured and environment-compatible;
+- exact challenger/promoted Game, instance, CPU, RAM, renderer, FPS target, resolution and DPI must match the revalidation candidate;
+- exact challenger/promoted environment fingerprint must match revalidation candidate environment id;
+- promoted AverageFps, existing-evaluator OnePercentLow, FrameTimeMs and LatencyMs must match revalidation candidate evidence;
+- wrong/unpromoted/incumbent-held id/role/evidence/config/fingerprint/metrics/revalidation/candidate/workload returns no projection;
+- universal projection creates no challenge verdict, validation, winner, recommendation, mutation or persistence authority.
+
+Critical challenge-context constraint
+-------------------------------------
+The real Profile Challenge round compatibility path still captures PerformanceEvidenceSnapshot without PerformanceUniversalConfigurationContext. Slice 7's happy path explicitly verifies both challenge rounds have UniversalContext == null. No context was fabricated. Universal provenance is inherited only from the already-proven Custom Validated challenger. ProfileChallengeService, ProfileChallengeRoundService, ProfileChallengeEvaluator, freshness/incumbent logic and persistence remain unchanged.
+
+TDD provenance
+--------------
+Verifier branch: ci/track5-universal-promoted-profile-projection-verify
+Verifier workflow commit: 01c2331cfa16290b980f18ca8fc9f6ba3cafd7d4
+Test contract commit: f603f06cc8dc015ca4105378172d856b0605a51f
+Clean RED SHA: c6e84b34d1b353016be8ed2d8ebcb1b76a643084
+Clean RED verifier: #3 / run 34436070671 — Core failed only because BlueStacksUniversalProfileChallengeBridge did not exist.
+GREEN verifier SHA: 273b03d186ce17a519a91b504216b3d4f3830169
+GREEN verifier: #4 / run 34436199542 — Core + App self-tests + WPF build SUCCESS.
+Selective integration excluded the temporary verifier workflow.
+Official application CI: #1022 / run 34436368817 — SUCCESS through native, managed, Core, App, publish and artifact.
+
+Exact permanent official diff
+-----------------------------
+- src/FFPerformanceEngine.Core/Services/UniversalPromotedProfileProjection.cs — added
+- tests/FFPerformanceEngine.Core.SelfTest/UniversalPromotedProfileProjectionSelfTests.cs — added
+- tests/FFPerformanceEngine.Core.SelfTest/Program.cs — +1 test runner registration
+
+Next
+----
+Inspect AppServices.cs, ProfilesPage.xaml(.cs) and App self-tests. Define the smallest application-owned/read-only consumption seam for the already-proven universal profile/promotion provenance. WPF remains presentation-only; do not infer identity or winner authority, do not create a generic persisted profile schema, and fail closed when exact correlation is unavailable.

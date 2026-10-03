@@ -1,0 +1,27 @@
+# Checkpoint — 2026-09-25 Track 6 executor-bound OS-owned session continuity
+
+## Proven scope
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`; `main` untouched; draft PR #1. Exact application commit `8187d93bf785ee786a7dbb5f1ec83c9d694962e2`, Windows CI #1079 run `36149662557`, job `108119431062` SUCCESS: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, artifact upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `10870847400`, SHA-256 `6f6a636614500e1e776e5eb5d89e61715c033425a8e9ebab7ec53b414ce7c8a1`.
+
+## TDD evidence
+
+Initial isolated verifier `ci/track6-session-owner-executor-verify`: RED commit `1d6d1ed8ca4607cd49ed8e4d77bb69a4c69b3ece`, run `36148963987`, job `108117098536`; native PASS, managed compile failed with exactly one expected CS1739 because `GenericGuardianWindowsSessionCanaryExecutor` had no `sessionOwner` parameter, zero compiler warnings. Sequential implementation commits triggered cancelled/intermediate verifier runs due workflow concurrency; final clean verification was moved to `ci/track6-session-owner-executor-final-verify`, commit `d58b615b22ad6027223f3129ac03ef0a22d444ae`, run `36149411454`, job `108118596564`, full SUCCESS across native, managed, Core, App, publish and artifact upload.
+
+Official selective diff from documentary parent `658453d957d01cc2519889c1175ed8ebf6699146` contains exactly five code/test files: executor, two existing integration/self-test harnesses migrated to real Windows process ownership, one new owner-executor regression, and one Program registration. Neither temporary workflow entered the official branch.
+
+## Implementation
+
+`GenericGuardianWindowsSessionCanaryExecutor` now receives a concrete `GenericGuardianWindowsSessionLifecycleCoordinator`. Preflight requires the exact reference-identical session key issued by that owner and a fresh OS-backed `IsCurrent` check. The executor repeats physical lifetime checks after the before typed capture, immediately before opening the Windows transaction, immediately after mutation, after the after typed capture, after comparison evidence and after evaluator execution immediately before transferring a kept lease.
+
+If ownership is lost before mutation, the result is Inconclusive/not attempted and no System Optimization snapshot/apply occurs. If ownership is lost after mutation, the existing Track2 session transaction restores the exact prior Windows state, result is Inconclusive/rolled back, evaluator/KEEP are bypassed when contamination is detected earlier, and no active lease escapes.
+
+Existing positive `GenericGuardianWindowsSessionCanarySelfTests` and benchmark-cycle tests no longer use fictitious PID 4242 as physical authority; they bind to the actual Windows process running the test. The dedicated regression invalidates the real coordinator at before-capture, before-mutation, mutation, after-capture, after-evidence and evaluator boundaries to prove fail-closed behavior. No fake OS-lifetime interface or caller-supplied production bypass was added.
+
+## Limits and exact continuation
+
+This proves Windows process-lifetime continuity, not gameplay context. There is still no production `IGenericGuardianCanaryEvidenceSource` that authenticates scene, mode, load and environment. BlueStacks/FF foreground package, PresentMon, input and render activity must not be relabeled as scene proof. Track0 generation still detects only in-process controlled benchmark activity and is not mutual exclusion. A process may also terminate after the final recheck; a future owner host must detect session end and restore all retained leases before coordinator Reset/rebind.
+
+Next, audit the existing specialized Free Fire/BlueStacks adapter and permitted owned signals for genuine scene/mode/load/environment evidence spanning both complete canary windows. If unavailable, keep the generic session optimizer disabled for that workload and record the gap. Then add truthful external/other-mutation coverage, true Track0/Guardian host coordination, retained lease cleanup and Windows/real-game HIL. Track6 item3 remains IN PROGRESS; item4 reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires fresh exact-head Windows CI before being marked GREEN.

@@ -1,0 +1,50 @@
+Track 5 Slice 13 — Profiles promoted-winner provenance presentation — COMPLETE
+Date: 2026-09-10
+
+Official branch: build/initial-product
+Official application SHA: a0c9a4e30dc48cb1730cee8b6b951f7338680cd1
+Commit: feat: present promoted winner universal provenance in Profiles
+Windows CI: #1034 — SUCCESS
+Run: 34502895182
+
+Purpose
+- Present current universal provenance for already-persisted promoted winners without changing specialized winner authority.
+- Keep receipt, revalidation, challenge verdict, mutation and persistence logic outside WPF.
+
+Permanent implementation
+- Added UniversalPromotedProfileProvenancePresentation. Null maps to hidden/empty state. A real projection copies exact promoted ProfileId/name/ProfileKind, stable GameId, AdapterId and deterministic exact UniversalCandidate key/value lines.
+- Added PromotedWinnerProvenanceView. It starts collapsed, uses the bound PerformanceProfile only as the request ID, calls App.Services.ResolveCurrentUniversalPersistedPromotedProfileProvenanceAsync, and renders only the pure presentation result.
+- The view invalidates stale async results with a revision token and rechecks the current DataContext ID before rendering.
+- Added a separate read-only "Proveniência universal dos vencedores" section to ProfilesPage.xaml.
+- Existing ProfilesList, ApplyProfile_Click, ProfilesPage.xaml.cs, Custom provenance card and challenge flows are unchanged.
+- Null promoted provenance keeps the view collapsed and does not alter the specialized winner.
+
+TDD provenance
+- Temporary verifier branch: ci/track5-profiles-promoted-winner-provenance-presentation-verify
+- Verifier workflow commit: 55660dd62d228f080be8313a4e3ed3b7c9181a6a
+- RED contract commit: 8680831ae72667d56474206e47bff747944bab96
+- Clean RED verifier #2 / run 34502406855: Core passed; App failed only with CS0103 because UniversalPromotedProfileProvenancePresentation did not exist.
+- Minimal production GREEN SHA: 1697bb87394c13fb02d3964ef4a551fafdb1ba22
+- GREEN verifier #3 / run 34502713828: Core self-tests + App self-tests + WPF build SUCCESS.
+- Selective integration excluded the temporary verifier workflow.
+- Official application SHA a0c9a4e30dc48cb1730cee8b6b951f7338680cd1 passed Windows CI #1034 / run 34502895182 completely.
+
+Official integration diff from documentary head ae15b920bdd054a3f0c938ae412a214521bde748
+- src/FFPerformanceEngine.App/UniversalPromotedProfileProvenancePresentation.cs added
+- src/FFPerformanceEngine.App/Pages/PromotedWinnerProvenanceView.xaml added
+- src/FFPerformanceEngine.App/Pages/PromotedWinnerProvenanceView.xaml.cs added
+- src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml modified
+- tests/FFPerformanceEngine.App.SelfTest/Program.cs modified
+- ProfilesPage.xaml.cs unchanged
+- temporary verifier workflow excluded
+
+Authority boundary
+- The UI does not load History for this feature, parse promotion receipts, inspect revalidation records, rebuild candidate space, infer identity, decide winners, mutate profiles or persist universal metadata.
+- Observed and Validated remain distinct.
+- Missing current capability/provenance remains absent rather than fabricated.
+- CANONICAL_CONTEXT.md and DECISIONS_LOG.md are intentionally unchanged.
+
+Exact next action
+- Perform a bounded Track 5 closure review across Slices 1–13.
+- Classify any remaining gap as blocking or deferred.
+- If no blocker remains, record Track 5 GREEN with an exact closure checkpoint and documentary CI before starting Track 6.

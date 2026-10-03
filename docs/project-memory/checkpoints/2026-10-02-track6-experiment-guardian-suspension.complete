@@ -1,0 +1,27 @@
+# Checkpoint — 2026-10-02 Track 6 generic experiment specialized Guardian suspension
+
+## Verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Application commit `da6e59239ea221694f22787425ccd8c275413844`, message `feat: suspend specialized Guardian during generic experiment admission`. Windows CI #1093 run `37070160906`, job `111047477717` SUCCESS across native configure/build/test, managed build, Core/App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11254142234`, SHA-256 `75be709871c1a3050edc737d518dc8a1ae78c31d2b47e730e3dc4f86d7f5cfdc`.
+
+## TDD evidence
+
+Isolated branch `ci/track6-experiment-guardian-suspension-verify`. RED commit `ea6304773d6017894ab3b88b77b3b5e2b319d884`, run `37069676007`, job `111045870401`: native tests and managed build passed, then Core failed on the intended behavioral assertion because generic experiment admission did not suspend/reset the specialized Guardian. This was a behavior RED, not a compile/setup failure.
+
+Minimal GREEN commit `f6dc17e604e8c816f6ec3cf802f83aeda65e3d6f`, verifier run `37069869959`, job `111046513066`: all native/managed/Core/App/publish/upload steps SUCCESS. Official selective integration contains exactly two files: `ControlledBenchmarkLeaseManager.cs` and the existing `GenericGuardianSessionExperimentAdmissionSelfTests.cs`; temporary workflow excluded.
+
+## Implemented behavior
+
+`AcquireExperimentExclusionAsync` continues to acquire the same global Track0 measurement gate first. If the concrete manager has an `IControlledBenchmarkGuardian`, it then calls `SuspendAsync` before returning admission to experiment work. Its async lease calls `ResumeAsync` with `CancellationToken.None` and only reopens the global gate in `finally`, so caller cancellation cannot skip reconciliation or allow a competing benchmark before reconciliation completes.
+
+The regression uses the real `GuardianSessionHost` contract with a deterministic runner. It proves a running specialized Guardian is stopped/reset on generic experiment admission, a desired instance change made during the experiment remains deferred, and release starts the latest desired instance. It also snapshots Track0 generation before/while/after the experiment and proves generation remains unchanged and Idle: generic experiment exclusion does not falsely report a controlled benchmark.
+
+## Boundaries and exact continuation
+
+This is primitive-level support. `GenericGuardianWindowsSessionCanaryExecutor` still uses a default unconnected `ControlledBenchmarkLeaseManager` when a runtime does not inject one. There is no complete generic runtime owner yet, so it is not valid to claim every product canary already suspends the specialized Guardian.
+
+Next, build the concrete generic runtime owner that composes workload observation, supported classifier/eligibility, session budget/catalog, admitted executor and lifecycle KEEP ownership while injecting the same Guardian-connected benchmark manager used by the application. Prove fixed lock ordering and no deadlock across Track0 gate, specialized Guardian suspend/reconcile, DG exclusive admission, admitted Track2 mutation and lifecycle teardown. Retained leases must restore before rebind/retirement.
+
+Activation remains blocked independently by missing production scene/mode/load/environment evidence: FF/FF MAX `CanaryContextEvidence=false`. External registry/vendor/driver mutation sources remain outside current authority. Windows/real-game HIL is required before any activation. Track6 item3 remains IN PROGRESS; item4 reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being marked GREEN.
