@@ -36,6 +36,70 @@ Require(!genericCoordinator.IsRunning
         && genericCoordinator.LastFailure is null,
     "AppServices generic runtime coordinator factory must be inert/disabled by default; construction may not start scheduling, discovery or automatic mutation.");
 
+var ffIdentityForActivation = LegacyGameIdentityBridge.FromGameKind(GameKind.FreeFire)
+    ?? throw new InvalidOperationException("Activation readiness AppServices test requires stable Free Fire identity.");
+var ffAdapterForActivation = BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire);
+var ffActivationCandidate = new GenericGuardianSessionActionCandidate
+{
+    GameId = ffIdentityForActivation.GameId,
+    Family = GuardianAnomalyKind.GpuSaturation,
+    Action = new GuardianAction
+    {
+        Id = "app.activation.test-only",
+        Description = "test only",
+        Safety = ActionSafety.LiveSafe
+    }
+};
+var ffActivationCatalog = new GenericGuardianSessionMutationCatalog([
+    new GenericGuardianSessionMutationDefinition(
+        ffIdentityForActivation.GameId,
+        ffActivationCandidate.Family,
+        ffActivationCandidate.Action.Id,
+        new FFPerformanceEngine.Core.SystemOptimization.WindowsMutationRequest(
+            "test.app.activation.capability",
+            "performance",
+            "balanced"))
+]);
+var ffActivationEvidence = new GenericGuardianProductionCanaryEvidenceRegistry([
+    new GenericGuardianProductionCanaryEvidenceRegistration(
+        ffIdentityForActivation.GameId,
+        ffAdapterForActivation.AdapterId,
+        _ => null)
+]);
+await using var ffActivation = services.CreateGenericGuardianWindowsRuntimeActivationController(
+    new GenericGuardianSessionActionBudget(
+        TimeSpan.FromMinutes(1),
+        maxAttemptsPerSession: 1),
+    ffActivationCatalog,
+    [ffActivationCandidate],
+    ffActivationEvidence,
+    TimeSpan.FromMilliseconds(10));
+
+var ffActivationPlan = new GenericGuardianWindowsRuntimeLoopPlan
+{
+    Catalog = new ResolvedGameCatalogResult
+    {
+        Games =
+        [
+            new ResolvedGameCatalogEntry
+            {
+                Identity = ffIdentityForActivation,
+                Adapter = ffAdapterForActivation
+            }
+        ]
+    },
+    GameId = ffIdentityForActivation.GameId,
+    SystemOnline = true,
+    ObservationDuration = TimeSpan.FromMilliseconds(10),
+    AnalysisContext = new BottleneckAnalysisContext(),
+    Interval = TimeSpan.FromMilliseconds(50)
+};
+var ffReadiness = await ffActivation.StartAsync(ffActivationPlan);
+Require(!ffReadiness.Ready
+        && ffReadiness.Status == GenericGuardianProductionActivationStatus.AdapterContextEvidenceUnsupported
+        && !ffActivation.IsRunning,
+    "AppServices guarded production activation must keep current Free Fire NotReady and must not schedule when adapter CanaryContextEvidence=false.");
+
 var runtimeBenchmarkField = typeof(GenericGuardianWindowsRuntimeHost).GetField(
     "_benchmarkAuthority",
     BindingFlags.Instance | BindingFlags.NonPublic)
