@@ -20,6 +20,22 @@ await using var genericRuntime = services.CreateGenericGuardianWindowsRuntimeHos
     _ => null,
     TimeSpan.FromMilliseconds(10));
 
+await using var genericCoordinator = services.CreateGenericGuardianWindowsRuntimeCoordinator(
+    new GenericGuardianSessionActionBudget(
+        TimeSpan.FromMinutes(1),
+        maxAttemptsPerSession: 1),
+    new GenericGuardianSessionMutationCatalog(
+        Array.Empty<GenericGuardianSessionMutationDefinition>()),
+    Array.Empty<GenericGuardianSessionActionCandidate>(),
+    _ => null,
+    TimeSpan.FromMilliseconds(10));
+
+Require(!genericCoordinator.IsRunning
+        && genericCoordinator.CompletedCycles == 0
+        && genericCoordinator.LastResult is null
+        && genericCoordinator.LastFailure is null,
+    "AppServices generic runtime coordinator factory must be inert/disabled by default; construction may not start scheduling, discovery or automatic mutation.");
+
 var runtimeBenchmarkField = typeof(GenericGuardianWindowsRuntimeHost).GetField(
     "_benchmarkAuthority",
     BindingFlags.Instance | BindingFlags.NonPublic)
