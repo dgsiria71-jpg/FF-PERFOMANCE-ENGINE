@@ -455,6 +455,19 @@ public sealed class AppServices : IAsyncDisposable
             canarySampleDuration);
     }
 
+    public GenericGuardianWindowsRuntimeCoordinator CreateGenericGuardianWindowsRuntimeCoordinator(
+        GenericGuardianSessionActionBudget budget,
+        GenericGuardianSessionMutationCatalog mutationCatalog,
+        IEnumerable<GenericGuardianSessionActionCandidate> candidates,
+        Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceSourceFactory,
+        TimeSpan canarySampleDuration)
+        => new(CreateGenericGuardianWindowsRuntimeHost(
+            budget,
+            mutationCatalog,
+            candidates,
+            evidenceSourceFactory,
+            canarySampleDuration));
+
     public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
         string capabilityId,
         CancellationToken cancellationToken = default)
