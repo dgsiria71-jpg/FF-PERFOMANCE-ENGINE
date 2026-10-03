@@ -28,7 +28,7 @@ public sealed record GenericGuardianWindowsRuntimeCycleResult
 /// executor. Production composition must therefore pass the same application
 /// authority that is connected to the specialized GuardianSessionHost.
 /// </summary>
-public sealed class GenericGuardianWindowsRuntimeHost : IAsyncDisposable
+public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsRuntime
 {
     private readonly GenericGuardianWorkloadObservationService _observation;
     private readonly GenericGuardianBottleneckClassifier _classifier;
