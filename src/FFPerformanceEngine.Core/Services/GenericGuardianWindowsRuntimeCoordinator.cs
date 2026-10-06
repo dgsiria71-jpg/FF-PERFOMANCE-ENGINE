@@ -47,16 +47,29 @@ public sealed record GenericGuardianWindowsRuntimeLoopPlan
 public sealed class GenericGuardianWindowsRuntimeCoordinator : IAsyncDisposable
 {
     private readonly IGenericGuardianWindowsRuntime _runtime;
+    private readonly IGenericGuardianRuntimeActivationReadinessGate _readinessGate;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private CancellationTokenSource? _runCancellation;
     private Task? _runTask;
     private GenericGuardianWindowsRuntimeCycleResult? _lastResult;
     private Exception? _lastFailure;
+    private GenericGuardianRuntimeActivationReadiness _lastReadiness =
+        GenericGuardianRuntimeActivationReadiness.NotEvaluated;
     private long _completedCycles;
     private bool _disposed;
 
     public GenericGuardianWindowsRuntimeCoordinator(IGenericGuardianWindowsRuntime runtime)
-        => _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        : this(runtime, new GenericGuardianRuntimeNotConfiguredReadinessGate())
+    {
+    }
+
+    public GenericGuardianWindowsRuntimeCoordinator(
+        IGenericGuardianWindowsRuntime runtime,
+        IGenericGuardianRuntimeActivationReadinessGate readinessGate)
+    {
+        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        _readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+    }
 
     public bool IsRunning
     {
@@ -72,6 +85,9 @@ public sealed class GenericGuardianWindowsRuntimeCoordinator : IAsyncDisposable
 
     public Exception? LastFailure
         => Volatile.Read(ref _lastFailure);
+
+    public GenericGuardianRuntimeActivationReadiness LastReadiness
+        => Volatile.Read(ref _lastReadiness);
 
     public long CompletedCycles
         => Interlocked.Read(ref _completedCycles);
@@ -93,6 +109,16 @@ public sealed class GenericGuardianWindowsRuntimeCoordinator : IAsyncDisposable
                     _runTask.IsCompleted
                         ? "The previous generic Guardian schedule ended. Call StopAsync to complete/reset lifecycle cleanup before starting again."
                         : "The generic Guardian schedule is already running.");
+            }
+
+            var readiness = _readinessGate.Evaluate(plan)
+                ?? throw new InvalidOperationException(
+                    "Generic Guardian activation-readiness gate returned no result.");
+            Volatile.Write(ref _lastReadiness, readiness);
+            if (!readiness.IsReady)
+            {
+                throw new InvalidOperationException(
+                    $"Generic Guardian scheduled activation is NotReady: {readiness.Status}. {readiness.Reason}");
             }
 
             Volatile.Write(ref _lastResult, null);
