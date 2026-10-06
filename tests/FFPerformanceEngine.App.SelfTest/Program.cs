@@ -367,6 +367,22 @@ Require(
     && calibratedRegistration.SourceId.StartsWith("bluestacks-calibration:", StringComparison.Ordinal),
     "AppServices must expose an explicit calibrated BlueStacks evidence registration without auto-starting Guardian.");
 
+var calibratedSession = new GenericGuardianCanarySessionKey(
+    Guid.NewGuid(),
+    "garena.free-fire",
+    Environment.ProcessId,
+    Environment.ProcessPath ?? @"C:\Windows\System32\cmd.exe");
+var calibratedSource = calibratedRegistration.Create(calibratedSession)
+    ?? throw new InvalidOperationException("Calibrated registration must create an evidence source for its exact GameId.");
+var calibratedCaptureField = typeof(BlueStacksCalibratedCanaryEvidenceSource).GetField(
+    "_visualCapture",
+    BindingFlags.Instance | BindingFlags.NonPublic)
+    ?? throw new InvalidOperationException("Calibrated evidence visual capture field is unavailable.");
+Require(
+    calibratedCaptureField.GetValue(calibratedSource)
+        is BlueStacksAdbCanaryVisualFrameCapture,
+    "AppServices calibrated BlueStacks evidence must read the exact Android framebuffer through ADB, not the occludable Windows desktop.");
+
 var ffHilIdentity = LegacyGameIdentityBridge.FromGameKind(GameKind.FreeFire)
     ?? throw new InvalidOperationException("HIL preparation fixture requires stable Free Fire identity.");
 using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
