@@ -15,7 +15,8 @@ public enum SystemOptimizationScope
 public sealed record WindowsMutationRequest(
     string CapabilityId,
     string TargetValue,
-    string? ExpectedCurrentValue = null);
+    string? ExpectedCurrentValue = null,
+    int? WorkloadProcessId = null);
 
 public sealed record WindowsCapabilityReadResult(bool Success, string? Value, string Message)
 {
@@ -61,6 +62,28 @@ public interface IWindowsCapabilityMutationAdapter
         CancellationToken cancellationToken = default);
 
     Task RollbackAsync(
+        WindowsCapabilityMutationSnapshot snapshot,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Optional seam for capabilities whose current/snapshot state exists only for
+/// the exact workload encoded in TargetValue (for example one process PID).
+/// Global discovery may prove API availability without inventing a global value;
+/// transaction preparation must use these contextual methods.
+/// </summary>
+public interface IWindowsTargetBoundCapabilityMutationAdapter
+    : IWindowsCapabilityMutationAdapter
+{
+    Task<WindowsCapabilityReadResult> ReadCurrentAsync(
+        string targetValue,
+        CancellationToken cancellationToken = default);
+
+    Task<WindowsCapabilityMutationSnapshot> SnapshotAsync(
+        string targetValue,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> VerifyRollbackAsync(
         WindowsCapabilityMutationSnapshot snapshot,
         CancellationToken cancellationToken = default);
 }
