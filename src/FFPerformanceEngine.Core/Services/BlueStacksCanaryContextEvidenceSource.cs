@@ -67,7 +67,7 @@ public static class BlueStacksAdbRawScreencapParser
         if (offset < 0) return null;
 
         var bgra = new byte[pixelBytes];
-        for (var sourceIndex = offset, targetIndex = 0;
+        for (int sourceIndex = offset, targetIndex = 0;
              targetIndex < bgra.Length;
              sourceIndex += 4, targetIndex += 4)
         {
