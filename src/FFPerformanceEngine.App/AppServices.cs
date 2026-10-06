@@ -422,7 +422,9 @@ public sealed class AppServices : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(calibration);
 
-        var visualCapture = new WindowsBlueStacksCanaryVisualFrameCapture();
+        var visualCapture = new BlueStacksAdbCanaryVisualFrameCapture(
+            Environment.Capture,
+            BlueStacksAutomation);
         var scopeProbe = new BlueStacksCanaryContextScopeProbe(
             Environment.Capture,
             BlueStacksAutomation,

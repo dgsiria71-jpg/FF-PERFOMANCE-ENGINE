@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -13,6 +14,247 @@ public interface IBlueStacksCanaryVisualFrameCapture
         int processId,
         BlueStacksCanaryContextCalibration calibration,
         CancellationToken cancellationToken = default);
+}
+
+public interface IBlueStacksAdbRawScreenCapture
+{
+    Task<byte[]?> CaptureAsync(
+        string adbExecutable,
+        string endpoint,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Raw Android framebuffer capture through the exact BlueStacks ADB endpoint.
+/// Uses `exec-out screencap` (no PNG transcoding) so the product can parse the
+/// measured 16-byte Android header + RGBA8888 payload deterministically.
+/// </summary>
+public sealed class BlueStacksAdbRawScreenCapture : IBlueStacksAdbRawScreenCapture
+{
+    private static readonly TimeSpan CaptureTimeout = TimeSpan.FromSeconds(6);
+
+    public async Task<byte[]?> CaptureAsync(
+        string adbExecutable,
+        string endpoint,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(adbExecutable)
+            || string.IsNullOrWhiteSpace(endpoint)
+            || !File.Exists(adbExecutable))
+            return null;
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = adbExecutable,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }
+        };
+        process.StartInfo.ArgumentList.Add("-s");
+        process.StartInfo.ArgumentList.Add(endpoint);
+        process.StartInfo.ArgumentList.Add("exec-out");
+        process.StartInfo.ArgumentList.Add("screencap");
+
+        try
+        {
+            if (!process.Start()) return null;
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+            timeout.CancelAfter(CaptureTimeout);
+            await using var output = new MemoryStream();
+            var stdout = process.StandardOutput.BaseStream.CopyToAsync(
+                output,
+                timeout.Token);
+            var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+            await Task.WhenAll(
+                    stdout,
+                    process.WaitForExitAsync(timeout.Token),
+                    stderr)
+                .ConfigureAwait(false);
+
+            return process.ExitCode == 0 && output.Length > 0
+                ? output.ToArray()
+                : null;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            TryKill(process);
+            return null;
+        }
+        catch (Exception exception) when (
+            exception is Win32Exception
+            or InvalidOperationException
+            or IOException)
+        {
+            TryKill(process);
+            return null;
+        }
+        finally
+        {
+            if (!process.HasExited)
+                TryKill(process);
+        }
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException
+            or Win32Exception
+            or NotSupportedException)
+        {
+        }
+    }
+}
+
+/// <summary>
+/// Captures the Android framebuffer for the exact calibrated BlueStacks
+/// instance/ADB port. Unlike desktop BitBlt this is independent of window
+/// z-order/occlusion and therefore cannot silently sample a covering Windows
+/// application. Scope/package/version checks remain a separate evidence boundary.
+/// </summary>
+public sealed class BlueStacksAdbCanaryVisualFrameCapture
+    : IBlueStacksCanaryVisualFrameCapture
+{
+    private const int RawHeaderBytes = 16;
+    private const int Rgba8888PixelFormat = 1;
+    private readonly Func<EnvironmentSnapshot> _environment;
+    private readonly BlueStacksAutomationService _automation;
+    private readonly IBlueStacksAdbRawScreenCapture _rawCapture;
+
+    public BlueStacksAdbCanaryVisualFrameCapture(
+        Func<EnvironmentSnapshot> environment,
+        BlueStacksAutomationService automation,
+        IBlueStacksAdbRawScreenCapture? rawCapture = null)
+    {
+        _environment = environment ?? throw new ArgumentNullException(nameof(environment));
+        _automation = automation ?? throw new ArgumentNullException(nameof(automation));
+        _rawCapture = rawCapture ?? new BlueStacksAdbRawScreenCapture();
+    }
+
+    public async Task<BlueStacksCanaryVisualFrame?> CaptureAsync(
+        int processId,
+        BlueStacksCanaryContextCalibration calibration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(calibration);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!OperatingSystem.IsWindows() || processId <= 0)
+            return null;
+
+        EnvironmentSnapshot snapshot;
+        try
+        {
+            snapshot = _environment();
+        }
+        catch
+        {
+            return null;
+        }
+
+        var instances = snapshot.Instances
+            .Where(instance =>
+                instance is not null
+                && string.Equals(
+                    instance.Name,
+                    calibration.InstanceName,
+                    StringComparison.OrdinalIgnoreCase)
+                && instance.AdbPort == calibration.AdbPort)
+            .Take(2)
+            .ToArray();
+        if (instances.Length != 1 || instances[0].AdbEnabled == false)
+            return null;
+
+        var adb = _automation.FindAdbExecutable();
+        if (string.IsNullOrWhiteSpace(adb))
+            return null;
+
+        byte[]? raw;
+        try
+        {
+            raw = await _rawCapture
+                .CaptureAsync(
+                    adb,
+                    BlueStacksAutomationService.EndpointFor(instances[0]),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (!TryParseRawFrame(raw, out var frame)
+            || frame is null
+            || frame.Width != calibration.WindowWidth
+            || frame.Height != calibration.WindowHeight)
+            return null;
+
+        return frame;
+    }
+
+    internal static bool TryParseRawFrame(
+        byte[]? raw,
+        out BlueStacksCanaryVisualFrame? frame)
+    {
+        frame = null;
+        if (raw is null || raw.Length < RawHeaderBytes)
+            return false;
+
+        var width = BinaryPrimitives.ReadInt32LittleEndian(raw.AsSpan(0, 4));
+        var height = BinaryPrimitives.ReadInt32LittleEndian(raw.AsSpan(4, 4));
+        var format = BinaryPrimitives.ReadInt32LittleEndian(raw.AsSpan(8, 4));
+        if (width <= 0 || height <= 0 || format != Rgba8888PixelFormat)
+            return false;
+
+        int payloadBytes;
+        try
+        {
+            payloadBytes = checked(width * height * 4);
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+
+        if (raw.Length != RawHeaderBytes + payloadBytes)
+            return false;
+
+        var bgra = new byte[payloadBytes];
+        var source = RawHeaderBytes;
+        for (var target = 0; target < bgra.Length; target += 4, source += 4)
+        {
+            bgra[target] = raw[source + 2];
+            bgra[target + 1] = raw[source + 1];
+            bgra[target + 2] = raw[source];
+            bgra[target + 3] = raw[source + 3];
+        }
+
+        try
+        {
+            frame = new BlueStacksCanaryVisualFrame(width, height, bgra);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            frame = null;
+            return false;
+        }
+    }
 }
 
 public interface IBlueStacksCanaryContextScopeProbe
