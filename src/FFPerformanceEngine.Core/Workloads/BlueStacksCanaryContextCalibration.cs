@@ -76,7 +76,7 @@ public static class BlueStacksCanaryVisualFingerprint
 
             for (var row = 0; row < 4; row++)
             {
-                Span<int> samples = stackalloc int[9];
+                var samples = new int[9];
                 for (var column = 0; column < 9; column++)
                     samples[column] = SampleCellLuminance(frame, region, column, row);
 
