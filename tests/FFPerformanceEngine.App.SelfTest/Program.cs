@@ -74,6 +74,73 @@ Require(ffActivationBlocked
             == GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
     "Current Free Fire/BlueStacks scheduled generic Guardian activation must remain NotReady before any cycle because its truthful adapter capability is CanaryContextEvidence=false.");
 
+var appCalibration = CreateAppCalibration();
+var calibratedRegistration = services.CreateBlueStacksCanaryEvidenceRegistration(
+    appCalibration,
+    sampleInterval: TimeSpan.FromMilliseconds(25),
+    maximumSampleGap: TimeSpan.FromMilliseconds(250));
+
+Require(string.Equals(
+            calibratedRegistration.AdapterId,
+            appCalibration.AdapterId,
+            StringComparison.OrdinalIgnoreCase)
+        && calibratedRegistration.SourceId
+            == "bluestacks-calibrated:" + appCalibration.CalibrationId,
+    "AppServices calibrated evidence factory must preserve the exact adapter/calibration authority without running it.");
+
+var registrationSession = new GenericGuardianCanarySessionKey(
+    Guid.NewGuid(),
+    appCalibration.GameId,
+    Environment.ProcessId,
+    @"C:\Program Files\BlueStacks_nxt\HD-Player.exe");
+var registeredSource = calibratedRegistration.Create(registrationSession);
+Require(registeredSource is BlueStacksCanaryContextEvidenceSource
+        && registeredSource is IGenericGuardianCanaryIntervalEvidenceSource,
+    "AppServices calibrated registration must create the production full-interval BlueStacks source without starting ADB during factory composition.");
+
+var calibratedCatalog = BlueStacksCanaryContextCatalog.Apply(
+    ffActivationPlan.Catalog,
+    appCalibration);
+var calibratedCandidate = new GenericGuardianSessionActionCandidate
+{
+    GameId = appCalibration.GameId,
+    Family = GuardianAnomalyKind.CpuContention,
+    Action = new GuardianAction
+    {
+        Id = "app.calibrated.readiness.action",
+        Description = "Readiness fixture only",
+        Safety = ActionSafety.LiveSafe
+    }
+};
+var calibratedMutationCatalog = new GenericGuardianSessionMutationCatalog(
+[
+    new GenericGuardianSessionMutationDefinition(
+        appCalibration.GameId,
+        calibratedCandidate.Family,
+        calibratedCandidate.Action.Id,
+        new WindowsMutationRequest(
+            "app.calibrated.readiness.capability",
+            "target",
+            "expected"))
+]);
+var calibratedBudget = new GenericGuardianSessionActionBudget(
+    TimeSpan.FromMinutes(1),
+    maxAttemptsPerSession: 1);
+var calibratedReadiness = new GenericGuardianRuntimeActivationReadinessGate(
+    [calibratedCandidate],
+    calibratedMutationCatalog,
+    calibratedBudget,
+    calibratedRegistration);
+var calibratedPlan = ffActivationPlan with { Catalog = calibratedCatalog };
+var ready = calibratedReadiness.Evaluate(calibratedPlan);
+Require(ready.IsReady,
+    "A caller-supplied measured calibration plus explicit registration/candidate/catalog/budget must cross the readiness boundary without auto-starting the runtime.");
+
+var stillUncalibrated = calibratedReadiness.Evaluate(ffActivationPlan);
+Require(stillUncalibrated.Status
+            == GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
+    "Evidence registration alone must never upgrade an uncalibrated default Free Fire adapter.");
+
 var runtimeBenchmarkField = typeof(GenericGuardianWindowsRuntimeHost).GetField(
     "_benchmarkAuthority",
     BindingFlags.Instance | BindingFlags.NonPublic)
@@ -400,6 +467,48 @@ static PerformanceIntervalSummary Interval(DateTimeOffset timestamp)
             TypedTelemetry = frame
         }
     ], timestamp, timestamp);
+}
+
+static BlueStacksCanaryContextCalibration CreateAppCalibration()
+{
+    var regions = new[]
+    {
+        new BlueStacksCanaryVisualRegion(0, 0, 90, 40),
+        new BlueStacksCanaryVisualRegion(90, 0, 90, 40),
+        new BlueStacksCanaryVisualRegion(0, 60, 90, 40),
+        new BlueStacksCanaryVisualRegion(90, 60, 90, 40)
+    };
+
+    return BlueStacksCanaryContextCalibration.Create(
+        gameId: "garena.free-fire",
+        adapterId: "bluestacks.free-fire",
+        gameKind: GameKind.FreeFire,
+        instanceName: "Pie64",
+        adbPort: 5555,
+        packageVersion: "1.132.1",
+        windowWidth: 180,
+        windowHeight: 100,
+        regions: regions,
+        referenceFrames: [AppCalibrationFrame(), AppCalibrationFrame()]);
+}
+
+static BlueStacksCanaryVisualFrame AppCalibrationFrame()
+{
+    const int width = 180;
+    const int height = 100;
+    var pixels = new byte[width * height * 4];
+    for (var y = 0; y < height; y++)
+    for (var x = 0; x < width; x++)
+    {
+        var index = (y * width + x) * 4;
+        var value = (byte)((((x / 10) + (y / 10)) & 1) == 0 ? 225 : 25);
+        pixels[index] = value;
+        pixels[index + 1] = value;
+        pixels[index + 2] = value;
+        pixels[index + 3] = 255;
+    }
+
+    return new BlueStacksCanaryVisualFrame(width, height, pixels);
 }
 
 static void Require(bool condition, string message)
