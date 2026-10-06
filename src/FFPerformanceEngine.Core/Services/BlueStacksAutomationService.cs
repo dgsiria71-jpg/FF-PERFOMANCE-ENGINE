@@ -63,6 +63,28 @@ public sealed class BlueStacksAutomationService
     public static IReadOnlyList<string> BuildInstalledPackagesArguments(BlueStacksInstance instance)
         => ["-s", EndpointFor(instance), "shell", "pm", "list", "packages"];
 
+    public static IReadOnlyList<string> BuildPackageDetailsArguments(
+        BlueStacksInstance instance,
+        GameKind game)
+        => ["-s", EndpointFor(instance), "shell", "dumpsys", "package", PackageFor(game)];
+
+    public static string? ParsePackageVersion(string? dumpsysOutput)
+    {
+        if (string.IsNullOrWhiteSpace(dumpsysOutput)) return null;
+        foreach (var rawLine in dumpsysOutput.Split(
+                     ['\r', '\n'],
+                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var line = rawLine.Trim();
+            const string prefix = "versionName=";
+            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            var value = line[prefix.Length..].Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        return null;
+    }
+
     public static GameKind ParseForegroundGame(string? dumpsysOutput)
     {
         if (string.IsNullOrWhiteSpace(dumpsysOutput)) return GameKind.None;
@@ -137,6 +159,24 @@ public sealed class BlueStacksAutomationService
         if (string.IsNullOrWhiteSpace(adb)) return Array.Empty<GameKind>();
         var result = await _processExecutor.RunAsync(adb, BuildInstalledPackagesArguments(instance), TimeSpan.FromSeconds(8), cancellationToken).ConfigureAwait(false);
         return result.Success ? ParseInstalledGames(result.StandardOutput) : Array.Empty<GameKind>();
+    }
+
+    public async Task<string?> QueryPackageVersionAsync(
+        BlueStacksInstance instance,
+        GameKind game,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (instance.AdbEnabled == false) return null;
+        if (game is not (GameKind.FreeFire or GameKind.FreeFireMax)) return null;
+        var adb = FindAdbExecutable();
+        if (string.IsNullOrWhiteSpace(adb)) return null;
+        var result = await _processExecutor.RunAsync(
+            adb,
+            BuildPackageDetailsArguments(instance, game),
+            TimeSpan.FromSeconds(8),
+            cancellationToken).ConfigureAwait(false);
+        return result.Success ? ParsePackageVersion(result.StandardOutput) : null;
     }
 
     public async Task<AutomationActionResult> LaunchGameAsync(BlueStacksInstance instance, GameKind game, CancellationToken cancellationToken = default)
