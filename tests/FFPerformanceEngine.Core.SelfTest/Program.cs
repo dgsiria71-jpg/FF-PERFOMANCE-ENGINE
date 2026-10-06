@@ -121,6 +121,7 @@ try
     await GenericGuardianExperimentAdmissionCompositionSelfTests.RunAsync();
     await GenericGuardianSystemOptimizationActivityIntegrationSelfTests.RunAsync();
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
+    GenericGuardianProcessPriorityPolicySelfTests.Run();
     await GenericGuardianLiveSafeCapabilitySelfTests.RunAsync();
     GenericGuardianSessionActionBudgetSelfTests.Run();
     GenericGuardianCanaryComparabilitySelfTests.Run();
