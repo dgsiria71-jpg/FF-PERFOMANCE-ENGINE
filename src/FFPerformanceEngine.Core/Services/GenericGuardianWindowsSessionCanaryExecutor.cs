@@ -348,7 +348,7 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                             afterCompletedAt,
                             cancellationToken)
                         .ConfigureAwait(false)
-                    : await _evidenceSource.CaptureWindowAsync(
+                    : await _evidenceSource!.CaptureWindowAsync(
                         target,
                         after,
                         afterStartedAt,
