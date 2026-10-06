@@ -227,6 +227,7 @@ public sealed class GuardianSessionHost : IAsyncDisposable, IControlledBenchmark
 
     public GuardianLiveSessionStatus? CurrentStatus => Volatile.Read(ref _currentStatus);
     public string? InstanceName => Volatile.Read(ref _instanceName);
+    public string? DesiredInstanceName => Volatile.Read(ref _desiredInstanceName);
 
     public bool IsRunning
     {
