@@ -195,33 +195,70 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         // The monitor reads the real authority IMMEDIATELY around the capture delegate.
         // A generation change includes a benchmark that acquired and released in between.
         var target = eligibility.State.Target;
-        var beforeStartedAt = _clock();
-        var beforeObservation = await _benchmarkCapture.CaptureAsync(
-            token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
-            cancellationToken).ConfigureAwait(false);
-        var beforeCompletedAt = _clock();
-        if (!beforeObservation.Attempted || !beforeObservation.UninterruptedIdle)
-            return NotAttempted(candidate,
-                "Track 0 controlled benchmark was active or changed during the before capture; no Windows mutation was attempted.");
-        if (!SessionStillCurrent(target))
-            return NotAttempted(candidate,
-                "The OS-owned workload session ended or changed during the before capture; no Windows mutation was attempted.");
-        if (!SystemOptimizationUninterruptedSince(systemBaseline))
-            return NotAttempted(candidate,
-                "DG System Optimization changed during the before capture; no Windows mutation was attempted.");
+        var intervalEvidenceSource =
+            _evidenceSource as IGenericGuardianCanaryIntervalEvidenceSource;
+        ControlledBenchmarkActivitySnapshot baseline;
+        TelemetryFrame before;
+        GenericGuardianCanaryComparisonWindow? beforeWindow;
 
-        var baseline = beforeObservation.Before;
-        var before = beforeObservation.Value is null
-            ? null : AcceptFrame(beforeObservation.Value, target);
-        if (before is null)
+        var beforeInterval = intervalEvidenceSource is null
+            ? null
+            : await intervalEvidenceSource
+                .BeginWindowAsync(target, cancellationToken)
+                .ConfigureAwait(false);
+        if (intervalEvidenceSource is not null && beforeInterval is null)
             return NotAttempted(candidate,
-                "Typed before evidence is unavailable for the exact workload; Guardian canary will not mutate anything.");
+                "Adapter-owned interval context could not be established before the before capture; no mutation was attempted.");
 
-        var beforeWindow = await _evidenceSource!.CaptureWindowAsync(
-            target, before, beforeStartedAt, beforeCompletedAt, cancellationToken).ConfigureAwait(false);
-        if (!AcceptWindow(beforeWindow, before, target, beforeStartedAt, beforeCompletedAt))
-            return NotAttempted(candidate,
-                "Comparable before context is absent, unknown, contaminated or not bound to the actual capture; no mutation was attempted.");
+        try
+        {
+            var beforeStartedAt = _clock();
+            var beforeObservation = await _benchmarkCapture.CaptureAsync(
+                token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
+                cancellationToken).ConfigureAwait(false);
+            var beforeCompletedAt = _clock();
+            if (!beforeObservation.Attempted || !beforeObservation.UninterruptedIdle)
+                return NotAttempted(candidate,
+                    "Track 0 controlled benchmark was active or changed during the before capture; no Windows mutation was attempted.");
+            if (!SessionStillCurrent(target))
+                return NotAttempted(candidate,
+                    "The OS-owned workload session ended or changed during the before capture; no Windows mutation was attempted.");
+            if (!SystemOptimizationUninterruptedSince(systemBaseline))
+                return NotAttempted(candidate,
+                    "DG System Optimization changed during the before capture; no Windows mutation was attempted.");
+
+            baseline = beforeObservation.Before;
+            var acceptedBefore = beforeObservation.Value is null
+                ? null : AcceptFrame(beforeObservation.Value, target);
+            if (acceptedBefore is null)
+                return NotAttempted(candidate,
+                    "Typed before evidence is unavailable for the exact workload; Guardian canary will not mutate anything.");
+            before = acceptedBefore;
+
+            beforeWindow = beforeInterval is not null
+                ? await beforeInterval
+                    .CompleteWindowAsync(
+                        before,
+                        beforeStartedAt,
+                        beforeCompletedAt,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await _evidenceSource!.CaptureWindowAsync(
+                    target,
+                    before,
+                    beforeStartedAt,
+                    beforeCompletedAt,
+                    cancellationToken).ConfigureAwait(false);
+
+            if (!AcceptWindow(beforeWindow, before, target, beforeStartedAt, beforeCompletedAt))
+                return NotAttempted(candidate,
+                    "Comparable before context is absent, unknown, contaminated or not bound to the actual capture; no mutation was attempted.");
+        }
+        finally
+        {
+            if (beforeInterval is not null)
+                await beforeInterval.DisposeAsync().ConfigureAwait(false);
+        }
 
         if (!BenchmarkUninterruptedSince(baseline))
             return NotAttempted(candidate,
@@ -258,40 +295,78 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     "The OS-owned workload session ended or changed during the mutation; original Windows state was restored.")
                     .ConfigureAwait(false);
 
-            var afterStartedAt = _clock();
-            var afterObservation = await _benchmarkCapture.CaptureAsync(
-                token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
-                cancellationToken).ConfigureAwait(false);
-            var afterCompletedAt = _clock();
-            if (!afterObservation.Attempted || !afterObservation.UninterruptedIdle
-                || !BenchmarkUninterruptedSince(baseline))
-                return await RestoreContaminatedAsync(session, candidate, before, null,
-                    "Track 0 benchmark was active or changed during/between canary captures; original state was restored.")
+            TelemetryFrame after;
+            GenericGuardianCanaryComparisonWindow? afterWindow;
+            var afterInterval = intervalEvidenceSource is null
+                ? null
+                : await intervalEvidenceSource
+                    .BeginWindowAsync(target, cancellationToken)
                     .ConfigureAwait(false);
-            if (!SessionStillCurrent(target))
-                return await RestoreContaminatedAsync(session, candidate, before, null,
-                    "The OS-owned workload session ended or changed during the after capture; original Windows state was restored.")
-                    .ConfigureAwait(false);
-            if (!SystemOptimizationUninterruptedSince(systemAfterMutation))
-                return await RestoreContaminatedAsync(session, candidate, before, null,
-                    "Another DG System Optimization operation occurred during the after capture; original Windows state was restored.")
+            if (intervalEvidenceSource is not null && afterInterval is null)
+                return await RestoreContaminatedAsync(
+                    session,
+                    candidate,
+                    before,
+                    null,
+                    "Adapter-owned interval context could not be established before the after capture; original Windows state was restored.")
                     .ConfigureAwait(false);
 
-            var after = afterObservation.Value is null
-                ? null : AcceptFrame(afterObservation.Value, target);
-            if (after is null)
-                return await RestoreContaminatedAsync(session, candidate, before, null,
-                    "Typed after evidence is unavailable; the session mutation was restored because improvement cannot be proven.")
-                    .ConfigureAwait(false);
+            try
+            {
+                var afterStartedAt = _clock();
+                var afterObservation = await _benchmarkCapture.CaptureAsync(
+                    token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
+                    cancellationToken).ConfigureAwait(false);
+                var afterCompletedAt = _clock();
+                if (!afterObservation.Attempted || !afterObservation.UninterruptedIdle
+                    || !BenchmarkUninterruptedSince(baseline))
+                    return await RestoreContaminatedAsync(session, candidate, before, null,
+                        "Track 0 benchmark was active or changed during/between canary captures; original state was restored.")
+                        .ConfigureAwait(false);
+                if (!SessionStillCurrent(target))
+                    return await RestoreContaminatedAsync(session, candidate, before, null,
+                        "The OS-owned workload session ended or changed during the after capture; original Windows state was restored.")
+                        .ConfigureAwait(false);
+                if (!SystemOptimizationUninterruptedSince(systemAfterMutation))
+                    return await RestoreContaminatedAsync(session, candidate, before, null,
+                        "Another DG System Optimization operation occurred during the after capture; original Windows state was restored.")
+                        .ConfigureAwait(false);
 
-            var afterWindow = await _evidenceSource.CaptureWindowAsync(
-                target, after, afterStartedAt, afterCompletedAt, cancellationToken).ConfigureAwait(false);
-            if (!AcceptWindow(afterWindow, after, target, afterStartedAt, afterCompletedAt)
-                || _comparability.Evaluate(beforeWindow, afterWindow, mutationStartedAt, mutationCompletedAt)
-                   != GenericGuardianCanaryComparability.InScopeOnSuppliedEvidence)
-                return await RestoreContaminatedAsync(session, candidate, before, after,
-                    "Before/after context is missing, changed, contaminated or temporally invalid; original state was restored.")
-                    .ConfigureAwait(false);
+                var acceptedAfter = afterObservation.Value is null
+                    ? null : AcceptFrame(afterObservation.Value, target);
+                if (acceptedAfter is null)
+                    return await RestoreContaminatedAsync(session, candidate, before, null,
+                        "Typed after evidence is unavailable; the session mutation was restored because improvement cannot be proven.")
+                        .ConfigureAwait(false);
+                after = acceptedAfter;
+
+                afterWindow = afterInterval is not null
+                    ? await afterInterval
+                        .CompleteWindowAsync(
+                            after,
+                            afterStartedAt,
+                            afterCompletedAt,
+                            cancellationToken)
+                        .ConfigureAwait(false)
+                    : await _evidenceSource.CaptureWindowAsync(
+                        target,
+                        after,
+                        afterStartedAt,
+                        afterCompletedAt,
+                        cancellationToken).ConfigureAwait(false);
+
+                if (!AcceptWindow(afterWindow, after, target, afterStartedAt, afterCompletedAt)
+                    || _comparability.Evaluate(beforeWindow, afterWindow, mutationStartedAt, mutationCompletedAt)
+                       != GenericGuardianCanaryComparability.InScopeOnSuppliedEvidence)
+                    return await RestoreContaminatedAsync(session, candidate, before, after,
+                        "Before/after context is missing, changed, contaminated or temporally invalid; original state was restored.")
+                        .ConfigureAwait(false);
+            }
+            finally
+            {
+                if (afterInterval is not null)
+                    await afterInterval.DisposeAsync().ConfigureAwait(false);
+            }
 
             if (!SessionStillCurrent(target))
                 return await RestoreContaminatedAsync(session, candidate, before, after,
