@@ -4,9 +4,10 @@ namespace FFPerformanceEngine.Core.Services;
 
 /// <summary>
 /// Capability-honest typed outcome policy for generic Guardian session canaries.
-/// Only CPU/GPU families currently have a proven frame-performance outcome
-/// contract. Every other family remains inconclusive until dedicated typed
-/// before/after semantics exist for that causal family.
+/// CPU/GPU use the proven average frame-performance contract. Frame-time
+/// instability uses the same measured pacing thresholds as the classifier and
+/// keeps only when that instability clears without average-performance regression.
+/// Every other family remains inconclusive until dedicated typed semantics exist.
 /// </summary>
 public sealed class GenericGuardianTypedCanaryOutcomeEvaluator : IGenericGuardianSessionCanaryOutcomeEvaluator
 {
@@ -21,6 +22,9 @@ public sealed class GenericGuardianTypedCanaryOutcomeEvaluator : IGenericGuardia
         ArgumentNullException.ThrowIfNull(candidate);
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
+
+        if (candidate.Family == GuardianAnomalyKind.FrameTimeInstability)
+            return EvaluateFramePacing(before, after);
 
         if (candidate.Family is not (GuardianAnomalyKind.CpuContention or GuardianAnomalyKind.GpuSaturation))
             return GenericGuardianSessionCanaryVerdict.Inconclusive;
@@ -46,6 +50,49 @@ public sealed class GenericGuardianTypedCanaryOutcomeEvaluator : IGenericGuardia
         {
             return GenericGuardianSessionCanaryVerdict.Improved;
         }
+
+        return GenericGuardianSessionCanaryVerdict.Inconclusive;
+    }
+
+    private static GenericGuardianSessionCanaryVerdict EvaluateFramePacing(
+        TelemetryFrame before,
+        TelemetryFrame after)
+    {
+        if (!TryGetMeasuredMetric(before, TelemetryStandardMetrics.FrameFpsAverage, out var beforeFps)
+            || !TryGetMeasuredMetric(after, TelemetryStandardMetrics.FrameFpsAverage, out var afterFps)
+            || !TryGetMeasuredMetric(before, TelemetryStandardMetrics.FrameTimeAverageMs, out var beforeFrameTime)
+            || !TryGetMeasuredMetric(after, TelemetryStandardMetrics.FrameTimeAverageMs, out var afterFrameTime)
+            || !TryGetMeasuredMetric(before, TelemetryStandardMetrics.FrameTimeP99Ms, out var beforeP99)
+            || !TryGetMeasuredMetric(after, TelemetryStandardMetrics.FrameTimeP99Ms, out var afterP99)
+            || !TryGetMeasuredMetric(before, TelemetryStandardMetrics.FrameStutterPercent, out var beforeStutter)
+            || !TryGetMeasuredMetric(after, TelemetryStandardMetrics.FrameStutterPercent, out var afterStutter)
+            || beforeFps <= 0
+            || afterFps <= 0
+            || beforeFrameTime <= 0
+            || afterFrameTime <= 0
+            || beforeP99 <= 0
+            || afterP99 <= 0
+            || beforeStutter < 0
+            || afterStutter < 0)
+        {
+            return GenericGuardianSessionCanaryVerdict.Inconclusive;
+        }
+
+        var relativeFpsChange = (afterFps - beforeFps) / beforeFps;
+        if (relativeFpsChange <= -MinimumRelativeFpsChange)
+            return GenericGuardianSessionCanaryVerdict.Regressive;
+
+        var beforeUnstable =
+            beforeStutter >= 3d
+            || beforeP99 >= beforeFrameTime * 1.55d;
+        if (!beforeUnstable)
+            return GenericGuardianSessionCanaryVerdict.Inconclusive;
+
+        var afterStable =
+            afterStutter < 3d
+            && afterP99 < afterFrameTime * 1.55d;
+        if (afterStable && afterFrameTime <= beforeFrameTime)
+            return GenericGuardianSessionCanaryVerdict.Improved;
 
         return GenericGuardianSessionCanaryVerdict.Inconclusive;
     }

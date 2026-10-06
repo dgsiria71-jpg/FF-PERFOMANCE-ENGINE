@@ -71,11 +71,34 @@ internal static class GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests
                 Frame(103, 9.8)) == GenericGuardianSessionCanaryVerdict.Inconclusive,
             "Non-positive FPS cannot establish a relative canary outcome.");
 
+        Require(
+            evaluator.Evaluate(
+                Candidate(GuardianAnomalyKind.FrameTimeInstability),
+                FramePacingFrame(100, 10.0, p99Ms: 18.0, stutterPercent: 8.0),
+                FramePacingFrame(101, 9.9, p99Ms: 14.0, stutterPercent: 2.0))
+            == GenericGuardianSessionCanaryVerdict.Improved,
+            "Frame-pacing canary may keep only when the measured classifier instability clears (p99 < 1.55x average and stutter < 3%) without FPS/frame-time regression.");
+
+        Require(
+            evaluator.Evaluate(
+                Candidate(GuardianAnomalyKind.FrameTimeInstability),
+                FramePacingFrame(100, 10.0, p99Ms: 18.0, stutterPercent: 8.0),
+                FramePacingFrame(101, 9.9, p99Ms: 17.0, stutterPercent: 4.0))
+            == GenericGuardianSessionCanaryVerdict.Inconclusive,
+            "Partial pacing improvement that remains above the classifier's instability boundary must not be kept.");
+
+        Require(
+            evaluator.Evaluate(
+                Candidate(GuardianAnomalyKind.FrameTimeInstability),
+                FramePacingFrame(100, 10.0, p99Ms: 18.0, stutterPercent: 8.0),
+                FramePacingFrame(97.5, 9.5, p99Ms: 14.0, stutterPercent: 2.0))
+            == GenericGuardianSessionCanaryVerdict.Regressive,
+            "Cleared pacing evidence cannot justify KEEP when average FPS regresses by the existing 2% canary boundary.");
+
         var unsupportedFamilies = new[]
         {
             GuardianAnomalyKind.MemoryPressure,
             GuardianAnomalyKind.VramPressure,
-            GuardianAnomalyKind.FrameTimeInstability,
             GuardianAnomalyKind.ThermalThrottling,
             GuardianAnomalyKind.NetworkInstability,
             GuardianAnomalyKind.Unknown,
@@ -123,6 +146,22 @@ internal static class GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests
             {
                 Metric(TelemetryStandardMetrics.FrameFpsAverage, fps, fpsQuality, coverage),
                 Metric(TelemetryStandardMetrics.FrameTimeAverageMs, frameTimeMs, TelemetryMetricQuality.Measured, coverage)
+            });
+
+    private static TelemetryFrame FramePacingFrame(
+        double fps,
+        double frameTimeMs,
+        double p99Ms,
+        double stutterPercent,
+        double coverage = 1.0)
+        => new(
+            new DateTimeOffset(2026, 9, 11, 9, 0, 0, TimeSpan.Zero),
+            new[]
+            {
+                Metric(TelemetryStandardMetrics.FrameFpsAverage, fps, TelemetryMetricQuality.Measured, coverage),
+                Metric(TelemetryStandardMetrics.FrameTimeAverageMs, frameTimeMs, TelemetryMetricQuality.Measured, coverage),
+                Metric(TelemetryStandardMetrics.FrameTimeP99Ms, p99Ms, TelemetryMetricQuality.Measured, coverage),
+                Metric(TelemetryStandardMetrics.FrameStutterPercent, stutterPercent, TelemetryMetricQuality.Measured, coverage)
             });
 
     private static TelemetryFrame FrameWithoutFrameTime(double fps)

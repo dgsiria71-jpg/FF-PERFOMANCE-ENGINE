@@ -126,23 +126,29 @@ internal static class WindowsProcessPriorityMutationAdapterSelfTests
         };
 
         var policy = GenericGuardianProcessPriorityPolicy.Create(target);
-        Require(policy.Candidates.Count == 1,
-            "Initial production policy must expose exactly one explicit process-priority candidate.");
+        Require(policy.Candidates.Count == 2
+                && policy.Candidates.Select(candidate => candidate.Family).ToHashSet().SetEquals(
+                [
+                    GuardianAnomalyKind.CpuContention,
+                    GuardianAnomalyKind.FrameTimeInstability
+                ]),
+            "Production process-priority policy must expose only the explicitly approved CPU-contention and frame-time-instability candidates.");
 
-        var candidate = policy.Candidates[0];
-        Require(candidate.Family == GuardianAnomalyKind.CpuContention
-                && candidate.Action.Safety == ActionSafety.LiveSafe,
-            "Process-priority candidate must be limited to the supported CPU contention family and LiveSafe.");
+        foreach (var candidate in policy.Candidates)
+        {
+            Require(candidate.Action.Safety == ActionSafety.LiveSafe,
+                "Every process-priority candidate must remain LiveSafe.");
 
-        Require(policy.MutationCatalog.TryBind(candidate, out var binding)
-                && binding is not null
-                && binding.Mutation.WorkloadProcessId == process.Id
-                && binding.Mutation.CapabilityId == WindowsProcessPriorityMutationAdapter.Capability,
-            "Policy mapping must bind the action to the exact physical workload PID.");
+            Require(policy.MutationCatalog.TryBind(candidate, out var binding)
+                    && binding is not null
+                    && binding.Mutation.WorkloadProcessId == process.Id
+                    && binding.Mutation.CapabilityId == WindowsProcessPriorityMutationAdapter.Capability,
+                "Every process-priority policy mapping must bind the action to the exact physical workload PID.");
 
-        var stale = binding!.Mutation with { WorkloadProcessId = process.Id + 1 };
-        Require(!policy.MutationCatalog.IsAuthorized(candidate, stale),
-            "A stale/rebound PID must not remain authorized by the exact action-to-mutation catalog.");
+            var stale = binding!.Mutation with { WorkloadProcessId = process.Id + 1 };
+            Require(!policy.MutationCatalog.IsAuthorized(candidate, stale),
+                "A stale/rebound PID must not remain authorized for any process-priority anomaly family.");
+        }
     }
 
     private static Process StartLongRunningChild()
