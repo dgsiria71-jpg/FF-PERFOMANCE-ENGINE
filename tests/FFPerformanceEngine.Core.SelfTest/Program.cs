@@ -119,6 +119,7 @@ try
     await GenericGuardianWindowsRuntimeHostSelfTests.RunAsync();
     await GenericGuardianWindowsRuntimeCoordinatorSelfTests.RunAsync();
     await GenericGuardianActionReliabilitySelfTests.RunAsync();
+    await GenericGuardianPostSessionQueueSelfTests.RunAsync();
     await GenericGuardianExperimentAdmissionCompositionSelfTests.RunAsync();
     await GenericGuardianSystemOptimizationActivityIntegrationSelfTests.RunAsync();
     GenericGuardianTypedCanaryOutcomeEvaluatorSelfTests.Run();
