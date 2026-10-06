@@ -3,6 +3,7 @@ using System.Reflection;
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.SystemOptimization;
 using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
 
