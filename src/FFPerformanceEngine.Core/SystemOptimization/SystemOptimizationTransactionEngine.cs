@@ -297,7 +297,11 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
             if (!validation.Success)
                 throw new InvalidOperationException($"Windows capability '{pair.Key}' rejected target '{pair.Value.TargetValue}': {validation.Message}");
 
-            var current = await adapter.ReadCurrentAsync(cancellationToken).ConfigureAwait(false);
+            var current = adapter is IWindowsTargetBoundCapabilityMutationAdapter targetBound
+                ? await targetBound
+                    .ReadCurrentAsync(pair.Value.TargetValue, cancellationToken)
+                    .ConfigureAwait(false)
+                : await adapter.ReadCurrentAsync(cancellationToken).ConfigureAwait(false);
             if (!current.Success)
                 throw new InvalidOperationException($"Windows capability '{pair.Key}' current state could not be read: {current.Message}");
             if (pair.Value.ExpectedCurrentValue is not null
@@ -348,7 +352,11 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
             cancellationToken.ThrowIfCancellationRequested();
             var request = requested[id];
             var adapter = _adapters.GetRequired(id);
-            var snapshot = await adapter.SnapshotAsync(cancellationToken).ConfigureAwait(false);
+            var snapshot = adapter is IWindowsTargetBoundCapabilityMutationAdapter targetBound
+                ? await targetBound
+                    .SnapshotAsync(request.TargetValue, cancellationToken)
+                    .ConfigureAwait(false)
+                : await adapter.SnapshotAsync(cancellationToken).ConfigureAwait(false);
             if (!string.Equals(NormalizeId(snapshot.CapabilityId), id, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Adapter '{id}' returned a snapshot for '{snapshot.CapabilityId}'.");
             if (request.ExpectedCurrentValue is not null
@@ -523,6 +531,16 @@ public sealed class SystemOptimizationTransactionEngine : ISystemOptimizationAct
         IWindowsCapabilityMutationAdapter adapter,
         WindowsCapabilityMutationSnapshot snapshot)
     {
+        if (adapter is IWindowsTargetBoundCapabilityMutationAdapter targetBound)
+        {
+            if (!await targetBound
+                    .VerifyRollbackAsync(snapshot, CancellationToken.None)
+                    .ConfigureAwait(false))
+                throw new InvalidOperationException(
+                    $"Target-bound capability '{adapter.CapabilityId}' did not verify its rollback.");
+            return;
+        }
+
         var current = await adapter.ReadCurrentAsync(CancellationToken.None).ConfigureAwait(false);
         if (!current.Success)
             throw new InvalidOperationException($"Capability '{adapter.CapabilityId}' could not be read after rollback: {current.Message}");
