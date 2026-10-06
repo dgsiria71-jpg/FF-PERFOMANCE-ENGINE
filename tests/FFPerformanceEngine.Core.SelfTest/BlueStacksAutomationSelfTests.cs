@@ -35,6 +35,14 @@ internal static class BlueStacksAutomationSelfTests
         var foregroundArgs = BlueStacksAutomationService.BuildForegroundQueryArguments(instance);
         Require(foregroundArgs.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "window", "windows"]), "Foreground query must be read-only and scoped to the selected instance.");
 
+        var packageInfoArgs = BlueStacksAutomationService.BuildPackageInfoArguments(instance, GameKind.FreeFire);
+        Require(packageInfoArgs.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefireth"]),
+            "Package-version query must be read-only and scoped to the exact selected instance/package.");
+        Require(BlueStacksAutomationService.ParsePackageVersion("versionCode=2019121229\nversionName=1.132.1\n") == "1.132.1",
+            "Package parser must return the exact observed versionName.");
+        Require(BlueStacksAutomationService.ParsePackageVersion("versionCode=1") is null,
+            "Missing package versionName must remain unknown.");
+
         const string freeFireWindow = "mCurrentFocus=Window{42 u0 com.dts.freefireth/com.dts.freefireth.FFMainActivity}";
         const string maxWindow = "mResumedActivity: ActivityRecord{1 u0 com.dts.freefiremax/com.dts.freefiremax.FFMainActivity t2}";
         Require(BlueStacksAutomationService.ParseForegroundGame(freeFireWindow) == GameKind.FreeFire, "Foreground parser must detect Free Fire.");
