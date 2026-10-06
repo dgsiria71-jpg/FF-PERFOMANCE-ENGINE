@@ -27,6 +27,12 @@ internal static class BlueStacksAutomationRuntimeSelfTests
         Require(foreground == GameKind.FreeFireMax, "Foreground query must parse the observed game package.");
         Require(fake.Calls[^1].Arguments.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "window", "windows"]), "Foreground query must be read-only.");
 
+        fake.Enqueue(new ProcessExecutionResult(0, "versionCode=2019121229\r\nversionName=1.132.1\r\n", string.Empty));
+        var packageVersion = await automation.QueryPackageVersionAsync(instance, GameKind.FreeFire);
+        Require(packageVersion == "1.132.1", "Package-version query must return exact dumpsys versionName.");
+        Require(fake.Calls[^1].Arguments.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefireth"]),
+            "Package-version runtime query must target only the selected instance and exact game package.");
+
         fake.Enqueue(new ProcessExecutionResult(0, "Events injected: 1", string.Empty));
         var launch = await automation.LaunchGameAsync(instance, GameKind.FreeFire);
         Require(launch.Success, "Game launch must succeed on a zero ADB exit code.");
