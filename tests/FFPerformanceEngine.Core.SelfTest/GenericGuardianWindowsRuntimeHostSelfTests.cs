@@ -79,6 +79,21 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         Require(exhausted.Status == GenericGuardianCanaryAdmissionStatus.BudgetExhausted,
             "Configured one-attempt session budget must already be consumed by the executed runtime canary.");
 
+        var learned = await f.Knowledge.GetGenericAsync(
+            new GenericGuardianActionReliabilityKey(
+                Fixture.GameId,
+                GuardianAnomalyKind.GpuSaturation,
+                f.Candidates[0].Action.Id));
+        Require(
+            learned is
+            {
+                SuccessCount: 1,
+                FailureCount: 0,
+                InconclusiveCount: 0
+            }
+            && Math.Abs(learned.AverageRelativeFpsGain - 0.05) < 0.000001,
+            "Runtime must record the measured Improved canary in scoped Guardian reliability exactly once.");
+
         await runtime.ResetAsync();
         Require(runtime.CurrentSession is null
                 && runtime.RetainedLeaseCount == 0
@@ -540,6 +555,8 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
             Budget = new GenericGuardianSessionActionBudget(
                 TimeSpan.FromMinutes(1),
                 maxAttempts);
+            Knowledge = new GuardianKnowledgeService(
+                Path.Combine(_root, "guardian-knowledge.json"));
             AnalysisContext = new BottleneckAnalysisContext
             {
                 TargetFps = 120,
@@ -657,6 +674,7 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
         internal GenericGuardianBottleneckClassifier Classifier { get; }
         internal GenericGuardianSessionActionSelector Selector { get; }
         internal GenericGuardianSessionActionBudget Budget { get; }
+        internal GuardianKnowledgeService Knowledge { get; }
         internal GenericGuardianSessionMutationCatalog MutationCatalog { get; }
         internal GenericGuardianSessionActionCandidate[] Candidates { get; }
         internal SystemOptimizationTransactionEngine Transactions { get; }
@@ -677,7 +695,8 @@ internal static class GenericGuardianWindowsRuntimeHostSelfTests
                 new GenericGuardianTypedCanaryOutcomeEvaluator(),
                 BenchmarkAuthority,
                 session => new EvidenceSource(session.SessionEpoch),
-                TimeSpan.FromMilliseconds(10));
+                TimeSpan.FromMilliseconds(10),
+                reliability: Knowledge);
 
         private Task<TelemetryFrame?> CaptureAsync(
             int _,
