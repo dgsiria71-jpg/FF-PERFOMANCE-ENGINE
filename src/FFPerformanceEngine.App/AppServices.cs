@@ -455,6 +455,44 @@ public sealed class AppServices : IAsyncDisposable
             canarySampleDuration);
     }
 
+    public GenericGuardianCanaryEvidenceSourceRegistration CreateBlueStacksCanaryEvidenceRegistration(
+        BlueStacksCanaryContextCalibration calibration,
+        TimeSpan sampleInterval,
+        TimeSpan maximumSampleGap)
+    {
+        ArgumentNullException.ThrowIfNull(calibration);
+        if (sampleInterval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(sampleInterval));
+        if (maximumSampleGap < sampleInterval)
+            throw new ArgumentOutOfRangeException(
+                nameof(maximumSampleGap),
+                "Maximum sample gap must be at least the requested sample interval.");
+
+        var probe = new BlueStacksAdbCanaryContextProbe(
+            BlueStacks,
+            BlueStacksAutomation,
+            GuardianBinding);
+
+        return new GenericGuardianCanaryEvidenceSourceRegistration(
+            calibration.AdapterId,
+            "bluestacks-calibrated:" + calibration.CalibrationId,
+            session =>
+            {
+                if (!string.Equals(
+                        session.GameId,
+                        calibration.GameId,
+                        StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                return new BlueStacksCanaryContextEvidenceSource(
+                    session,
+                    calibration,
+                    probe,
+                    sampleInterval,
+                    maximumSampleGap);
+            });
+    }
+
     public GenericGuardianWindowsRuntimeCoordinator CreateGenericGuardianWindowsRuntimeCoordinator(
         GenericGuardianSessionActionBudget budget,
         GenericGuardianSessionMutationCatalog mutationCatalog,
