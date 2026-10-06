@@ -265,6 +265,53 @@ public interface IBlueStacksCanaryContextScopeProbe
         CancellationToken cancellationToken = default);
 }
 
+public sealed class BlueStacksCalibratedWorkloadForegroundProbe
+    : IWorkloadForegroundProbe
+{
+    private readonly BlueStacksCanaryContextCalibration _calibration;
+    private readonly IBlueStacksCanaryContextScopeProbe _scope;
+
+    public BlueStacksCalibratedWorkloadForegroundProbe(
+        BlueStacksCanaryContextCalibration calibration,
+        IBlueStacksCanaryContextScopeProbe scope)
+    {
+        _calibration = calibration
+            ?? throw new ArgumentNullException(nameof(calibration));
+        _scope = scope ?? throw new ArgumentNullException(nameof(scope));
+    }
+
+    public async Task<bool?> IsForegroundAsync(
+        TelemetryWorkloadTarget target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (target.BindingQuality != TelemetryWorkloadBindingQuality.ExactRunningProcess
+            || !target.CanCaptureProcess
+            || !string.Equals(
+                target.GameId?.Trim(),
+                _calibration.GameId,
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        try
+        {
+            return await _scope
+                .MatchesAsync(_calibration, target, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
+
 /// <summary>
 /// Verifies the non-visual half of one measured BlueStacks calibration:
 /// exact GameId, exact configured BlueStacks instance/ADB endpoint, optional

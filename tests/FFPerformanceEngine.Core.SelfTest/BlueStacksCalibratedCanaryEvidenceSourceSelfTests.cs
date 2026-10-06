@@ -10,6 +10,7 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
     {
         await IntervalSourceBracketsTelemetryWithMeasuredCalibrationAsync();
         await ChangedVisualOrScopeFailsClosedAsync();
+        await CalibratedWorkloadForegroundUsesExactScopeAuthorityAsync();
         await AdbFramebufferCaptureIsExactAndOcclusionIndependentAsync();
         Console.WriteLine("PASS Track 6 calibrated BlueStacks evidence brackets the physical interval, captures exact ADB framebuffer and fails closed");
     }
@@ -96,6 +97,34 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
             TelemetryFrame(), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(10));
         Require(driftWindow is null,
             "Instance/package/foreground drift at the trailing boundary must fail closed.");
+    }
+
+    private static async Task CalibratedWorkloadForegroundUsesExactScopeAuthorityAsync()
+    {
+        var calibration = Calibration();
+        using var process = Process.GetCurrentProcess();
+        var target = new TelemetryWorkloadTarget
+        {
+            GameId = calibration.GameId,
+            ProcessId = process.Id,
+            ExecutablePath = process.MainModule?.FileName ?? Environment.ProcessPath ?? "self-test.exe",
+            BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
+        };
+
+        var scope = new FakeScopeProbe(true, false);
+        var probe = new BlueStacksCalibratedWorkloadForegroundProbe(
+            calibration,
+            scope);
+
+        Require(await probe.IsForegroundAsync(target) is true
+                && await probe.IsForegroundAsync(target) is false
+                && scope.CallCount == 2,
+            "Calibrated BlueStacks workload foreground must delegate to the exact instance/package/version/Android-foreground scope authority and preserve its fail-closed result.");
+
+        var wrongTarget = target with { GameId = "garena.free-fire-max" };
+        Require(await probe.IsForegroundAsync(wrongTarget) is false
+                && scope.CallCount == 2,
+            "A calibrated BlueStacks workload foreground probe must reject a different stable GameId before consulting the calibrated scope.");
     }
 
     private static async Task AdbFramebufferCaptureIsExactAndOcclusionIndependentAsync()

@@ -13,6 +13,13 @@ public interface IForegroundProcessProbe
     int? GetForegroundProcessId();
 }
 
+public interface IWorkloadForegroundProbe
+{
+    Task<bool?> IsForegroundAsync(
+        TelemetryWorkloadTarget target,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed class WindowsForegroundProcessProbe : IForegroundProcessProbe
 {
     public int? GetForegroundProcessId()
@@ -53,6 +60,7 @@ public sealed class GenericGuardianWorkloadObservationService
     private readonly GenericGuardianWorkloadStateMachine _stateMachine;
     private readonly IForegroundProcessProbe _foregroundProcess;
     private readonly IRecentInputProbe _recentInput;
+    private readonly IWorkloadForegroundProbe? _workloadForeground;
     private readonly Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> _capture;
 
     public GenericGuardianWorkloadObservationService(
@@ -60,13 +68,15 @@ public sealed class GenericGuardianWorkloadObservationService
         GenericGuardianWorkloadStateMachine stateMachine,
         IForegroundProcessProbe foregroundProcess,
         IRecentInputProbe recentInput,
-        Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> capture)
+        Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> capture,
+        IWorkloadForegroundProbe? workloadForeground = null)
     {
         _targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
         _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
         _foregroundProcess = foregroundProcess ?? throw new ArgumentNullException(nameof(foregroundProcess));
         _recentInput = recentInput ?? throw new ArgumentNullException(nameof(recentInput));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        _workloadForeground = workloadForeground;
     }
 
     public async Task<GenericGuardianWorkloadObservation> ObserveAsync(
@@ -101,8 +111,20 @@ public sealed class GenericGuardianWorkloadObservationService
             };
         }
 
-        var foregroundProcessId = _foregroundProcess.GetForegroundProcessId();
-        var isForeground = foregroundProcessId == processId;
+        bool isForeground;
+        if (_workloadForeground is not null)
+        {
+            var specializedForeground = await _workloadForeground
+                .IsForegroundAsync(target, cancellationToken)
+                .ConfigureAwait(false);
+            isForeground = specializedForeground
+                ?? _foregroundProcess.GetForegroundProcessId() == processId;
+        }
+        else
+        {
+            isForeground = _foregroundProcess.GetForegroundProcessId() == processId;
+        }
+
         var hasRecentInput = isForeground && _recentInput.HasRecentInput();
 
         var capture = await _capture(target, captureDuration, cancellationToken).ConfigureAwait(false);

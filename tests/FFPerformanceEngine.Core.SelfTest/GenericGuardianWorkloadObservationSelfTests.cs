@@ -8,6 +8,7 @@ internal static class GenericGuardianWorkloadObservationSelfTests
     {
         ConstructorIsSideEffectFree();
         await ExactForegroundRecentInputAndDirectRenderBecomeActiveAsync();
+        await CalibratedWorkloadForegroundCanAuthorizeExactRenderedTargetAsync();
         await BackgroundInputCannotBecomeActiveAsync();
         await MissingTrustworthyRenderStaysReadyAsync();
         await NonExactTargetsDoNotProbeAsync();
@@ -56,6 +57,41 @@ internal static class GenericGuardianWorkloadObservationSelfTests
             "Exact foreground + recent input + direct measured render evidence must become Active and preserve the accepted frame.");
         Require(foreground.Calls == 2 && input.Calls == 2,
             "Foreground and recent-input probes must be invoked once per exact foreground observation.");
+    }
+
+    private static async Task CalibratedWorkloadForegroundCanAuthorizeExactRenderedTargetAsync()
+    {
+        var executable = FullPath("bluestacks-player.exe");
+        var catalog = Catalog("garena.free-fire", 77, executable);
+        var windowsForeground = new CountingForegroundProbe(999);
+        var calibratedForeground = new CountingWorkloadForegroundProbe(true);
+        var input = new CountingRecentInputProbe(false);
+        var frame = Frame(1, TelemetryMetricQuality.Measured, TelemetryMetricOrigin.Direct);
+        var service = CreateService(
+            windowsForeground,
+            input,
+            Capture(frame),
+            calibratedForeground);
+
+        _ = await service.ObserveAsync(
+            catalog,
+            "garena.free-fire",
+            true,
+            TimeSpan.FromSeconds(2));
+        var second = await service.ObserveAsync(
+            catalog,
+            "garena.free-fire",
+            true,
+            TimeSpan.FromSeconds(2));
+
+        Require(second.State.State == GuardianWorkloadState.Active
+                && second.State.Confidence == GuardianWorkloadStateConfidence.High
+                && second.Signals.IsForeground
+                && second.Signals.HasRenderActivity,
+            "A vetted workload-specific foreground authority plus exact direct render evidence must authorize Active without pretending the Windows shell PID is the measured workload PID.");
+        Require(calibratedForeground.Calls == 2
+                && windowsForeground.Calls == 0,
+            "When a workload-specific foreground authority is configured, generic Windows foreground PID inference must not override it.");
     }
 
     private static async Task BackgroundInputCannotBecomeActiveAsync()
@@ -196,7 +232,8 @@ internal static class GenericGuardianWorkloadObservationSelfTests
     private static GenericGuardianWorkloadObservationService CreateService(
         IForegroundProcessProbe foreground,
         IRecentInputProbe input,
-        Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> capture)
+        Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> capture,
+        IWorkloadForegroundProbe? workloadForeground = null)
     {
         var resolver = new TelemetryWorkloadTargetResolver();
         return new GenericGuardianWorkloadObservationService(
@@ -204,7 +241,8 @@ internal static class GenericGuardianWorkloadObservationSelfTests
             new GenericGuardianWorkloadStateMachine(resolver),
             foreground,
             input,
-            capture);
+            capture,
+            workloadForeground);
     }
 
     private static Func<TelemetryWorkloadTarget, TimeSpan, CancellationToken, Task<PerformanceWorkloadTypedCaptureResult>> Capture(TelemetryFrame? frame)
@@ -292,6 +330,20 @@ internal static class GenericGuardianWorkloadObservationSelfTests
         {
             Calls++;
             return processId;
+        }
+    }
+
+    private sealed class CountingWorkloadForegroundProbe(bool isForeground) : IWorkloadForegroundProbe
+    {
+        public int Calls { get; private set; }
+
+        public Task<bool?> IsForegroundAsync(
+            TelemetryWorkloadTarget target,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
+            return Task.FromResult<bool?>(isForeground);
         }
     }
 

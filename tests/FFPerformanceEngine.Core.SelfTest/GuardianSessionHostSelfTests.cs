@@ -7,6 +7,7 @@ internal static class GuardianSessionHostSelfTests
     {
         await PublishesLiveStatusAndAvoidsDuplicateLoopForSameInstance();
         await SwitchingInstanceCancelsOldLoopAndStartsNewOne();
+        await SuspendPreservesDesiredInstanceForCalibratedScopeAsync();
         await StopCancelsTheLiveLoop();
         Console.WriteLine("PASS Guardian application-lifetime host lifecycle");
     }
@@ -44,6 +45,34 @@ internal static class GuardianSessionHostSelfTests
 
         Require(runner.CancelledInstances.Contains("Pie64"), "Switching instance must cancel the previous monitoring loop before binding the new target.");
         Require(host.InstanceName == "Android11" && host.IsRunning, "Host must expose only the newly selected BlueStacks instance after a switch.");
+    }
+
+    private static async Task SuspendPreservesDesiredInstanceForCalibratedScopeAsync()
+    {
+        var runner = new FakeLiveRunner();
+        await using var host = new GuardianSessionHost(runner);
+
+        await host.StartAsync("Pie64", TimeSpan.FromMilliseconds(25));
+        await runner.WaitForStartsAsync(1);
+        var state = await host.SuspendAsync();
+
+        Require(!host.IsRunning
+                && host.InstanceName is null
+                && host.DesiredInstanceName == "Pie64",
+            "Controlled experiment suspension may stop the live loop but must preserve the exact desired BlueStacks instance for calibrated scope attestation.");
+
+        await host.StartAsync("Android11", TimeSpan.FromMilliseconds(40));
+        Require(!host.IsRunning
+                && host.InstanceName is null
+                && host.DesiredInstanceName == "Android11",
+            "A desired instance change while suspended must be observable to calibrated scope without prematurely restarting the specialized Guardian.");
+
+        await host.ResumeAsync(state);
+        await runner.WaitForStartsAsync(2);
+        Require(host.IsRunning
+                && host.InstanceName == "Android11"
+                && host.DesiredInstanceName == "Android11",
+            "Resume must reconcile the live Guardian to the exact desired instance preserved while suspended.");
     }
 
     private static async Task StopCancelsTheLiveLoop()
