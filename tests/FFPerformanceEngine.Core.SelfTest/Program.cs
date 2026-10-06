@@ -175,6 +175,7 @@ try
     PerformanceTimelineEventRecorderSelfTests.Run();
     await GameDiscoveryFoundationSelfTests.RunAsync();
     BlueStacksCanaryContextCalibrationSelfTests.Run();
+    await BlueStacksCalibratedCanaryEvidenceSourceSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
     GameAdapterTuningDimensionSelfTests.Run();
     BlueStacksUniversalTuningCandidateBridgeSelfTests.Run();
