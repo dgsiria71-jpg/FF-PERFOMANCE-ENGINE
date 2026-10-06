@@ -67,6 +67,7 @@ public sealed class AppServices : IAsyncDisposable
     public BlueStacksUniversalTuningCandidateBridge UniversalTuningCandidates { get; }
     public UniversalValidatedProfileProvenanceService UniversalValidatedProfileProvenance { get; }
     public UniversalPersistedPromotedProfileProvenanceService UniversalPersistedPromotedProfileProvenance { get; }
+    public BlueStacksForegroundGameProcessEvidenceSource BlueStacksForegroundProcessGameEvidence { get; }
     public RunningProcessGameEvidenceSource RunningProcessGameEvidence { get; }
     public KnownExecutableGameEvidenceSource KnownExecutableGameEvidence { get; }
     public GameEvidenceCatalogService GameEvidenceCatalog { get; }
@@ -209,12 +210,19 @@ public sealed class AppServices : IAsyncDisposable
             Profiles,
             History,
             UniversalValidatedProfileProvenance);
+        GuardianProcessProbe = new BlueStacksPlayerProcessProbe();
+        BlueStacksForegroundProcessGameEvidence =
+            new BlueStacksForegroundGameProcessEvidenceSource(
+                BlueStacks,
+                BlueStacksAutomation,
+                GuardianProcessProbe);
         RunningProcessGameEvidence = new RunningProcessGameEvidenceSource(
             new WindowsRunningProcessObservationProvider());
         KnownExecutableGameEvidence = new KnownExecutableGameEvidenceSource(
             new WindowsAppPathsKnownExecutableObservationProvider());
         GameEvidenceCatalog = new GameEvidenceCatalogService(
         [
+            BlueStacksForegroundProcessGameEvidence,
             RunningProcessGameEvidence,
             KnownExecutableGameEvidence
         ]);
@@ -230,7 +238,6 @@ public sealed class AppServices : IAsyncDisposable
         ProfileChallengeProgress = new ProfileChallengeProgressService(Profiles, History);
         GuardianCanary = new GuardianCanaryService(Guardian, ProcessTuning, GuardianKnowledge, History);
 
-        GuardianProcessProbe = new BlueStacksPlayerProcessProbe();
         GuardianRecentInput = new WindowsRecentInputProbe();
         GuardianBinding = new GuardianPlayerBindingService(GuardianProcessProbe);
         GuardianSupervisorFactory = new GuardianSupervisorFactory(
