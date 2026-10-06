@@ -10,7 +10,8 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
     {
         await IntervalSourceBracketsTelemetryWithMeasuredCalibrationAsync();
         await ChangedVisualOrScopeFailsClosedAsync();
-        Console.WriteLine("PASS Track 6 calibrated BlueStacks evidence brackets the physical interval and fails closed");
+        await AdbFramebufferCaptureIsExactAndOcclusionIndependentAsync();
+        Console.WriteLine("PASS Track 6 calibrated BlueStacks evidence brackets the physical interval, captures exact ADB framebuffer and fails closed");
     }
 
     private static async Task IntervalSourceBracketsTelemetryWithMeasuredCalibrationAsync()
@@ -97,6 +98,103 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
             "Instance/package/foreground drift at the trailing boundary must fail closed.");
     }
 
+    private static async Task AdbFramebufferCaptureIsExactAndOcclusionIndependentAsync()
+    {
+        var calibration = Calibration();
+        var environment = new EnvironmentSnapshot
+        {
+            BlueStacksDetected = true,
+            Instances =
+            [
+                new BlueStacksInstance
+                {
+                    Name = calibration.InstanceName,
+                    AdbPort = calibration.AdbPort,
+                    AdbEnabled = true
+                }
+            ]
+        };
+        var automation = new BlueStacksAutomationService(
+            new BlueStacksService(),
+            adbExecutableOverride: @"C:\BlueStacks\HD-Adb.exe");
+        var backend = new FakeAdbRawScreenCapture(
+            RawFrame(
+                calibration.WindowWidth,
+                calibration.WindowHeight,
+                pixelFormat: 1,
+                red: 10,
+                green: 20,
+                blue: 30));
+        var capture = new BlueStacksAdbCanaryVisualFrameCapture(
+            () => environment,
+            automation,
+            backend);
+
+        var frame = await capture.CaptureAsync(4242, calibration);
+        Require(frame is not null
+                && frame.Width == calibration.WindowWidth
+                && frame.Height == calibration.WindowHeight
+                && frame.Bgra32[0] == 30
+                && frame.Bgra32[1] == 20
+                && frame.Bgra32[2] == 10
+                && frame.Bgra32[3] == 255
+                && backend.CallCount == 1
+                && backend.AdbExecutable == @"C:\BlueStacks\HD-Adb.exe"
+                && backend.Endpoint == "127.0.0.1:5555",
+            "ADB framebuffer capture must bind the calibrated instance endpoint, parse the real 16-byte raw screencap header and convert RGBA pixels to BGRA without reading the Windows desktop.");
+
+        var unsupported = new BlueStacksAdbCanaryVisualFrameCapture(
+            () => environment,
+            automation,
+            new FakeAdbRawScreenCapture(
+                RawFrame(
+                    calibration.WindowWidth,
+                    calibration.WindowHeight,
+                    pixelFormat: 2,
+                    red: 10,
+                    green: 20,
+                    blue: 30)));
+        Require(await unsupported.CaptureAsync(4242, calibration) is null,
+            "Unknown Android screencap pixel formats must fail closed.");
+
+        var duplicateScope = new BlueStacksAdbCanaryVisualFrameCapture(
+            () => environment with
+            {
+                Instances =
+                [
+                    environment.Instances[0],
+                    environment.Instances[0]
+                ]
+            },
+            automation,
+            backend);
+        Require(await duplicateScope.CaptureAsync(4242, calibration) is null,
+            "ADB framebuffer capture must require one exact calibrated BlueStacks instance/port.");
+    }
+
+    private static byte[] RawFrame(
+        int width,
+        int height,
+        int pixelFormat,
+        byte red,
+        byte green,
+        byte blue)
+    {
+        var raw = new byte[checked(16 + width * height * 4)];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(0, 4), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(4, 4), height);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(8, 4), pixelFormat);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(12, 4), 0);
+        for (var i = 16; i < raw.Length; i += 4)
+        {
+            raw[i] = red;
+            raw[i + 1] = green;
+            raw[i + 2] = blue;
+            raw[i + 3] = 255;
+        }
+        return raw;
+    }
+
     private static BlueStacksCanaryContextCalibration Calibration()
         => BlueStacksCanaryContextCalibration.Create(
             "garena.free-fire",
@@ -156,6 +254,26 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private sealed class FakeAdbRawScreenCapture(byte[] raw)
+        : IBlueStacksAdbRawScreenCapture
+    {
+        internal int CallCount { get; private set; }
+        internal string? AdbExecutable { get; private set; }
+        internal string? Endpoint { get; private set; }
+
+        public Task<byte[]?> CaptureAsync(
+            string adbExecutable,
+            string endpoint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            AdbExecutable = adbExecutable;
+            Endpoint = endpoint;
+            return Task.FromResult<byte[]?>(raw.ToArray());
+        }
     }
 
     private sealed class FakeVisualCapture(IReadOnlyList<BlueStacksCanaryVisualFrame> frames)
