@@ -27,7 +27,7 @@ await using var genericCoordinator = services.CreateGenericGuardianWindowsRuntim
     new GenericGuardianSessionMutationCatalog(
         Array.Empty<GenericGuardianSessionMutationDefinition>()),
     Array.Empty<GenericGuardianSessionActionCandidate>(),
-    _ => null,
+    evidenceRegistration: null,
     TimeSpan.FromMilliseconds(10));
 
 Require(!genericCoordinator.IsRunning
@@ -35,6 +35,44 @@ Require(!genericCoordinator.IsRunning
         && genericCoordinator.LastResult is null
         && genericCoordinator.LastFailure is null,
     "AppServices generic runtime coordinator factory must be inert/disabled by default; construction may not start scheduling, discovery or automatic mutation.");
+
+var ffActivationIdentity = LegacyGameIdentityBridge.FromGameKind(GameKind.FreeFire)
+    ?? throw new InvalidOperationException("Generic Guardian activation fixture requires the stable Free Fire identity.");
+var ffActivationPlan = new GenericGuardianWindowsRuntimeLoopPlan
+{
+    Catalog = new ResolvedGameCatalogResult
+    {
+        Games =
+        [
+            new ResolvedGameCatalogEntry
+            {
+                Identity = ffActivationIdentity,
+                Adapter = BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire)
+            }
+        ]
+    },
+    GameId = ffActivationIdentity.GameId,
+    SystemOnline = true,
+    ObservationDuration = TimeSpan.FromMilliseconds(10),
+    AnalysisContext = new BottleneckAnalysisContext(),
+    Interval = TimeSpan.FromMilliseconds(10)
+};
+var ffActivationBlocked = false;
+try
+{
+    await genericCoordinator.StartAsync(ffActivationPlan);
+}
+catch (InvalidOperationException)
+{
+    ffActivationBlocked = true;
+}
+
+Require(ffActivationBlocked
+        && !genericCoordinator.IsRunning
+        && genericCoordinator.CompletedCycles == 0
+        && genericCoordinator.LastReadiness.Status
+            == GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
+    "Current Free Fire/BlueStacks scheduled generic Guardian activation must remain NotReady before any cycle because its truthful adapter capability is CanaryContextEvidence=false.");
 
 var runtimeBenchmarkField = typeof(GenericGuardianWindowsRuntimeHost).GetField(
     "_benchmarkAuthority",

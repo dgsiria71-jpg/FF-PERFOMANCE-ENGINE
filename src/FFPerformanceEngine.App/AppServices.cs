@@ -459,14 +459,33 @@ public sealed class AppServices : IAsyncDisposable
         GenericGuardianSessionActionBudget budget,
         GenericGuardianSessionMutationCatalog mutationCatalog,
         IEnumerable<GenericGuardianSessionActionCandidate> candidates,
-        Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceSourceFactory,
+        GenericGuardianCanaryEvidenceSourceRegistration? evidenceRegistration,
         TimeSpan canarySampleDuration)
-        => new(CreateGenericGuardianWindowsRuntimeHost(
+    {
+        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(mutationCatalog);
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        var candidateSnapshot = candidates.ToArray();
+        Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceFactory =
+            evidenceRegistration is null
+                ? static _ => null
+                : evidenceRegistration.Create;
+
+        var runtime = CreateGenericGuardianWindowsRuntimeHost(
             budget,
             mutationCatalog,
-            candidates,
-            evidenceSourceFactory,
-            canarySampleDuration));
+            candidateSnapshot,
+            evidenceFactory,
+            canarySampleDuration);
+        var readiness = new GenericGuardianRuntimeActivationReadinessGate(
+            candidateSnapshot,
+            mutationCatalog,
+            budget,
+            evidenceRegistration);
+
+        return new GenericGuardianWindowsRuntimeCoordinator(runtime, readiness);
+    }
 
     public Task<WindowsCapabilityCandidatePlan> PlanWindowsCapabilityExperimentAsync(
         string capabilityId,
