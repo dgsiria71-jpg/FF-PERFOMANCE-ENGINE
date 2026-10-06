@@ -188,6 +188,7 @@ try
     await PersistedPromotedProfileProvenanceSelfTests.RunAsync();
     TelemetryFrameRingBufferSelfTests.Run();
     WddmGpuPdhInstanceParserSelfTests.Run();
+    WorkloadTelemetryFrameComposerSelfTests.Run();
     PresentMonTypedCaptureMetadataSelfTests.Run();
     UniversalBottleneckAnalyzerV2SelfTests.Run();
     UniversalDiagnosticServiceV2SelfTests.Run();

@@ -390,10 +390,20 @@ public sealed class AppServices : IAsyncDisposable
         TimeSpan duration,
         CancellationToken cancellationToken = default)
     {
-        var frame = await PresentMon
+        var presentationFrame = await PresentMon
             .CaptureProcessFrameAsync(processId, duration, cancellationToken)
             .ConfigureAwait(false);
-        if (frame is not null) TelemetryRealtime.AppendRaw(frame);
+        if (presentationFrame is null)
+            return null;
+
+        // The generic bottleneck classifier requires measured GPU context to
+        // distinguish CPU contention from GPU saturation. Reuse the existing
+        // WDDM authority; never synthesize a GPU value when PDH is unavailable.
+        var gpuFrame = WddmGpuTelemetry.Capture();
+        var frame = WorkloadTelemetryFrameComposer.Compose(
+            presentationFrame,
+            gpuFrame);
+        TelemetryRealtime.AppendRaw(frame);
         return frame;
     }
 
