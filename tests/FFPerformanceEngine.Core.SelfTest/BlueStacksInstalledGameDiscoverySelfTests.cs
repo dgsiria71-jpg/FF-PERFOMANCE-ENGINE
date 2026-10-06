@@ -77,7 +77,71 @@ internal static class BlueStacksInstalledGameDiscoverySelfTests
         Require(!executor.Calls.Any(call => call.Arguments.Any(argument => argument.Contains("5567", StringComparison.Ordinal))),
             "Discovery must not probe an instance whose BlueStacks configuration explicitly disables ADB.");
 
+        var fallbackExecutor = new FallbackProcessExecutor();
+        var fallbackAutomation = new BlueStacksAutomationService(
+            blueStacks,
+            fallbackExecutor,
+            adbExecutableOverride: @"C:\BlueStacks\HD-Adb.exe",
+            playerExecutableOverride: @"C:\BlueStacks\HD-Player.exe");
+        var fallbackSource = new BlueStacksInstalledGameDiscoverySource(
+            blueStacks,
+            fallbackAutomation,
+            () => [instances.Single(instance => instance.Name == "Pie64")]);
+
+        var fallbackCandidates = await fallbackSource.DiscoverAsync();
+        Require(fallbackCandidates.Count == 1
+                && fallbackCandidates[0].Identity.GameId == "garena.free-fire",
+            "When BlueStacks closes 'pm list packages', discovery must fall back only to exact supported package details and still discover installed Free Fire.");
+        Require(fallbackExecutor.Calls.Any(call =>
+                call.Arguments.SequenceEqual(
+                    ["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefireth"])),
+            "Fallback discovery must query the exact Free Fire package details.");
+        Require(fallbackExecutor.Calls.Any(call =>
+                call.Arguments.SequenceEqual(
+                    ["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefiremax"])),
+            "Fallback discovery must query the exact Free Fire MAX package details rather than infer it from Free Fire.");
+        Require(!fallbackCandidates.Any(candidate => candidate.Identity.GameId == "garena.free-fire-max"),
+            "Fallback discovery must not report Free Fire MAX when exact package details contain no versionName.");
+
         Console.WriteLine("PASS Track 3 BlueStacks installed-package discovery reuses exact FF/FF MAX identities without fabrication");
+    }
+
+    private sealed class FallbackProcessExecutor : IProcessExecutor
+    {
+        internal List<(string FileName, IReadOnlyList<string> Arguments)> Calls { get; } = [];
+
+        public Task<ProcessExecutionResult> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls.Add((fileName, arguments.ToArray()));
+
+            if (arguments.Count >= 1 && string.Equals(arguments[0], "connect", StringComparison.Ordinal))
+                return Task.FromResult(new ProcessExecutionResult(0, "already connected", string.Empty));
+
+            if (arguments.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "pm", "list", "packages"]))
+                return Task.FromResult(new ProcessExecutionResult(1, string.Empty, "error: closed"));
+
+            if (arguments.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefireth"]))
+                return Task.FromResult(new ProcessExecutionResult(
+                    0,
+                    "Packages:\n  Package [com.dts.freefireth]\n    versionName=1.132.1\n",
+                    string.Empty));
+
+            if (arguments.SequenceEqual(["-s", "127.0.0.1:5565", "shell", "dumpsys", "package", "com.dts.freefiremax"]))
+                return Task.FromResult(new ProcessExecutionResult(
+                    0,
+                    "Unable to find package: com.dts.freefiremax\n",
+                    string.Empty));
+
+            return Task.FromResult(new ProcessExecutionResult(1, string.Empty, "unexpected command"));
+        }
+
+        public ProcessStartResult StartDetached(string fileName, IReadOnlyList<string> arguments)
+            => new(false, null, "Discovery must not start BlueStacks instances.");
     }
 
     private sealed class FakeProcessExecutor : IProcessExecutor
