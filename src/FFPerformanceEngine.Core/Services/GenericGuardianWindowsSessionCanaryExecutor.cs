@@ -530,6 +530,9 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
             return "Candidate stable GameId no longer matches the exact workload target.";
         if (!_catalog.IsAuthorized(candidate, binding.Mutation))
             return "Guardian action is not registered to this exact Windows capability, target value and expected-state precondition.";
+        if (binding.Mutation.WorkloadProcessId is int boundProcessId
+            && boundProcessId != target.ProcessId)
+            return "Guardian action mutation is bound to a stale or different workload PID.";
         if (!_transactions.IsLiveSafeSessionCapability(binding.Mutation.CapabilityId))
             return "Guardian Windows session binding requires a currently Available, session-applicable LiveSafe capability; action metadata alone is insufficient.";
 

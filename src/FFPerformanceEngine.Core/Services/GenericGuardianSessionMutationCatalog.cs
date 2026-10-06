@@ -41,7 +41,8 @@ public sealed class GenericGuardianSessionMutationCatalog
             var mutation = new WindowsMutationRequest(
                 definition.Mutation.CapabilityId.Trim(),
                 definition.Mutation.TargetValue,
-                definition.Mutation.ExpectedCurrentValue);
+                definition.Mutation.ExpectedCurrentValue,
+                definition.Mutation.WorkloadProcessId);
             if (!_entries.TryAdd(key, mutation))
                 throw new ArgumentException("Duplicate Guardian action mapping; ambiguous mutation authority is forbidden.", nameof(definitions));
         }
@@ -61,7 +62,8 @@ public sealed class GenericGuardianSessionMutationCatalog
                    out var registered)
                && string.Equals(registered.CapabilityId, requested.CapabilityId.Trim(), StringComparison.OrdinalIgnoreCase)
                && string.Equals(registered.TargetValue, requested.TargetValue, StringComparison.Ordinal)
-               && string.Equals(registered.ExpectedCurrentValue, requested.ExpectedCurrentValue, StringComparison.Ordinal);
+               && string.Equals(registered.ExpectedCurrentValue, requested.ExpectedCurrentValue, StringComparison.Ordinal)
+               && registered.WorkloadProcessId == requested.WorkloadProcessId;
     }
 
     public bool TryBind(

@@ -176,6 +176,7 @@ try
     await GameDiscoveryFoundationSelfTests.RunAsync();
     BlueStacksCanaryContextCalibrationSelfTests.Run();
     await BlueStacksCalibratedCanaryEvidenceSourceSelfTests.RunAsync();
+    await WindowsProcessPriorityMutationAdapterSelfTests.RunAsync();
     await SteamGameDiscoverySelfTests.RunAsync();
     GameAdapterTuningDimensionSelfTests.Run();
     BlueStacksUniversalTuningCandidateBridgeSelfTests.Run();
