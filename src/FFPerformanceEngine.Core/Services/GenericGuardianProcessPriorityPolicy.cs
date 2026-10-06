@@ -23,17 +23,12 @@ public sealed record GenericGuardianProcessPriorityPolicy(
                 "Process-priority Guardian policy requires one exact capturable stable workload.",
                 nameof(exactTarget));
 
-        var candidate = new GenericGuardianSessionActionCandidate
-        {
-            GameId = exactTarget.GameId.Trim(),
-            Family = GuardianAnomalyKind.CpuContention,
-            Action = new GuardianAction
-            {
-                Id = ActionId,
-                Description = "Temporarily raise the exact workload process priority to AboveNormal.",
-                Safety = ActionSafety.LiveSafe
-            }
-        };
+        var cpuCandidate = CandidateFor(
+            exactTarget.GameId.Trim(),
+            GuardianAnomalyKind.CpuContention);
+        var framePacingCandidate = CandidateFor(
+            exactTarget.GameId.Trim(),
+            GuardianAnomalyKind.FrameTimeInstability);
 
         var mutation = new WindowsMutationRequest(
             WindowsProcessPriorityMutationAdapter.Capability,
@@ -43,15 +38,35 @@ public sealed record GenericGuardianProcessPriorityPolicy(
             ExpectedCurrentValue: null,
             WorkloadProcessId: processId);
 
+        var candidates = new[]
+        {
+            cpuCandidate,
+            framePacingCandidate
+        };
+
         return new GenericGuardianProcessPriorityPolicy(
-            Array.AsReadOnly([candidate]),
+            Array.AsReadOnly(candidates),
             new GenericGuardianSessionMutationCatalog(
-            [
-                new GenericGuardianSessionMutationDefinition(
-                    candidate.GameId,
-                    candidate.Family,
-                    candidate.Action.Id,
-                    mutation)
-            ]));
+                candidates.Select(candidate =>
+                    new GenericGuardianSessionMutationDefinition(
+                        candidate.GameId,
+                        candidate.Family,
+                        candidate.Action.Id,
+                        mutation))));
     }
+
+    private static GenericGuardianSessionActionCandidate CandidateFor(
+        string gameId,
+        GuardianAnomalyKind family)
+        => new()
+        {
+            GameId = gameId,
+            Family = family,
+            Action = new GuardianAction
+            {
+                Id = ActionId,
+                Description = "Temporarily raise the exact workload process priority to AboveNormal.",
+                Safety = ActionSafety.LiveSafe
+            }
+        };
 }
