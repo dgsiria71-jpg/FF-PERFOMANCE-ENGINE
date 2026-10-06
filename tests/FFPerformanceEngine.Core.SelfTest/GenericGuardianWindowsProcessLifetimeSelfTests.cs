@@ -16,6 +16,15 @@ internal static class GenericGuardianWindowsProcessLifetimeSelfTests
         using var current = Process.GetCurrentProcess();
         var executable = current.MainModule?.FileName
             ?? throw new InvalidOperationException("Self-test Windows process executable is unavailable.");
+        var imagePathResolver = new WindowsProcessImagePathResolver();
+        var limitedPath = imagePathResolver.ResolveWithLimitedInformation(current.Id);
+        Require(!string.IsNullOrWhiteSpace(limitedPath)
+                && string.Equals(
+                    Path.GetFullPath(limitedPath),
+                    Path.GetFullPath(executable),
+                    StringComparison.OrdinalIgnoreCase),
+            "PROCESS_QUERY_LIMITED_INFORMATION must resolve the physical executable path independently of Process.MainModule.");
+
         var probe = new GenericGuardianWindowsProcessLifetimeProbe();
         var before = probe.Observe(current.Id, executable);
         Require(before is not null && before.ProcessId == current.Id
