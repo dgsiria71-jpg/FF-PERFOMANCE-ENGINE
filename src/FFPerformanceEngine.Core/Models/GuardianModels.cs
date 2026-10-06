@@ -39,3 +39,32 @@ public sealed record GuardianActionEvidence
     public double SuccessRate => Attempts == 0 ? 0 : SuccessCount / (double)Attempts;
     public bool IsValidated => SuccessCount >= 2 && SuccessRate >= 0.75;
 }
+
+public sealed record GenericGuardianActionReliabilityKey(
+    string GameId,
+    Services.GuardianAnomalyKind Family,
+    string ActionId);
+
+public sealed record GenericGuardianActionReliability
+{
+    public string GameId { get; init; } = string.Empty;
+    public Services.GuardianAnomalyKind Family { get; init; }
+    public string ActionId { get; init; } = string.Empty;
+    public int SuccessCount { get; init; }
+    public int FailureCount { get; init; }
+    public int InconclusiveCount { get; init; }
+    public double AverageRelativeFpsGain { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
+
+    public int DecisiveAttempts => SuccessCount + FailureCount;
+    public int Attempts => DecisiveAttempts + InconclusiveCount;
+    public double SuccessRate
+        => DecisiveAttempts == 0 ? 0 : SuccessCount / (double)DecisiveAttempts;
+
+    // Preserve the already-shipped Guardian evidence validation rule:
+    // at least two successes and >=75% success over decisive outcomes.
+    public bool IsValidated => SuccessCount >= 2 && SuccessRate >= 0.75;
+
+    public GenericGuardianActionReliabilityKey Key
+        => new(GameId, Family, ActionId);
+}
