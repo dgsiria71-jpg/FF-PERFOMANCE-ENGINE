@@ -1,5 +1,8 @@
 using FFPerformanceEngine.Core.Diagnostics;
+using FFPerformanceEngine.Core.Models;
 using FFPerformanceEngine.Core.Services;
+using FFPerformanceEngine.Core.SystemOptimization;
+using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
 
 internal static class GenericGuardianWindowsRuntimeCoordinatorSelfTests
@@ -9,13 +12,17 @@ internal static class GenericGuardianWindowsRuntimeCoordinatorSelfTests
         await ConstructionIsIdleAndExplicitStartSerializesCyclesAsync();
         await CycleFailureStopsAndAutomaticallyResetsRuntimeAsync();
         await FailedFailureCleanupRemainsRetryableThroughExplicitStopAsync();
-        Console.WriteLine("PASS Track 6 explicit generic runtime coordinator is idle-by-default, serialized and cleanup-safe");
+        await ActivationReadinessBlocksStartBeforeRuntimeCycleAsync();
+        ConcreteReadinessRequiresAdapterEvidenceAndExplicitPolicy();
+        Console.WriteLine("PASS Track 6 explicit generic runtime coordinator is idle-by-default, readiness-gated, serialized and cleanup-safe");
     }
 
     private static async Task ConstructionIsIdleAndExplicitStartSerializesCyclesAsync()
     {
         var runtime = new FakeRuntime(cycleDelay: TimeSpan.FromMilliseconds(35));
-        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(runtime);
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(
+            runtime,
+            FixedReadiness.Ready);
         var plan = Plan(interval: TimeSpan.FromMilliseconds(5));
 
         await Task.Delay(75);
@@ -50,7 +57,9 @@ internal static class GenericGuardianWindowsRuntimeCoordinatorSelfTests
         var runtime = new FakeRuntime(
             cycleDelay: TimeSpan.FromMilliseconds(5),
             failOnRun: 2);
-        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(runtime);
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(
+            runtime,
+            FixedReadiness.Ready);
 
         await coordinator.StartAsync(Plan(TimeSpan.FromMilliseconds(5)));
         await runtime.WaitForRunsAsync(2);
@@ -72,7 +81,9 @@ internal static class GenericGuardianWindowsRuntimeCoordinatorSelfTests
             cycleDelay: TimeSpan.FromMilliseconds(5),
             failOnRun: 1,
             resetFailures: 1);
-        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(runtime);
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(
+            runtime,
+            FixedReadiness.Ready);
 
         await coordinator.StartAsync(Plan(TimeSpan.FromMilliseconds(5)));
         await runtime.WaitForRunsAsync(1);
@@ -88,6 +99,194 @@ internal static class GenericGuardianWindowsRuntimeCoordinatorSelfTests
         Require(runtime.ResetCount == 2
                 && !runtime.HasRetainedState,
             "Explicit stop must retry a previously failed cleanup and leave no retained state before a future start.");
+    }
+
+    private static async Task ActivationReadinessBlocksStartBeforeRuntimeCycleAsync()
+    {
+        var runtime = new FakeRuntime(TimeSpan.FromMilliseconds(5));
+        var gate = new FixedReadiness(
+            new GenericGuardianRuntimeActivationReadiness(
+                GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
+                "test adapter has no canary context evidence"));
+        await using var coordinator = new GenericGuardianWindowsRuntimeCoordinator(runtime, gate);
+
+        await RequireThrowsAsync<InvalidOperationException>(
+            () => coordinator.StartAsync(Plan(TimeSpan.FromMilliseconds(5))),
+            "NotReady activation must reject scheduled Start.");
+
+        Require(runtime.RunCount == 0
+                && runtime.ResetCount == 0
+                && !coordinator.IsRunning
+                && coordinator.CompletedCycles == 0
+                && coordinator.LastReadiness.Status
+                    == GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
+            "Readiness rejection must occur before any runtime cycle/reset and expose the exact fail-closed reason.");
+    }
+
+    private static void ConcreteReadinessRequiresAdapterEvidenceAndExplicitPolicy()
+    {
+        const string gameId = "test:activation-ready";
+        var candidate = new GenericGuardianSessionActionCandidate
+        {
+            GameId = gameId,
+            Family = GuardianAnomalyKind.GpuSaturation,
+            Action = new GuardianAction
+            {
+                Id = "test.activation.action",
+                Description = "test only",
+                Safety = ActionSafety.LiveSafe
+            }
+        };
+        var mutationCatalog = new GenericGuardianSessionMutationCatalog([
+            new GenericGuardianSessionMutationDefinition(
+                gameId,
+                candidate.Family,
+                candidate.Action.Id,
+                new WindowsMutationRequest("test.activation.capability", "on", "off"))
+        ]);
+        var budget = new GenericGuardianSessionActionBudget(
+            TimeSpan.FromMinutes(1),
+            maxAttemptsPerSession: 1);
+
+        var ffPlan = PlanFor(
+            gameId,
+            BlueStacksFreeFireGameAdapter.For(GameKind.FreeFire));
+        var ffGate = new GenericGuardianRuntimeActivationReadinessGate(
+            [candidate],
+            mutationCatalog,
+            budget,
+            new GenericGuardianCanaryEvidenceSourceRegistration(
+                "bluestacks.free-fire",
+                "test.ff.evidence",
+                _ => new FakeEvidenceSource()));
+        var ffReadiness = ffGate.Evaluate(ffPlan);
+        Require(ffReadiness.Status
+                    == GenericGuardianRuntimeActivationReadinessStatus.AdapterCanaryContextUnavailable,
+            "Current Free Fire adapter must remain NotReady while CanaryContextEvidence=false even when all other policy objects are supplied.");
+
+        var capablePlan = PlanFor(gameId, new CanaryReadyAdapter());
+        var noEvidence = new GenericGuardianRuntimeActivationReadinessGate(
+            [candidate],
+            mutationCatalog,
+            budget,
+            evidenceRegistration: null).Evaluate(capablePlan);
+        Require(noEvidence.Status
+                    == GenericGuardianRuntimeActivationReadinessStatus.EvidenceSourceNotRegistered,
+            "Canary-capable adapter alone must not start without an explicit evidence-source registration.");
+
+        var registration = new GenericGuardianCanaryEvidenceSourceRegistration(
+            "test.canary-ready",
+            "test.activation.evidence",
+            _ => new FakeEvidenceSource());
+
+        var noCandidates = new GenericGuardianRuntimeActivationReadinessGate(
+            Array.Empty<GenericGuardianSessionActionCandidate>(),
+            mutationCatalog,
+            budget,
+            registration).Evaluate(capablePlan);
+        Require(noCandidates.Status
+                    == GenericGuardianRuntimeActivationReadinessStatus.NoApprovedCandidates,
+            "Scheduled activation must require explicit candidate policy rather than inventing actions.");
+
+        var missingBinding = new GenericGuardianRuntimeActivationReadinessGate(
+            [candidate],
+            new GenericGuardianSessionMutationCatalog(
+                Array.Empty<GenericGuardianSessionMutationDefinition>()),
+            budget,
+            registration).Evaluate(capablePlan);
+        Require(missingBinding.Status
+                    == GenericGuardianRuntimeActivationReadinessStatus.MissingMutationBinding,
+            "Every approved candidate must have an exact registered mutation binding before activation.");
+
+        var ready = new GenericGuardianRuntimeActivationReadinessGate(
+            [candidate],
+            mutationCatalog,
+            budget,
+            registration).Evaluate(capablePlan);
+        Require(ready.IsReady
+                && ready.Status == GenericGuardianRuntimeActivationReadinessStatus.Ready,
+            "A canary-capable adapter plus matching evidence registration, explicit candidates, exact catalog bindings and caller-defined budget may pass readiness.");
+    }
+
+    private static GenericGuardianWindowsRuntimeLoopPlan PlanFor(
+        string gameId,
+        IGameAdapter adapter)
+        => new()
+        {
+            Catalog = new ResolvedGameCatalogResult
+            {
+                Games =
+                [
+                    new ResolvedGameCatalogEntry
+                    {
+                        Identity = new GameIdentity
+                        {
+                            GameId = gameId,
+                            Name = gameId,
+                            AdapterId = adapter.AdapterId
+                        },
+                        Adapter = adapter
+                    }
+                ]
+            },
+            GameId = gameId,
+            SystemOnline = true,
+            ObservationDuration = TimeSpan.FromMilliseconds(10),
+            AnalysisContext = new BottleneckAnalysisContext(),
+            Interval = TimeSpan.FromMilliseconds(10)
+        };
+
+    private static async Task RequireThrowsAsync<T>(
+        Func<Task> action,
+        string message)
+        where T : Exception
+    {
+        try
+        {
+            await action();
+        }
+        catch (T)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(message);
+    }
+
+    private sealed class FixedReadiness(
+        GenericGuardianRuntimeActivationReadiness result)
+        : IGenericGuardianRuntimeActivationReadinessGate
+    {
+        internal static FixedReadiness Ready { get; } = new(
+            new GenericGuardianRuntimeActivationReadiness(
+                GenericGuardianRuntimeActivationReadinessStatus.Ready,
+                "test readiness"));
+
+        public GenericGuardianRuntimeActivationReadiness Evaluate(
+            GenericGuardianWindowsRuntimeLoopPlan plan)
+            => result;
+    }
+
+    private sealed class CanaryReadyAdapter : IGameAdapter
+    {
+        public string AdapterId => "test.canary-ready";
+        public int Priority => 100;
+        public bool IsGeneric => false;
+        public GameAdapterCapabilities Capabilities { get; } = new()
+        {
+            CanaryContextEvidence = true
+        };
+    }
+
+    private sealed class FakeEvidenceSource : IGenericGuardianCanaryEvidenceSource
+    {
+        public Task<GenericGuardianCanaryComparisonWindow?> CaptureWindowAsync(
+            TelemetryWorkloadTarget target,
+            TelemetryFrame frame,
+            DateTimeOffset captureStartedAt,
+            DateTimeOffset captureCompletedAt,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<GenericGuardianCanaryComparisonWindow?>(null);
     }
 
     private static GenericGuardianWindowsRuntimeLoopPlan Plan(TimeSpan interval)
