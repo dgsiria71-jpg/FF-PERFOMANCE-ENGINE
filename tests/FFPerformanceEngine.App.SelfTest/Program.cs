@@ -461,17 +461,26 @@ Require(ffHil.Readiness.IsReady
         && ffHil.ExactTarget.ProcessId == currentProcess.Id
         && ffHil.Plan.GameId == ffHilIdentity.GameId
         && ffHil.Plan.Catalog.Games.Single().Adapter.Capabilities.CanaryContextEvidence
-        && ffHil.Policy.Candidates.Count == 1
-        && ffHil.Policy.Candidates[0].Action.Id == GenericGuardianProcessPriorityPolicy.ActionId
+        && ffHil.Policy.Candidates.Count == 2
+        && ffHil.Policy.Candidates.Select(candidate => candidate.Family).ToHashSet().SetEquals(
+        [
+            GuardianAnomalyKind.CpuContention,
+            GuardianAnomalyKind.FrameTimeInstability
+        ])
+        && ffHil.Policy.Candidates.All(candidate =>
+            candidate.Action.Id == GenericGuardianProcessPriorityPolicy.ActionId)
         && !ffHil.Coordinator.IsRunning
         && ffHil.Coordinator.CompletedCycles == 0,
-    "Explicit BlueStacks/FF HIL preparation must combine calibrated adapter evidence, exact PID LiveSafe policy, caller-owned budget and static readiness without starting the runtime.");
+    "Explicit BlueStacks/FF HIL preparation must combine calibrated adapter evidence, exact-PID LiveSafe CPU/pacing policy, caller-owned budget and static readiness without starting the runtime.");
 
-Require(ffHil.Policy.MutationCatalog.TryBind(ffHil.Policy.Candidates[0], out var ffHilBinding)
-        && ffHilBinding is not null
-        && ffHilBinding.Mutation.WorkloadProcessId == currentProcess.Id
-        && ffHilBinding.Mutation.CapabilityId == WindowsProcessPriorityMutationAdapter.Capability,
-    "HIL preparation must bind the approved process-priority action to the exact resolved workload PID, never a generic or stale PID.");
+foreach (var ffHilCandidate in ffHil.Policy.Candidates)
+{
+    Require(ffHil.Policy.MutationCatalog.TryBind(ffHilCandidate, out var ffHilBinding)
+            && ffHilBinding is not null
+            && ffHilBinding.Mutation.WorkloadProcessId == currentProcess.Id
+            && ffHilBinding.Mutation.CapabilityId == WindowsProcessPriorityMutationAdapter.Capability,
+        "Every HIL process-priority family must bind the approved action to the exact resolved workload PID, never a generic or stale PID.");
+}
 
 Console.WriteLine("PASS Track 4 AppServices explicit workload context, capture routing, route presentation and universal targeting are on-demand, stable-identity bound and fail-closed");
 return 0;
