@@ -88,28 +88,75 @@ public sealed class BlueStacksFreeFireGameAdapter : IGameAdapter
         Rollback = true
     };
 
-    private BlueStacksFreeFireGameAdapter(string adapterId, GameKind gameKind)
+    private readonly GameAdapterCapabilities _capabilities;
+
+    private BlueStacksFreeFireGameAdapter(
+        string adapterId,
+        GameKind gameKind,
+        bool calibratedCanaryContext)
     {
         AdapterId = adapterId;
         GameKind = gameKind;
+        _capabilities = calibratedCanaryContext
+            ? ExistingCapabilities with { CanaryContextEvidence = true }
+            : ExistingCapabilities;
     }
 
     public string AdapterId { get; }
     public GameKind GameKind { get; }
     public int Priority => 100;
     public bool IsGeneric => false;
-    public GameAdapterCapabilities Capabilities => ExistingCapabilities;
+    public GameAdapterCapabilities Capabilities => _capabilities;
 
     public static BlueStacksFreeFireGameAdapter For(GameKind gameKind)
         => gameKind switch
         {
-            GameKind.FreeFire => new BlueStacksFreeFireGameAdapter("bluestacks.free-fire", gameKind),
-            GameKind.FreeFireMax => new BlueStacksFreeFireGameAdapter("bluestacks.free-fire-max", gameKind),
+            GameKind.FreeFire => new BlueStacksFreeFireGameAdapter(
+                "bluestacks.free-fire",
+                gameKind,
+                calibratedCanaryContext: false),
+            GameKind.FreeFireMax => new BlueStacksFreeFireGameAdapter(
+                "bluestacks.free-fire-max",
+                gameKind,
+                calibratedCanaryContext: false),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(gameKind),
                 gameKind,
                 "Only Free Fire and Free Fire MAX are backed by the existing BlueStacks specialization.")
         };
+
+    public static BlueStacksFreeFireGameAdapter ForCalibrated(
+        GameKind gameKind,
+        BlueStacksCanaryContextCalibration calibration)
+    {
+        ArgumentNullException.ThrowIfNull(calibration);
+
+        var expected = gameKind switch
+        {
+            GameKind.FreeFire => "bluestacks.free-fire",
+            GameKind.FreeFireMax => "bluestacks.free-fire-max",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(gameKind),
+                gameKind,
+                "Only Free Fire and Free Fire MAX support calibrated context.")
+        };
+
+        if (calibration.GameKind != gameKind
+            || !string.Equals(
+                calibration.AdapterId,
+                expected,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "Calibration does not belong to the requested Free Fire adapter.",
+                nameof(calibration));
+        }
+
+        return new BlueStacksFreeFireGameAdapter(
+            expected,
+            gameKind,
+            calibratedCanaryContext: true);
+    }
 }
 
 /// <summary>
