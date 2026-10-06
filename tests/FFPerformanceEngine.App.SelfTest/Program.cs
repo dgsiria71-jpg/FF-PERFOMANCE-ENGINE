@@ -343,8 +343,47 @@ Require(!rejectedCapture.Captured
         && rejectedCapture.Target.BindingQuality == TelemetryWorkloadBindingQuality.UnknownGame,
     "A rejected workload selection must never fall through to an unrelated Guardian/BlueStacks capture target.");
 
+
+var calibratedRegistration = services.CreateBlueStacksCalibratedCanaryEvidenceRegistration(
+    BlueStacksCanaryContextCalibration.Create(
+        "garena.free-fire",
+        "bluestacks.free-fire",
+        GameKind.FreeFire,
+        "Pie64",
+        5555,
+        "1.132.1",
+        180,
+        100,
+        [
+            new BlueStacksCanaryVisualRegion(0, 0, 90, 40),
+            new BlueStacksCanaryVisualRegion(90, 0, 90, 40),
+            new BlueStacksCanaryVisualRegion(0, 60, 90, 40),
+            new BlueStacksCanaryVisualRegion(90, 60, 90, 40)
+        ],
+        [CalibrationFrame(), CalibrationFrame()]));
+Require(
+    calibratedRegistration.AdapterId == "bluestacks.free-fire"
+    && calibratedRegistration.SourceId.StartsWith("bluestacks-calibration:", StringComparison.Ordinal),
+    "AppServices must expose an explicit calibrated BlueStacks evidence registration without auto-starting Guardian.");
+
 Console.WriteLine("PASS Track 4 AppServices explicit workload context, capture routing, route presentation and universal targeting are on-demand, stable-identity bound and fail-closed");
 return 0;
+
+static BlueStacksCanaryVisualFrame CalibrationFrame()
+{
+    const int width = 180, height = 100;
+    var pixels = new byte[width * height * 4];
+    for (var y = 0; y < height; y++)
+    for (var x = 0; x < width; x++)
+    {
+        var i = (y * width + x) * 4;
+        var structure = ((x / 10) + (y / 10)) % 2 == 0;
+        var value = (byte)(structure ? 225 : 25);
+        pixels[i] = pixels[i + 1] = pixels[i + 2] = value;
+        pixels[i + 3] = 255;
+    }
+    return new BlueStacksCanaryVisualFrame(width, height, pixels);
+}
 
 static BoundGameEvidence Bound(
     string gameId,
