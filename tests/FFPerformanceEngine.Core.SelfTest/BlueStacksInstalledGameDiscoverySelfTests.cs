@@ -77,7 +77,65 @@ internal static class BlueStacksInstalledGameDiscoverySelfTests
         Require(!executor.Calls.Any(call => call.Arguments.Any(argument => argument.Contains("5567", StringComparison.Ordinal))),
             "Discovery must not probe an instance whose BlueStacks configuration explicitly disables ADB.");
 
+        const string foregroundFallbackConfig = """
+            bst.instance.Pie64.adb_port="5570"
+            bst.instance.Pie64.enable_adb="1"
+            """;
+        var fallbackInstances = blueStacks.ParseConfig(foregroundFallbackConfig);
+        var fallbackExecutor = new ForegroundFallbackProcessExecutor();
+        var fallbackAutomation = new BlueStacksAutomationService(
+            blueStacks,
+            fallbackExecutor,
+            adbExecutableOverride: @"C:\BlueStacks\HD-Adb.exe",
+            playerExecutableOverride: @"C:\BlueStacks\HD-Player.exe");
+        var fallbackSource = new BlueStacksInstalledGameDiscoverySource(
+            blueStacks,
+            fallbackAutomation,
+            () => fallbackInstances);
+
+        var fallbackCandidates = await fallbackSource.DiscoverAsync();
+
+        Require(fallbackCandidates.Count == 1
+                && fallbackCandidates[0].Identity.GameId == "garena.free-fire"
+                && fallbackCandidates[0].Evidence.Contains("foreground", StringComparison.OrdinalIgnoreCase),
+            "If package enumeration is unavailable, an exact supported foreground Android package observed through ADB must still discover the running Free Fire workload without fabrication.");
+        Require(fallbackExecutor.Calls.Any(call => call.Arguments.SequenceEqual(
+                    ["-s", "127.0.0.1:5570", "shell", "dumpsys", "window", "windows"])),
+            "Foreground fallback must use the existing read-only exact-package window authority after package enumeration fails.");
+
         Console.WriteLine("PASS Track 3 BlueStacks installed-package discovery reuses exact FF/FF MAX identities without fabrication");
+    }
+
+    private sealed class ForegroundFallbackProcessExecutor : IProcessExecutor
+    {
+        internal List<(string FileName, IReadOnlyList<string> Arguments)> Calls { get; } = [];
+
+        public Task<ProcessExecutionResult> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Calls.Add((fileName, arguments.ToArray()));
+
+            if (arguments.SequenceEqual(["connect", "127.0.0.1:5570"]))
+                return Task.FromResult(new ProcessExecutionResult(0, "connected", string.Empty));
+
+            if (arguments.SequenceEqual(["-s", "127.0.0.1:5570", "shell", "pm", "list", "packages"]))
+                return Task.FromResult(new ProcessExecutionResult(1, string.Empty, "error: closed"));
+
+            if (arguments.SequenceEqual(["-s", "127.0.0.1:5570", "shell", "dumpsys", "window", "windows"]))
+                return Task.FromResult(new ProcessExecutionResult(
+                    0,
+                    "mCurrentFocus=Window{abc u0 com.dts.freefireth/com.dts.freefireth.FFMainActivity}",
+                    string.Empty));
+
+            return Task.FromResult(new ProcessExecutionResult(1, string.Empty, "unexpected command"));
+        }
+
+        public ProcessStartResult StartDetached(string fileName, IReadOnlyList<string> arguments)
+            => new(false, null, "Discovery fallback must remain read-only.");
     }
 
     private sealed class FakeProcessExecutor : IProcessExecutor
