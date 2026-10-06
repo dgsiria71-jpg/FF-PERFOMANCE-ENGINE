@@ -20,3 +20,27 @@ public interface IGenericGuardianCanaryEvidenceSource
         DateTimeOffset captureCompletedAt,
         CancellationToken cancellationToken = default);
 }
+
+
+/// <summary>
+/// Stronger production evidence contract. BeginWindowAsync must acquire/validate
+/// a leading context boundary before the executor starts telemetry. The returned
+/// session validates a trailing boundary after telemetry completes. Returning
+/// null at either boundary keeps the canary fail-closed.
+/// </summary>
+public interface IGenericGuardianCanaryIntervalEvidenceSource
+    : IGenericGuardianCanaryEvidenceSource
+{
+    Task<IGenericGuardianCanaryIntervalEvidenceSession?> BeginWindowAsync(
+        TelemetryWorkloadTarget exactTarget,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGenericGuardianCanaryIntervalEvidenceSession : IAsyncDisposable
+{
+    Task<GenericGuardianCanaryComparisonWindow?> CompleteWindowAsync(
+        TelemetryFrame capturedFrame,
+        DateTimeOffset captureStartedAt,
+        DateTimeOffset captureCompletedAt,
+        CancellationToken cancellationToken = default);
+}
