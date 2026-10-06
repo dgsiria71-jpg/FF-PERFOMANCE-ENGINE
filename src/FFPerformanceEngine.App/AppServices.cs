@@ -416,6 +416,36 @@ public sealed class AppServices : IAsyncDisposable
     public void ClearPerformanceWorkloadContext()
         => PerformanceWorkloadContext.Clear();
 
+    public GenericGuardianCanaryEvidenceSourceRegistration CreateBlueStacksCalibratedCanaryEvidenceRegistration(
+        BlueStacksCanaryContextCalibration calibration)
+    {
+        ArgumentNullException.ThrowIfNull(calibration);
+
+        var visualCapture = new WindowsBlueStacksCanaryVisualFrameCapture();
+        var scopeProbe = new BlueStacksCanaryContextScopeProbe(
+            Environment.Capture,
+            BlueStacksAutomation,
+            () => GuardianHost.InstanceName);
+
+        return new GenericGuardianCanaryEvidenceSourceRegistration(
+            calibration.AdapterId,
+            "bluestacks-calibration:" + calibration.CalibrationId,
+            session =>
+            {
+                if (!string.Equals(
+                        session.GameId,
+                        calibration.GameId,
+                        StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                return new BlueStacksCalibratedCanaryEvidenceSource(
+                    session,
+                    calibration,
+                    visualCapture,
+                    scopeProbe);
+            });
+    }
+
     public GenericGuardianWindowsRuntimeHost CreateGenericGuardianWindowsRuntimeHost(
         GenericGuardianSessionActionBudget budget,
         GenericGuardianSessionMutationCatalog mutationCatalog,
