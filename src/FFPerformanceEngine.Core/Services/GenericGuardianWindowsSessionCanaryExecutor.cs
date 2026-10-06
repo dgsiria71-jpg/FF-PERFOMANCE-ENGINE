@@ -195,6 +195,14 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
         // The monitor reads the real authority IMMEDIATELY around the capture delegate.
         // A generation change includes a benchmark that acquired and released in between.
         var target = eligibility.State.Target;
+        await using var beforeInterval = await BeginEvidenceIntervalAsync(
+            target,
+            cancellationToken).ConfigureAwait(false);
+        if (_evidenceSource is IGenericGuardianCanaryIntervalEvidenceSource
+            && beforeInterval is null)
+            return NotAttempted(candidate,
+                "Calibrated before context boundary is unavailable; no Windows mutation was attempted.");
+
         var beforeStartedAt = _clock();
         var beforeObservation = await _benchmarkCapture.CaptureAsync(
             token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
@@ -217,8 +225,13 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
             return NotAttempted(candidate,
                 "Typed before evidence is unavailable for the exact workload; Guardian canary will not mutate anything.");
 
-        var beforeWindow = await _evidenceSource!.CaptureWindowAsync(
-            target, before, beforeStartedAt, beforeCompletedAt, cancellationToken).ConfigureAwait(false);
+        var beforeWindow = await CompleteEvidenceWindowAsync(
+            beforeInterval,
+            target,
+            before,
+            beforeStartedAt,
+            beforeCompletedAt,
+            cancellationToken).ConfigureAwait(false);
         if (!AcceptWindow(beforeWindow, before, target, beforeStartedAt, beforeCompletedAt))
             return NotAttempted(candidate,
                 "Comparable before context is absent, unknown, contaminated or not bound to the actual capture; no mutation was attempted.");
@@ -258,6 +271,15 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     "The OS-owned workload session ended or changed during the mutation; original Windows state was restored.")
                     .ConfigureAwait(false);
 
+            await using var afterInterval = await BeginEvidenceIntervalAsync(
+                target,
+                cancellationToken).ConfigureAwait(false);
+            if (_evidenceSource is IGenericGuardianCanaryIntervalEvidenceSource
+                && afterInterval is null)
+                return await RestoreContaminatedAsync(session, candidate, before, null,
+                    "Calibrated after context leading boundary is unavailable; original Windows state was restored.")
+                    .ConfigureAwait(false);
+
             var afterStartedAt = _clock();
             var afterObservation = await _benchmarkCapture.CaptureAsync(
                 token => _capture.CaptureWorkloadTypedAsync(target, _sampleDuration, token),
@@ -284,8 +306,13 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                     "Typed after evidence is unavailable; the session mutation was restored because improvement cannot be proven.")
                     .ConfigureAwait(false);
 
-            var afterWindow = await _evidenceSource.CaptureWindowAsync(
-                target, after, afterStartedAt, afterCompletedAt, cancellationToken).ConfigureAwait(false);
+            var afterWindow = await CompleteEvidenceWindowAsync(
+                afterInterval,
+                target,
+                after,
+                afterStartedAt,
+                afterCompletedAt,
+                cancellationToken).ConfigureAwait(false);
             if (!AcceptWindow(afterWindow, after, target, afterStartedAt, afterCompletedAt)
                 || _comparability.Evaluate(beforeWindow, afterWindow, mutationStartedAt, mutationCompletedAt)
                    != GenericGuardianCanaryComparability.InScopeOnSuppliedEvidence)
@@ -383,6 +410,33 @@ public sealed class GenericGuardianWindowsSessionCanaryExecutor
                 await experimentAdmission.DisposeAsync().ConfigureAwait(false);
         }
     }
+
+    private Task<IGenericGuardianCanaryIntervalEvidenceSession?> BeginEvidenceIntervalAsync(
+        TelemetryWorkloadTarget target,
+        CancellationToken cancellationToken)
+        => _evidenceSource is IGenericGuardianCanaryIntervalEvidenceSource interval
+            ? interval.BeginWindowAsync(target, cancellationToken)
+            : Task.FromResult<IGenericGuardianCanaryIntervalEvidenceSession?>(null);
+
+    private Task<GenericGuardianCanaryComparisonWindow?> CompleteEvidenceWindowAsync(
+        IGenericGuardianCanaryIntervalEvidenceSession? interval,
+        TelemetryWorkloadTarget target,
+        TelemetryFrame frame,
+        DateTimeOffset startedAt,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken)
+        => interval is not null
+            ? interval.CompleteWindowAsync(
+                frame,
+                startedAt,
+                completedAt,
+                cancellationToken)
+            : _evidenceSource!.CaptureWindowAsync(
+                target,
+                frame,
+                startedAt,
+                completedAt,
+                cancellationToken);
 
     private bool BenchmarkUninterruptedSince(ControlledBenchmarkActivitySnapshot baseline)
         => ControlledBenchmarkActivitySnapshot.ProvesUninterruptedIdle(
