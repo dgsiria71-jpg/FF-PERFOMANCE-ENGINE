@@ -1,5 +1,6 @@
 using FFPerformanceEngine.Core.Diagnostics;
 using FFPerformanceEngine.Core.SystemOptimization;
+using FFPerformanceEngine.Core.Telemetry;
 using FFPerformanceEngine.Core.Workloads;
 
 namespace FFPerformanceEngine.Core.Services;
@@ -41,6 +42,7 @@ public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsR
     private readonly IGenericGuardianSessionCanaryOutcomeEvaluator _evaluator;
     private readonly ControlledBenchmarkLeaseManager _benchmarkAuthority;
     private readonly GenericGuardianSessionExperimentAdmissionManager _teardownAdmission;
+    private readonly GuardianKnowledgeService? _reliability;
     private readonly Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> _evidenceSourceFactory;
     private readonly TimeSpan _canarySampleDuration;
     private readonly GenericGuardianWindowsSessionLifecycleCoordinator _sessionOwner;
@@ -60,7 +62,8 @@ public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsR
         IGenericGuardianSessionCanaryOutcomeEvaluator evaluator,
         ControlledBenchmarkLeaseManager benchmarkAuthority,
         Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceSourceFactory,
-        TimeSpan canarySampleDuration)
+        TimeSpan canarySampleDuration,
+        GuardianKnowledgeService? reliability = null)
     {
         _observation = observation ?? throw new ArgumentNullException(nameof(observation));
         _classifier = classifier ?? throw new ArgumentNullException(nameof(classifier));
@@ -76,6 +79,7 @@ public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsR
         _teardownAdmission = new GenericGuardianSessionExperimentAdmissionManager(
             _benchmarkAuthority,
             _transactions);
+        _reliability = reliability;
         _evidenceSourceFactory = evidenceSourceFactory ?? throw new ArgumentNullException(nameof(evidenceSourceFactory));
         if (canarySampleDuration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(canarySampleDuration));
@@ -226,6 +230,23 @@ public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsR
             if (canary.Kept && canary.ActiveLease is not null)
                 retained = await _lifecycle.RetainAsync(session, canary).ConfigureAwait(false);
 
+            if (_reliability is not null && canary.Attempted)
+            {
+                var effectiveVerdict = canary.Kept && !retained
+                    ? GenericGuardianSessionCanaryVerdict.Inconclusive
+                    : canary.Verdict;
+                await _reliability.RecordGenericAsync(
+                    new GenericGuardianActionReliabilityKey(
+                        session.GameId,
+                        classification.Family,
+                        candidate.Action.Id),
+                    effectiveVerdict,
+                    effectiveVerdict == GenericGuardianSessionCanaryVerdict.Improved
+                        ? TryRelativeFpsGain(canary)
+                        : null,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+
             return Result(
                 observation,
                 classification,
@@ -315,6 +336,37 @@ public sealed class GenericGuardianWindowsRuntimeHost : IGenericGuardianWindowsR
             _gate.Release();
             if (disposeGate) _gate.Dispose();
         }
+    }
+
+    private static double? TryRelativeFpsGain(
+        GenericGuardianSessionCanaryResult canary)
+    {
+        if (canary.Before is null || canary.After is null)
+            return null;
+        if (!TryMeasuredFps(canary.Before, out var before)
+            || !TryMeasuredFps(canary.After, out var after)
+            || before <= 0)
+            return null;
+
+        var gain = (after - before) / before;
+        return double.IsFinite(gain) ? gain : null;
+    }
+
+    private static bool TryMeasuredFps(TelemetryFrame frame, out double fps)
+    {
+        fps = default;
+        if (!frame.TryGetMetric(
+                TelemetryStandardMetrics.FrameFpsAverage.Id,
+                out var observation)
+            || observation is null
+            || observation.Quality != TelemetryMetricQuality.Measured
+            || observation.Coverage < 0.75
+            || !double.IsFinite(observation.Value)
+            || observation.Value <= 0)
+            return false;
+
+        fps = observation.Value;
+        return true;
     }
 
     private static GenericGuardianWindowsRuntimeCycleResult Result(
