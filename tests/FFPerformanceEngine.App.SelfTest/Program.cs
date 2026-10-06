@@ -335,6 +335,21 @@ var afterClear = services.PerformanceComparison.SetCandidate(
 Require(afterClear.UniversalContext is null,
     "After clear, normal AppServices A/B capture must return to legacy-only/no-context behavior instead of reusing stale GameId.");
 
+Require(
+    services.BlueStacksForegroundProcessGameEvidence.SourceId == "bluestacks-foreground-process",
+    "AppServices must compose the explicit BlueStacks foreground-process evidence source for on-demand discovery.");
+
+var appEvidenceSourcesField = typeof(GameEvidenceCatalogService).GetField(
+    "_sources",
+    BindingFlags.Instance | BindingFlags.NonPublic)
+    ?? throw new InvalidOperationException("Game evidence source collection is unavailable.");
+var appEvidenceSources = appEvidenceSourcesField.GetValue(services.GameEvidenceCatalog)
+    as IReadOnlyList<IGameEvidenceSource>
+    ?? throw new InvalidOperationException("Game evidence source collection has an unexpected type.");
+Require(appEvidenceSources.Any(source =>
+        ReferenceEquals(source, services.BlueStacksForegroundProcessGameEvidence)),
+    "The shared AppServices evidence catalog must include the same BlueStacks foreground-process source instance.");
+
 Require(!services.SelectPerformanceWorkloadContext(catalog, "steam:not-installed"),
     "AppServices must fail closed when the requested GameId is absent from the supplied resolved catalog.");
 Require(services.PerformanceWorkloadContext.SelectedGameId is null,
