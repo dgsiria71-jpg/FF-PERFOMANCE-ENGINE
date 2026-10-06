@@ -32,6 +32,7 @@ public sealed class BlueStacksInstalledGameDiscoverySource : IGameDiscoverySourc
         CancellationToken cancellationToken = default)
     {
         var observations = new Dictionary<GameKind, SortedSet<string>>();
+        var foregroundObserved = new HashSet<GameKind>();
         var instances = _instancesProvider() ?? Array.Empty<BlueStacksInstance>();
 
         foreach (var instance in instances
@@ -61,12 +62,35 @@ public sealed class BlueStacksInstalledGameDiscoverySource : IGameDiscoverySourc
             }
             catch (InvalidOperationException)
             {
-                continue;
+                games = Array.Empty<GameKind>();
             }
 
-            foreach (var game in games)
+            var supported = games
+                .Where(game => game is GameKind.FreeFire or GameKind.FreeFireMax)
+                .Distinct()
+                .ToArray();
+
+            if (supported.Length == 0)
             {
-                if (game is not (GameKind.FreeFire or GameKind.FreeFireMax)) continue;
+                try
+                {
+                    var foreground = await _automation
+                        .QueryForegroundGameAsync(instance, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (foreground is GameKind.FreeFire or GameKind.FreeFireMax)
+                    {
+                        supported = [foreground];
+                        foregroundObserved.Add(foreground);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Unknown/unavailable foreground evidence stays fail-closed.
+                }
+            }
+
+            foreach (var game in supported)
+            {
                 if (!observations.TryGetValue(game, out var instanceNames))
                     observations[game] = instanceNames = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (!string.IsNullOrWhiteSpace(instance.Name)) instanceNames.Add(instance.Name.Trim());
@@ -81,11 +105,14 @@ public sealed class BlueStacksInstalledGameDiscoverySource : IGameDiscoverySourc
 
             var package = BlueStacksAutomationService.PackageFor(pair.Key);
             var instanceList = string.Join(", ", pair.Value);
+            var evidence = foregroundObserved.Contains(pair.Key)
+                ? $"Exact foreground Android package {package} observed via BlueStacks ADB on instance(s): {instanceList}"
+                : $"Installed Android package {package} observed via BlueStacks ADB package enumeration on instance(s): {instanceList}";
             candidates.Add(new GameDiscoveryCandidate
             {
                 Identity = identity,
                 Confidence = 0.99,
-                Evidence = $"Installed Android package {package} observed via BlueStacks ADB on instance(s): {instanceList}"
+                Evidence = evidence
             });
         }
 
