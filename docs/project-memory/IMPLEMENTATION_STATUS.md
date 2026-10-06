@@ -2,11 +2,11 @@
 
 Current code/tests and exact Windows CI outrank older memory. Historical checkpoints are in `docs/project-memory/checkpoints/`; expanded master in `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`. Read HANDOFF_CURRENT for exact continuation; do not invent historical Track11–19 labels.
 
-## Current verified application — 2026-10-02
+## Current verified application — 2026-10-06
 
-Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `ae3cceba0884819f096b1444b190a513e5188d59`**, official **Windows CI #1100 SUCCESS**, run `37082107706`, job `111084672597`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11258303427`, SHA-256 `c0a3bad7b61810f5194b8fe0fea6c7290578aaf2b7c8a352f7af81abf0f200c9`.
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1, `main` untouched. **App SHA `2d958793907a9eeb3f8f62fbe268239525a10078`**, official **Windows CI #1102 SUCCESS**, run `37437850067`, job `112183978946`: native configure/build/tests, managed build, Core/App self-tests, win-x64 publish, upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64` ID `11400370127`, SHA-256 `8a46c20db569ae82f7c26a93c16f04f0d39e3f13196d546f027d1c18ce173067`.
 
-Previous app SHA `9fce73fd8b3c2f92e2fa06c11ff495598884ac29`, official Windows CI #1098 run `37079293578` SUCCESS. Previous documentary SHA `896535a3d7fc8ddf63566bf4ce79b1bc339703d8` CI #1099 run `37079676842` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
+Previous app SHA `ae3cceba0884819f096b1444b190a513e5188d59`, official Windows CI #1100 run `37082107706` SUCCESS. Previous documentary SHA `6c92a40d0f88de809b562ec28861553d769eb322` CI #1101 run `37082520378` SUCCESS. New documentary SHA is not certified until its own exact Windows CI completes.
 
 ## Track ledger
 
@@ -125,10 +125,16 @@ Core RED `57e7b6c2ff77951b70b154f7797c06af10b61693` / run `37081507238`, job `11
 
 Construction performs no scheduled cycle. The explicit plan contains caller-supplied resolved runtime inputs only. Start is explicit, cycles serialize without overlap, Stop performs protected reset, cycle failure performs automatic protected reset, cleanup failure stays retryable, and Dispose resets/stops before disposing the runtime. AppServices exposes only an explicit factory and still registers no generic candidates, mutation mappings, evidence source or budget defaults.
 
+### NEW scheduled activation-readiness authority — bounded GREEN, real scene evidence/HIL still BLOCKING
+
+Core RED run `37436946523` job `112180980069`: exactly three expected missing-contract CS0246 errors, zero warnings. Core GREEN `b74484db7c00a580680e30b7d1738be1bf0a956c` / `37437186122` full SUCCESS. App RED `0d40fda50963522d90fa7c94eac3f47941f12404` / `37437411973`: Core passed and App failed exactly one expected CS1739 for missing evidence-registration factory composition. Final verifier `561a9929a233a7950c778c1722b1460f4b85fba4` / `37437614913` full SUCCESS. Official application `2d958793907a9eeb3f8f62fbe268239525a10078`, Windows CI #1102 run `37437850067`, job `112183978946` full SUCCESS; artifact ID `11400370127`, SHA-256 `8a46c20db569ae82f7c26a93c16f04f0d39e3f13196d546f027d1c18ce173067`.
+
+Scheduled Start is now impossible without a readiness result of Ready. Direct coordinator construction has a NotConfigured fail-closed gate. The concrete production gate requires exactly one resolved GameId, adapter `CanaryContextEvidence=true`, matching registered evidence source, explicit LiveSafe/supported candidates, exact catalog bindings and caller-defined budget. AppServices composes readiness from the exact same candidate snapshot/catalog/budget/evidence registration as its runtime; no default candidates/mappings/evidence/budget are invented. Current FF/FF MAX are proven NotReady because their adapter capability remains false.
+
 ## Scope boundary and EXACT next action
 
 `Observed != Validated`; stable GameId != PID; no fabricated telemetry, scene, capability or mutation mapping; preserve Track0 benchmark authority/Guardian suspension, Track2 exact rollback, Track4 typed metrics, Track5 provenance, specialized FF/BlueStacks. No startup discovery, automatic mutation, profile promotion or integrity bypass.
 
-Protected on-demand and scheduled runtime lifecycle infrastructure now exists, but production activation remains blocked. No production `IGenericGuardianCanaryEvidenceSource` exists; current FF/FF MAX remain `CanaryContextEvidence=false`; no approved generic production candidates/action mappings/default budgets exist; external mutation tools remain a blind spot; no real-game HIL/FPS benefit or causal attribution is proven.
+Protected on-demand/scheduled runtime plus production readiness infrastructure now exists, but activation remains blocked. No production `IGenericGuardianCanaryEvidenceSource` exists for FF/FF MAX; both remain `CanaryContextEvidence=false`; no approved generic production candidates/action mappings/default budgets exist; external mutation tools remain a blind spot; no real-game HIL/FPS benefit or causal attribution is proven.
 
-Next bounded TDD: add a production activation-readiness gate before scheduled Start. It must require truthful adapter canary-context capability, registered production evidence source and explicit approved candidate/catalog/budget policy, and must keep current FF/FF MAX NotReady without fabricating missing inputs. Then obtain genuine adapter-owned scene/mode/load/environment evidence and run Windows/real-game HIL before any enablement. Track6 item3 remains IN PROGRESS; item4 reliability and item5 queue remain pending. New documentary HEAD needs exact Windows CI before marking verified.
+Next: obtain genuine adapter-owned scene/mode/load/environment evidence for a supported workload and register it through the readiness boundary. Only after that should explicit production candidates/mappings/budget be approved and Windows/real-game HIL measure the action. External mutation coverage/blind spots must stay explicit. Track6 item3 remains IN PROGRESS; item4 reliability and item5 queue remain pending. New documentary HEAD needs exact Windows CI before marking verified.

@@ -1,12 +1,12 @@
-# Current Handoff — 2026-10-02
+# Current Handoff — 2026-10-06
 
 ## Exact repository and application checkpoint
 
 - Repo `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, dev branch `build/initial-product`, draft PR #1, `main` untouched. Product DG Performance Engine; preserve `FFPerformanceEngine.*`, original FF/BlueStacks specialization and tested Tracks0–5. Work via ChatGPT+GitHub, not an invented Codex workspace.
-- **Latest application SHA `ae3cceba0884819f096b1444b190a513e5188d59`**, `feat: add explicit generic Guardian runtime coordinator`.
-- Exact **Windows CI #1100 SUCCESS**, run `37082107706`, job `111084672597`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
-- Artifact `FFPerformanceEngine-win-x64`, ID `11258303427`, SHA-256 `c0a3bad7b61810f5194b8fe0fea6c7290578aaf2b7c8a352f7af81abf0f200c9`.
-- Previous app `9fce73fd8b3c2f92e2fa06c11ff495598884ac29`, Windows CI #1098 run `37079293578` SUCCESS. Previous documentary SHA `896535a3d7fc8ddf63566bf4ce79b1bc339703d8`, Windows CI #1099 run `37079676842` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
+- **Latest application SHA `2d958793907a9eeb3f8f62fbe268239525a10078`**, `feat: gate scheduled Guardian activation on production readiness`.
+- Exact **Windows CI #1102 SUCCESS**, run `37437850067`, job `112183978946`: native configure/build/test, .NET build, Core and App full self-tests, win-x64 publish, upload and cleanup all SUCCESS.
+- Artifact `FFPerformanceEngine-win-x64`, ID `11400370127`, SHA-256 `8a46c20db569ae82f7c26a93c16f04f0d39e3f13196d546f027d1c18ce173067`.
+- Previous app `ae3cceba0884819f096b1444b190a513e5188d59`, Windows CI #1100 run `37082107706` SUCCESS. Previous documentary SHA `6c92a40d0f88de809b562ec28861553d769eb322`, Windows CI #1101 run `37082520378` SUCCESS. THIS documentary update requires its own fresh exact-commit Windows CI; do not claim it GREEN until confirmed.
 - Mandatory startup read order: `AGENTS.md` → `docs/project-memory/README.md` → this handoff → `IMPLEMENTATION_STATUS.md` → `CANONICAL_CONTEXT.md` → canonical `docs/superpowers/specs/2026-09-06-dg-performance-engine-unified-architecture-design.md` → affected code/tests. Actual branch/code/exact CI outrank old memory. Expanded master `RECOVERED_MASTER_ARCHITECTURE_2026-09-11.md`; never invent original absent Track11–19 names.
 
 ## Verified Track state
@@ -116,14 +116,22 @@ Normal `StopAsync` cancels scheduling, waits for the active cycle, then calls th
 
 `AppServices.CreateGenericGuardianWindowsRuntimeCoordinator` is an explicit factory only. It wraps `CreateGenericGuardianWindowsRuntimeHost`, so the same application `ControlledBenchmarks` authority connected to `GuardianHost` is preserved. No coordinator is constructed or started at AppServices startup, and no production policy defaults were invented.
 
+### NEW production activation-readiness gate — application Windows CI #1102
+
+Core RED `151316ee2902482093a264d607f19b7fb96e7784` plus verifier workflow `1861187171c2adaf7663bd6d0904376f33ab2832`, run `37436946523`, job `112180980069`: native passed, managed failed with exactly three expected CS0246 errors for the missing readiness contract, zero warnings. Core GREEN `b74484db7c00a580680e30b7d1738be1bf0a956c`, run `37437186122`, job `112181792873`, full SUCCESS. App composition RED `0d40fda50963522d90fa7c94eac3f47941f12404`, run `37437411973`, job `112182525507`: managed/Core passed, App failed exactly one expected CS1739 because the factory still accepted only a raw evidence delegate. Final verifier `561a9929a233a7950c778c1722b1460f4b85fba4`, run `37437614913`, job `112183204791`, full SUCCESS. Official selective `2d958793907a9eeb3f8f62fbe268239525a10078`, Windows CI #1102 full SUCCESS; exact official diff five source/test files, temporary workflow excluded.
+
+`GenericGuardianRuntimeActivationReadinessGate` now evaluates the exact scheduled GameId against the caller-supplied resolved catalog. Readiness requires exactly one matching game, adapter-owned `CanaryContextEvidence=true`, an evidence-source registration matching that adapter, at least one explicit LiveSafe candidate in a supported family, an exact mutation-catalog binding for every registered candidate for that GameId, and an explicitly supplied session-action budget. `GenericGuardianWindowsRuntimeCoordinator.StartAsync` evaluates this gate before creating the run loop; direct construction without a gate is fail-closed. Rejected Start performs zero runtime cycles/resets and exposes the exact `LastReadiness` reason.
+
+`AppServices.CreateGenericGuardianWindowsRuntimeCoordinator` snapshots one candidate set and feeds the same candidates/catalog/budget/evidence registration to both runtime and readiness gate. It creates no policy defaults. Current Free Fire/Free Fire MAX remain intentionally `NotReady` because their truthful adapter declaration is still `CanaryContextEvidence=false`; supplying other objects cannot override that capability.
+
 ## CRITICAL boundaries — do not misrepresent
 
 OS process lifetime continuity is now enforced end-to-end inside the current canary executor path, but it still proves only **which Windows process lifetime** is being measured. It does NOT prove gameplay scene, mode, load or environment. No production `IGenericGuardianCanaryEvidenceSource` exists; test evidence strings/flags remain TEST ONLY. Generic adapter has no scene capability; BlueStacks/FF ADB foreground detects Android package, NOT in-game scene/mode/load. PresentMon/TelemetryFrame provide performance metrics, not authenticated gameplay context. Track0 generation remains observation for paths that do not hold the admission lease. The generic canary executor and protected runtime teardown now use real process-local Track0/DG exclusion, and `AppServices.CreateGenericGuardianWindowsRuntimeHost` injects the exact shared `ControlledBenchmarks` authority already connected to `GuardianHost`. Experiment and teardown admission suspend/reconcile the specialized Guardian when this production factory is used. External benchmarks/tools plus registry/vendor/driver mutations remain outside this process-local authority. OS process checks still prove lifetime, not gameplay context. There is now an explicit caller-started scheduled runtime coordinator, but there is still no startup/automatic activation, approved production action registrations/budget policy, production scene evidence, real-game HIL, live FPS gain, profile promotion or learning. Specialized FF/BlueStacks intact; `main` untouched.
 
 ## EXACT continuation
 
-1. Bounded TDD add a **production activation-readiness gate** before any scheduled Start. It must require truthful adapter `CanaryContextEvidence`, a registered production `IGenericGuardianCanaryEvidenceSource`, explicit approved candidate/action→mutation registrations and an explicit caller-owned budget policy. Missing any prerequisite must produce NotReady and must not start the coordinator.
-2. Current FF/FF MAX must remain NotReady because `CanaryContextEvidence=false` and no production scene/mode/load/environment source exists. Do not relabel ADB foreground, PresentMon or heuristic GameState as scene proof and do not invent candidate/mapping/budget values just to make the gate pass.
-3. External mutation tools remain a blind spot. Genuine Windows/real-game HIL is mandatory before any automatic activation. Only after these item3 activation prerequisites are closed should Track6 item4 learned reliability and item5 post-session queue advance.
+1. Obtain a **genuine adapter-owned scene/mode/load/environment evidence source** spanning both complete canary windows. Current FF/FF MAX remain NotReady because `CanaryContextEvidence=false`; do not relabel ADB foreground, PresentMon, recent input or heuristic GameState as scene proof.
+2. For a workload that truthfully satisfies the evidence gate, register only explicit approved production candidates/action→mutation bindings and caller-owned budget, then run Windows + real-game HIL to prove measurable benefit and exact rollback behavior before any enablement.
+3. External registry/vendor/driver mutation tools remain outside current process-local exclusion and must stay declared as a blind spot or gain a truthful authority. Only after these item3 activation prerequisites are closed should Track6 item4 learned reliability and item5 post-session queue advance.
 
 Cycle: inspect → TDD RED Windows isolated → minimal GREEN/full verifier → selective official code commit/exact CI → docs/checkpoint → documentary exact CI. Do not touch `main`.
