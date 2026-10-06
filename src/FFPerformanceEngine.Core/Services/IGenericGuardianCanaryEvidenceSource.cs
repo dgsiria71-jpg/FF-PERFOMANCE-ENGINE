@@ -20,3 +20,26 @@ public interface IGenericGuardianCanaryEvidenceSource
         DateTimeOffset captureCompletedAt,
         CancellationToken cancellationToken = default);
 }
+
+
+/// <summary>
+/// Optional stronger contract for production sources that can observe context
+/// while the physical telemetry capture is actually running. The executor opens
+/// the interval before PresentMon/typed capture starts and completes it only
+/// after the physical capture ends. Returning null is fail-closed.
+/// </summary>
+public interface IGenericGuardianCanaryIntervalEvidenceSource
+{
+    Task<IGenericGuardianCanaryIntervalEvidenceSession?> BeginWindowAsync(
+        TelemetryWorkloadTarget exactTarget,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IGenericGuardianCanaryIntervalEvidenceSession : IAsyncDisposable
+{
+    Task<GenericGuardianCanaryComparisonWindow?> CompleteWindowAsync(
+        TelemetryFrame capturedFrame,
+        DateTimeOffset captureStartedAt,
+        DateTimeOffset captureCompletedAt,
+        CancellationToken cancellationToken = default);
+}
