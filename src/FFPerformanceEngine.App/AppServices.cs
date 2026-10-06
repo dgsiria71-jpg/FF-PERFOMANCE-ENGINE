@@ -438,7 +438,7 @@ public sealed class AppServices : IAsyncDisposable
         var scopeProbe = new BlueStacksCanaryContextScopeProbe(
             Environment.Capture,
             BlueStacksAutomation,
-            () => GuardianHost.InstanceName);
+            () => GuardianHost.DesiredInstanceName);
 
         return new GenericGuardianCanaryEvidenceSourceRegistration(
             calibration.AdapterId,
@@ -509,12 +509,19 @@ public sealed class AppServices : IAsyncDisposable
         var policy = GenericGuardianProcessPriorityPolicy.Create(exactTarget);
         var evidenceRegistration =
             CreateBlueStacksCalibratedCanaryEvidenceRegistration(calibration);
+        var foregroundAuthority = new BlueStacksCalibratedWorkloadForegroundProbe(
+            calibration,
+            new BlueStacksCanaryContextScopeProbe(
+                Environment.Capture,
+                BlueStacksAutomation,
+                () => GuardianHost.DesiredInstanceName));
         var coordinator = CreateGenericGuardianWindowsRuntimeCoordinator(
             budget,
             policy.MutationCatalog,
             policy.Candidates,
             evidenceRegistration,
-            canarySampleDuration);
+            canarySampleDuration,
+            foregroundAuthority);
         var plan = new GenericGuardianWindowsRuntimeLoopPlan
         {
             Catalog = calibratedCatalog,
@@ -551,7 +558,8 @@ public sealed class AppServices : IAsyncDisposable
         GenericGuardianSessionMutationCatalog mutationCatalog,
         IEnumerable<GenericGuardianSessionActionCandidate> candidates,
         Func<GenericGuardianCanarySessionKey, IGenericGuardianCanaryEvidenceSource?> evidenceSourceFactory,
-        TimeSpan canarySampleDuration)
+        TimeSpan canarySampleDuration,
+        IWorkloadForegroundProbe? workloadForeground = null)
     {
         ArgumentNullException.ThrowIfNull(budget);
         ArgumentNullException.ThrowIfNull(mutationCatalog);
@@ -568,7 +576,8 @@ public sealed class AppServices : IAsyncDisposable
                 PerformanceCapture.CaptureWorkloadTypedAsync(
                     target,
                     duration,
-                    cancellationToken));
+                    cancellationToken),
+            workloadForeground);
 
         return new GenericGuardianWindowsRuntimeHost(
             observation,
@@ -590,7 +599,8 @@ public sealed class AppServices : IAsyncDisposable
         GenericGuardianSessionMutationCatalog mutationCatalog,
         IEnumerable<GenericGuardianSessionActionCandidate> candidates,
         GenericGuardianCanaryEvidenceSourceRegistration? evidenceRegistration,
-        TimeSpan canarySampleDuration)
+        TimeSpan canarySampleDuration,
+        IWorkloadForegroundProbe? workloadForeground = null)
     {
         ArgumentNullException.ThrowIfNull(budget);
         ArgumentNullException.ThrowIfNull(mutationCatalog);
@@ -607,7 +617,8 @@ public sealed class AppServices : IAsyncDisposable
             mutationCatalog,
             candidateSnapshot,
             evidenceFactory,
-            canarySampleDuration);
+            canarySampleDuration,
+            workloadForeground);
         var readiness = new GenericGuardianRuntimeActivationReadinessGate(
             candidateSnapshot,
             mutationCatalog,
