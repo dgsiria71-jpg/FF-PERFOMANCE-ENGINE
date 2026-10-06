@@ -598,7 +598,8 @@ public sealed class AppServices : IAsyncDisposable
             new GenericGuardianTypedCanaryOutcomeEvaluator(),
             ControlledBenchmarks,
             evidenceSourceFactory,
-            canarySampleDuration);
+            canarySampleDuration,
+            reliability: GuardianKnowledge);
     }
 
     public GenericGuardianWindowsRuntimeCoordinator CreateGenericGuardianWindowsRuntimeCoordinator(
