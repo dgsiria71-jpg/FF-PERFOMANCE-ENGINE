@@ -447,6 +447,93 @@ public sealed class AppServices : IAsyncDisposable
             });
     }
 
+    public async Task<BlueStacksGenericGuardianHilPreparation> PrepareBlueStacksGenericGuardianHilAsync(
+        ResolvedGameCatalogResult catalog,
+        BlueStacksCanaryContextCalibration calibration,
+        GenericGuardianSessionActionBudget budget,
+        bool systemOnline,
+        TimeSpan observationDuration,
+        BottleneckAnalysisContext analysisContext,
+        TimeSpan interval,
+        TimeSpan canarySampleDuration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(calibration);
+        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(analysisContext);
+        if (observationDuration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(observationDuration));
+        if (interval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(interval));
+        if (canarySampleDuration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(canarySampleDuration));
+
+        // Explicit HIL preparation is allowed to refresh read-only Windows
+        // capability discovery. AppServices construction/startup still does not.
+        await WindowsCapabilityDiscovery
+            .RefreshAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (!SystemOptimizer.IsLiveSafeSessionCapability(
+                WindowsProcessPriorityMutationAdapter.Capability))
+        {
+            throw new InvalidOperationException(
+                "Exact-process priority is not currently an Available LiveSafe session capability; BlueStacks Guardian HIL cannot be prepared.");
+        }
+
+        var calibratedCatalog = BlueStacksCanaryContextCatalog.Apply(
+            catalog,
+            calibration);
+        var exactTarget = new TelemetryWorkloadTargetResolver().Resolve(
+            calibratedCatalog,
+            calibration.GameId);
+        if (!exactTarget.CanCaptureProcess
+            || exactTarget.BindingQuality != TelemetryWorkloadBindingQuality.ExactRunningProcess)
+        {
+            throw new InvalidOperationException(
+                "BlueStacks Guardian HIL requires exactly one running-process binding for the calibrated stable GameId.");
+        }
+
+        var policy = GenericGuardianProcessPriorityPolicy.Create(exactTarget);
+        var evidenceRegistration =
+            CreateBlueStacksCalibratedCanaryEvidenceRegistration(calibration);
+        var coordinator = CreateGenericGuardianWindowsRuntimeCoordinator(
+            budget,
+            policy.MutationCatalog,
+            policy.Candidates,
+            evidenceRegistration,
+            canarySampleDuration);
+        var plan = new GenericGuardianWindowsRuntimeLoopPlan
+        {
+            Catalog = calibratedCatalog,
+            GameId = calibration.GameId,
+            SystemOnline = systemOnline,
+            ObservationDuration = observationDuration,
+            AnalysisContext = analysisContext,
+            Interval = interval
+        };
+        var readiness = new GenericGuardianRuntimeActivationReadinessGate(
+            policy.Candidates,
+            policy.MutationCatalog,
+            budget,
+            evidenceRegistration).Evaluate(plan);
+
+        if (!readiness.IsReady)
+        {
+            await coordinator.DisposeAsync().ConfigureAwait(false);
+            throw new InvalidOperationException(
+                $"BlueStacks Guardian HIL preparation is NotReady: {readiness.Status}. {readiness.Reason}");
+        }
+
+        return new BlueStacksGenericGuardianHilPreparation(
+            calibration,
+            exactTarget,
+            policy,
+            plan,
+            readiness,
+            coordinator);
+    }
+
     public GenericGuardianWindowsRuntimeHost CreateGenericGuardianWindowsRuntimeHost(
         GenericGuardianSessionActionBudget budget,
         GenericGuardianSessionMutationCatalog mutationCatalog,
