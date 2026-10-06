@@ -34,6 +34,9 @@ public sealed class GenericGuardianWindowsProcessLifetimeSnapshot
 /// </summary>
 public sealed class GenericGuardianWindowsProcessLifetimeProbe
 {
+    private readonly WindowsProcessImagePathResolver _imagePath =
+        new();
+
     public GenericGuardianWindowsProcessLifetimeSnapshot? Observe(
         int processId, string? expectedExecutablePath)
     {
@@ -50,7 +53,7 @@ public sealed class GenericGuardianWindowsProcessLifetimeProbe
             if (process.HasExited)
                 return null;
 
-            var actual = NormalizeFullPath(process.MainModule?.FileName);
+            var actual = _imagePath.Resolve(processId);
             if (actual is null || !string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
                 return null;
 
