@@ -157,8 +157,28 @@ public sealed class BlueStacksAutomationService
         if (instance.AdbEnabled == false) return Array.Empty<GameKind>();
         var adb = FindAdbExecutable();
         if (string.IsNullOrWhiteSpace(adb)) return Array.Empty<GameKind>();
-        var result = await _processExecutor.RunAsync(adb, BuildInstalledPackagesArguments(instance), TimeSpan.FromSeconds(8), cancellationToken).ConfigureAwait(false);
-        return result.Success ? ParseInstalledGames(result.StandardOutput) : Array.Empty<GameKind>();
+
+        var result = await _processExecutor.RunAsync(
+            adb,
+            BuildInstalledPackagesArguments(instance),
+            TimeSpan.FromSeconds(8),
+            cancellationToken).ConfigureAwait(false);
+        if (result.Success)
+            return ParseInstalledGames(result.StandardOutput);
+
+        // Some BlueStacks HD-Adb builds close the shell while enumerating the
+        // full package list even though exact package dumps remain available.
+        // Fallback is deliberately limited to the two supported exact package
+        // identities and requires a real versionName from dumpsys package.
+        var installed = new List<GameKind>(2);
+        foreach (var game in new[] { GameKind.FreeFire, GameKind.FreeFireMax })
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await QueryPackageVersionAsync(instance, game, cancellationToken).ConfigureAwait(false) is not null)
+                installed.Add(game);
+        }
+
+        return installed;
     }
 
     public async Task<string?> QueryPackageVersionAsync(
