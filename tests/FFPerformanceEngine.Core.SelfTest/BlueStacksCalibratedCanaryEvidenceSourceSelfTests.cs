@@ -25,7 +25,7 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
             BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
         };
         var session = new GenericGuardianCanarySessionKey(
-            Guid.NewGuid(), target.GameId, target.ProcessId, target.ExecutablePath);
+            Guid.NewGuid(), target.GameId, target.ProcessId!.Value, target.ExecutablePath);
         var capture = new FakeVisualCapture([ReferenceFrame(), ReferenceFrame()]);
         var scope = new FakeScopeProbe(true, true);
         var source = new BlueStacksCalibratedCanaryEvidenceSource(
@@ -70,7 +70,7 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
             BindingQuality = TelemetryWorkloadBindingQuality.ExactRunningProcess
         };
         var session = new GenericGuardianCanarySessionKey(
-            Guid.NewGuid(), target.GameId, target.ProcessId, target.ExecutablePath);
+            Guid.NewGuid(), target.GameId, target.ProcessId!.Value, target.ExecutablePath);
 
         var changed = new BlueStacksCalibratedCanaryEvidenceSource(
             session,
