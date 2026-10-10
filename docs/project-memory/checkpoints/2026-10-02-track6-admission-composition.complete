@@ -1,0 +1,39 @@
+# Checkpoint — 2026-10-02 Track 6 admitted canary through KEEP transfer
+
+## Exact verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Application commit `06890f5398338b65db15d87f7007e4230679ea5c`, message `feat: compose Guardian experiment admission through KEEP transfer`.
+
+Windows CI #1091, run `37054113461`, job `110994449150`: native configure/build/test, .NET build, Core self-tests, App self-tests, win-x64 publish, artifact upload and cleanup all SUCCESS. Artifact `FFPerformanceEngine-win-x64`, ID `11247384372`, 7,337,588 bytes, SHA-256 `9f0a046b976e3a4f3adb685f92e350868ca1e361adc9ca98a82d30deec85df5d`.
+
+Official diff from documentary parent `c1c810846a54f5cf63fdd51606d16ab3da90ea5d` is exactly six source/test files: canary executor, lifecycle owner, Track0 integration regression, new admission-composition regression, DG activity integration regression and Program registration. Temporary verifier workflow excluded.
+
+## TDD evidence
+
+RED branch `ci/track6-admission-composition-verify`, commit `7518fb63aacb3b82376e9361304f74418e9200e0`, run `37052631529`, job `110989500925`: native PASS; managed compile failed with exactly one CS1729 because `GenericGuardianWindowsSessionHostLifecycle` did not accept the concrete coordinator shared with the executor; zero compiler warnings.
+
+The first composition implementation reached commit `0f5db8e45e6ee6e4cea0c85501fbb628d101e44c`, run `37052852305`. It compiled and the new composition test passed, then the full Core suite timed out. Cause was semantic, not infrastructure: older Track0/DG regressions synchronously started and awaited operations during the canary; real admission correctly blocked those operations, so the tests deadlocked. This run was rejected as GREEN.
+
+Coverage was migrated rather than removed. Track0 regression update `fd4fa2f03964cc9650dfd118ca51fca8e71e6d8a`; DG regression update `77954eebe28d81135e58b5a5c88aabc8b312054d`; run `37053517851`, job `110992925498`, full SUCCESS. Final cleanup commit `c4556c7927b0f839a935e87971e03b034e66651f` ends the competing benchmark before lifecycle teardown assertion. Final verifier run `37053852221`, job `110993565029`, full SUCCESS across native, managed, Core, App, publish and upload.
+
+## Proven behavior
+
+`GenericGuardianWindowsSessionCanaryExecutor` now acquires `GenericGuardianSessionExperimentAdmissionLease` after all preflight authorization but before the physical BEFORE capture. The admission remains held across BEFORE capture, before evidence, the admitted Track2 session mutation, AFTER capture, after evidence/comparability, typed evaluator and the return of an Improved KEEP.
+
+The canary's own Track2 mutation enters through the unforgeable admitted transaction path, so the experiment does not deadlock against its own DG exclusive writer. Competing controlled benchmarks and unrelated DG System Optimization operations started inside any measured/evaluated boundary are blocked rather than allowed to contaminate the interval.
+
+Rollback, non-improved verdicts, exceptions and cancellation leave no orphaned experiment admission. When the result is Improved, `GenericGuardianSessionCanaryLease` receives ownership of the admission together with the reversible System Optimization session. Thus exclusion is still held when `ExecuteAsync` returns KEEP.
+
+`GenericGuardianWindowsSessionHostLifecycle` now supports sharing the exact concrete OS-backed session coordinator used by the executor. On a valid exact-key `RetainAsync`, it first owns the active reversible KEEP lease and only then releases the experiment admission. The retained Windows mutation remains lifecycle-owned until reset/rebind/dispose restores it. Rejected/stale adoption restores immediately and releases admission through the canary lease.
+
+Updated regressions prove a preexisting Track0 or DG operation can be cancelled while admission is waiting with zero capture/snapshot/apply; competitors launched during BEFORE/evidence/mutation/AFTER/evaluator remain pending through KEEP and only run after admission is released.
+
+## Boundaries and exact continuation
+
+This closes process-local Track0/DG admission composition for the current canary/lifecycle path. It does **not** prove absence of external registry edits, vendor utilities, driver panels, external benchmarks or other processes. The experiment-side Track0 exclusion also does not yet run the specialized Guardian suspend/reconcile lifecycle that the controlled-benchmark lease already owns.
+
+There is still no production `IGenericGuardianCanaryEvidenceSource`; FF/FF MAX explicitly expose `CanaryContextEvidence=false`. Foreground package, PresentMon, input and render heuristics are not scene/mode/load proof. Generic Guardian automatic activation stays disabled; no real-game HIL or live FPS benefit is claimed.
+
+Next bounded TDD: add specialized Guardian suspend/reconcile semantics to experiment exclusion without changing the proven Track0→DG lock order or cancellation-safe cleanup. Then wire the concrete generic runtime owner around state/classification/eligibility/budget/catalog/admitted executor/lifecycle and prove restore-before-retire plus no lock-order deadlocks. Only after genuine adapter-owned scene/mode/load/environment evidence and Windows/real-game HIL may generic activation be considered. Track6 item4 reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being marked GREEN.

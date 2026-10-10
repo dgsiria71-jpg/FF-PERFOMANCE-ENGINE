@@ -1,0 +1,27 @@
+# Checkpoint — 2026-10-06 Track 6 scheduled activation readiness
+
+## Verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched. Application commit `2d958793907a9eeb3f8f62fbe268239525a10078`, message `feat: gate scheduled Guardian activation on production readiness`. Windows CI #1102 run `37437850067`, job `112183978946` SUCCESS across native configure/build/test, managed build, Core/App full self-tests, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `11400370127`, SHA-256 `8a46c20db569ae82f7c26a93c16f04f0d39e3f13196d546f027d1c18ce173067`.
+
+## TDD evidence
+
+Core RED: test commit `151316ee2902482093a264d607f19b7fb96e7784`, verifier workflow commit `1861187171c2adaf7663bd6d0904376f33ab2832`, run `37436946523`, job `112180980069`; native passed, managed failed with exactly three expected CS0246 errors for the missing readiness API and zero warnings. Core GREEN `b74484db7c00a580680e30b7d1738be1bf0a956c`, run `37437186122`, job `112181792873`, full SUCCESS.
+
+App composition RED `0d40fda50963522d90fa7c94eac3f47941f12404`, run `37437411973`, job `112182525507`: build/Core passed and App failed exactly one CS1739 because `CreateGenericGuardianWindowsRuntimeCoordinator` had no `evidenceRegistration` parameter. Final GREEN `561a9929a233a7950c778c1722b1460f4b85fba4`, run `37437614913`, job `112183204791`, full SUCCESS. Official integration is exactly five source/test files; verifier workflow excluded.
+
+## Implemented behavior
+
+`GenericGuardianRuntimeActivationReadinessGate` resolves the scheduled stable GameId from the caller-supplied catalog and requires exactly one entry. The entry's actual adapter must truthfully declare `CanaryContextEvidence=true`. An explicit `GenericGuardianCanaryEvidenceSourceRegistration` must match that AdapterId. At least one explicit candidate for the GameId must be LiveSafe and in a currently supported classifier family, and every such candidate must have an exact `GenericGuardianSessionMutationCatalog` binding. `GenericGuardianSessionActionBudget` is mandatory construction input, so no hidden default attempt policy exists.
+
+`GenericGuardianWindowsRuntimeCoordinator.StartAsync` evaluates readiness before it creates the scheduled loop. Direct construction without an explicit gate uses a NotConfigured fail-closed gate. Rejection changes no runtime cycle/reset state and publishes the exact `LastReadiness` status/reason.
+
+`AppServices.CreateGenericGuardianWindowsRuntimeCoordinator` snapshots the candidates once and passes that same snapshot, mutation catalog, budget and evidence registration to both the runtime and readiness gate. Absence of evidence registration is represented honestly rather than by a fake source. Current Free Fire/Free Fire MAX remain `AdapterCanaryContextUnavailable` because their existing BlueStacks adapters still declare `CanaryContextEvidence=false`.
+
+## Boundaries and continuation
+
+Readiness proves configuration prerequisites only; it does not prove scene provenance, causal performance benefit or HIL success. There is still no production `IGenericGuardianCanaryEvidenceSource` for FF/FF MAX, no approved generic production candidate/mutation/budget set, and no real-game HIL result. Foreground package, recent input, heuristic Lobby/Match state and PresentMon metrics remain insufficient as scene/mode/load/environment authority. External registry/vendor/driver mutations remain outside current process-local exclusion.
+
+Next, obtain a genuine adapter-owned scene/mode/load/environment evidence source spanning both complete canary windows. Only a workload with that evidence may be registered Ready, receive explicit production action policy and enter Windows/real-game HIL. Track6 item3 remains IN PROGRESS; item4 learned reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires a fresh exact-head Windows CI before being marked GREEN.

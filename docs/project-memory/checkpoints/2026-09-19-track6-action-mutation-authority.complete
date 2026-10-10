@@ -1,0 +1,15 @@
+# Track 6 item 3 — action mutation authorization checkpoint
+
+Date 2026-09-19. Scope: exact explicit in-memory GameId / anomaly family / Action.Id to capability / target / expected-current mapping. NO automatic host, NO production mappings, NO controlled before/after comparability claim.
+
+Baseline `0bdf7e0d3bf4325bb7713e89e5de012d08030dc8`, documentary Windows CI #1063 / run `35425588656` SUCCESS.
+
+RED `e413ebc54c55e97aba54c8e0ba8f2a206bfd5df4`, verifier run `35427880650`: native and managed succeeded (0 warnings/errors), Core regression failed as intended because a different LiveSafe capability reached before capture; `captures=1`, assertion in `GenericGuardianLiveSafeCapabilitySelfTests.cs:81`.
+
+GREEN `692e9cec1dba5dec4ccfa542638a3f28cbaa24d0`, verifier run `35428050561` SUCCESS: native, managed, all Core tests, App tests and Windows publish. Tests preserve exact rollback and enforce unrelated LiveSafe/unsafe/unknown capability and altered target or expected-current fail before capture.
+
+Official application `4a3d27eb68f20220f304dba1ba675ffac76deae7`, Windows CI #1064 / run `35428164066`, job `105857672380` SUCCESS for full official pipeline. Artifact `FFPerformanceEngine-win-x64` ID `10579378430`, SHA-256 `a2e0baa766a4bb50e1709222302e025353cdc6a07b374956e3fddb5a8b5b8a8b`.
+
+Files: `src/FFPerformanceEngine.Core/Services/GenericGuardianSessionMutationCatalog.cs` NEW, `GenericGuardianWindowsSessionCanaryExecutor.cs` changed, `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianLiveSafeCapabilitySelfTests.cs` changed, `GenericGuardianWindowsSessionCanarySelfTests.cs` changed. Verifier workflow excluded from official branch; `main` unchanged.
+
+Caveats: the catalog is only an exact-equality authorization tool; future host must supply provenance-verified adapter-owned policy. No production registration exists and any nonregistered action fails closed. Causal before/after comparability not established; host still disabled. Next: separate comparable-window TDD before host wiring.

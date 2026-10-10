@@ -1,0 +1,46 @@
+Continuei **sem recomeçar** e preservei tudo que já estava validado.
+
+O ponto inicial foi confirmado: o commit `20490bd8643c724019674a3c896c1cf952958f34` estava **GREEN no Windows CI #686**. Ao conferir a branch real, porém, ela já estava 12 commits à frente e a integração da `Optimize` que você queria já tinha sido implementada e endurecida nesses commits posteriores. Não dupliquei nem sobrescrevi esse trabalho; validei o HEAD real, que estava GREEN no **CI #710**.
+
+A partir daí avancei o **Track 3 — Game Discovery + Adapter Framework**. Ficaram comprovadamente GREEN:
+
+- descoberta real de Free Fire/FF MAX instalados nas instâncias BlueStacks via ADB, read-only, sem iniciar emulador e sem false-match de pacote: commit `4087f944...`, **CI #718 SUCCESS**;
+- framework neutro `IGameAdapter` + `GameAdapterCapabilities` + `GenericGameAdapter` + adapters especializados FF/FF MAX + resolver determinístico: `f309aeda...`, **CI #722 SUCCESS**;
+- `GameDiscoveryCoordinator` e composição real no `AppServices`, mantendo discovery fora de `InitializeAsync`: `b7bb9116...`, **CI #728 SUCCESS**.
+
+Depois comecei o primeiro launcher universal real: **Steam**. Fiz o RED no CI #730 e implementei `SteamGameDiscoverySource`, usando `steam:<appid>` como identidade estável, lendo `libraryfolders.vdf` e `appmanifest_*.acf`, suportando bibliotecas adicionais, sem executar Steam e sem inventar executável, engine ou adapter especializado.
+
+O primeiro GREEN candidate `3db8b506...` encontrou no **CI #732** apenas uma falha de análise de plataforma `CA1416`: o acesso ao Registry precisava estar explicitamente marcado Windows-only. Native build/test passaram normalmente. Corrigi exclusivamente essa fronteira no commit atual:
+
+`e300de2d8696a006367aa6d25315fdffe289ef7a`
+
+O **CI #734** desse SHA já avançou com:
+
+```text id="12ve8h"
+Configure native   ✅
+Build native       ✅
+Native tests       ✅
+Managed/WPF build  ✅
+Core self-tests    ⏳
+Publish win-x64    pendente
+Artifact upload    pendente
+```
+
+Portanto, o ponto exato para continuar é **observar o término do CI #734**. Ainda não marco o scanner Steam como GREEN porque os Core self-tests estavam em execução quando a janela de ferramentas encerrou.
+
+Se #734 fechar verde, a próxima mudança já está definida: registrar uma única instância compartilhada de `SteamGameDiscoverySource` no `AppServices` e passar o catálogo de:
+
+```text id="43ruq2"
+GameCatalog
+└── BlueStacks
+```
+
+para:
+
+```text id="mdxvd3"
+GameCatalog
+├── BlueStacks / FF / FF MAX
+└── Steam
+```
+
+sem executar scan no startup. Depois seguimos launcher por launcher, em TDD, sem transformar o Track 3 em um commit gigante.

@@ -1,0 +1,45 @@
+# Track 5 — Game Adapter Tuning Dimensions — COMPLETE
+
+Date: 2026-09-09
+Branch: `build/initial-product`
+Application SHA: `8dac70fdb2c693533ae481aaadd846ab84fde228`
+Commit: `feat: add capability-honest game adapter tuning dimensions`
+Windows CI: #1007 — SUCCESS
+Run id: `34416726382`
+
+## Verified scope
+
+- Added optional `IGameTuningDimensionProvider`; `IGameAdapter` remains source-compatible and unchanged.
+- Added `GameAdapterTuningDimensionDeclaration` as adapter-owned workload search-space metadata.
+- Added pure `UniversalTuningWorkloadDimensionFactory`.
+- Workload tuning authority is resolved only through `GameAdapterResolver` from stable `GameIdentity`; PID/path/process/display name never creates tuning authority.
+- Generic or unregistered specializations produce zero workload dimensions.
+- Adapters without the optional provider produce zero workload dimensions.
+- Provider is not invoked unless the resolved adapter proves `ConfigDiscovery + ConfigSnapshot + ConfigMutation + Rollback`.
+- Accepted declarations are namespaced as `workload.<normalized-adapter-id>.<normalized-local-id>` with `AuthorityId` from the resolved adapter.
+- Candidate values preserve exact provider text/order.
+- Blank/empty/null/duplicate declarations fail closed.
+- Returned dimensions are deterministically ordered.
+- Existing `UniversalTuningSearchSpacePlanner` composes System + Workload dimensions; no second compositor or hidden game axis was added.
+- Generic and current BlueStacks/FF adapters do not receive invented static dimensions in this slice.
+- Existing BlueStacks/FF specialized `TuningCandidate` / `AutoTunerEngine` / runtime/session path remains unchanged.
+- Search-space support is exploration only and grants no evidence, recommendation, winner, persistence or mutation authority.
+
+## TDD provenance
+
+Temporary proving branch: `ci/track5-game-adapter-dimensions-verify`.
+
+- Task 1 RED: verifier #1 / run `34412460197` failed only because `IGameTuningDimensionProvider` and `GameAdapterTuningDimensionDeclaration` did not exist.
+- Task 1 GREEN: verifier #3 / run `34412615403` on `997fc7d3c9c73923a15ea3a9d4975d82b8e1b4fa` passed Core + App.SelfTest + WPF.
+- Task 2 RED: verifier #4 / run `34412791339` failed only because `UniversalTuningWorkloadDimensionFactory` did not exist.
+- Task 2/3 GREEN: verifier #5 / run `34412911108` on `56bfd6c0ef05c70e6148ad5a411313c627be7dbd` passed Core + App.SelfTest + WPF, including deterministic System + Workload composition through the existing planner.
+- Selective atomic official integration excluded `.github/workflows/core-track5-game-adapter-dimensions-verifier.yml`.
+- Exact official Windows CI #1007 / run `34416726382` passed the integrated application SHA.
+
+## Preserved authority boundaries
+
+`Observed != Validated` remains unchanged.
+
+Adapter-declared dimension support means only that the resolved adapter explicitly exposes an explorable candidate space. It does not mean a value is beneficial, measured, validated, recommended, safe to persist or authorized to mutate the machine/workload.
+
+Typed evidence, repeatability, Global Controlled Benchmark Lease, exact fingerprint/freshness, validation challenge, ValidatedEvidence, winner/profile authority and rollback/history remain the authority chain.

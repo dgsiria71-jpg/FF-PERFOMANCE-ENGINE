@@ -1,0 +1,39 @@
+# Checkpoint — 2026-10-02 Track 6 protected generic runtime teardown
+
+## Verified application
+
+Repository `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, branch `build/initial-product`, draft PR #1; `main` untouched.
+
+Intermediate official application `7f7c9619b282b7c22badbbce532fa6ed2865ecb2`, message `feat: protect retained Guardian teardown across reset and rebind`, Windows CI #1097 run `37078821515`, job `111074619813` SUCCESS across native configure/build/test, managed build, Core/App full self-tests, win-x64 publish and upload. Artifact `FFPerformanceEngine-win-x64` ID `11257692322`, SHA-256 `7b280468ca59439c154d4a90eed8cc4c4f64360ed4b1d9f84d00927a336c6edf`.
+
+Closing application `9fce73fd8b3c2f92e2fa06c11ff495598884ac29`, message `feat: protect Guardian runtime ending and disposal teardown`, Windows CI #1098 run `37079293578`, job `111076050417` SUCCESS across all native/managed/Core/App/publish/upload steps. Artifact `FFPerformanceEngine-win-x64` ID `11257833065`, SHA-256 `0fc03795c9cbe9955eafb0864e582674ee023616056ce20f0d7afaee9a3b9454`.
+
+## TDD evidence
+
+Reset/failure/cancellation RED `2f47817298469690409ea46ecf77de7019a6bf08`, run `37078033162`, job `111072172218`: build passed, Core failed because runtime reset restored a retained KEEP while the specialized Guardian was still running. Minimal reset/failure/cancellation GREEN source `12c8d55ce593e42242440d821ac252124806d89e`; clean verifier `5ccc8669f57da35f2de3b35bec4f07e3abf098c7`, run `37078305679`, job `111073013711`, full SUCCESS.
+
+Rebind RED `8ff6c17f3aea879e027488964b803e549a9dc8eb`, run `37078450516`, job `111073477314`: changed-workload cleanup restored the old retained KEEP while specialized Guardian was active. GREEN source `8a0bc1ecbd2555c6af1dc64a508af84998f81ac8`; final verifier `27903ca1c8d611ed1556a2819b4952cee588997f`, run `37078643782`, job `111074088243`, full SUCCESS. Selective official integration `7f7c9619...` contains exactly six source/test files and no temporary workflow.
+
+Ending/disposal RED `129b0fcb575d048dafa175b32164ef7fb3af4971`, run `37078999053`, job `111075148369`: process-loss Ending already used protected rebind successfully; disposal was the remaining failure and restored retained state while Guardian was active. GREEN source `7bc3f07d26a290bacd87de318227c136fff1b0eb`; final verifier `bd0692c5b6aedd774c71593ad0066eb7dd9b19f6`, run `37079163869`, job `111075651202`, full SUCCESS. Selective official integration `9fce73fd...` contains exactly lifecycle, runtime and runtime regression files; temporary workflow excluded.
+
+## Implemented behavior
+
+Retained Track2 sessions can now restore through a **fresh active generic experiment admission**. The path is internal/unforgeable: the experiment admission owns the DG writer token and routes the existing `SystemOptimizationSession` restore through that token, avoiding self-deadlock while preserving the exclusive writer.
+
+The concrete runtime reacquires teardown admission before any retained lease cleanup for explicit reset, changed-workload rebind, process-loss Ending and runtime disposal. Lock order is fixed:
+
+`Track0 global gate → specialized Guardian suspend/reset → DG experiment writer → retained Track2 restore → lifecycle retire/rebind → budget reset after success → DG release → Guardian reconcile → Track0 release`.
+
+Tests prove a competing Track0 benchmark started during rollback remains blocked. Caller cancellation while waiting for teardown admission leaves the old session, retained mutation and exhausted budget unchanged. After admission is acquired, rollback/lifecycle cleanup is non-cancelable. If rollback fails, the old exact OS session and failed retained lease remain owned for retry and budget remains exhausted; releasing the failed teardown admission reconciles the specialized Guardian. A later successful retry restores state and only then allows budget reset.
+
+Changed GameId rebind restores the old KEEP before exposing the new lifecycle. Loss of RunningProcess evidence after Active yields Ending only after protected restore/retirement. Runtime disposal now follows the same protected path rather than restoring with the specialized Guardian active.
+
+## Boundaries and exact continuation
+
+This closes the currently identified process-local teardown/orphan/deadlock boundary of the on-demand runtime. It does not create gameplay scene/mode/load/environment evidence. FF/FF MAX remain `CanaryContextEvidence=false`; test evidence sources remain TEST ONLY. There are no approved generic production candidate registrations, action→mutation mappings or budget defaults. External registry/vendor/driver tools remain outside the process-local exclusion. No real-game HIL/FPS gain has been proven.
+
+The next bounded item3 increment is to consider an explicitly started/stopped continuous/scheduled coordinator around the protected on-demand runtime. It must be disabled by default, serialize cycles, perform no implicit startup discovery, and guarantee runtime reset/dispose on stop/failure. It must remain fail-closed/no-mutation while evidence/action/budget policy is absent. Automatic activation still requires production context evidence and Windows/real-game HIL.
+
+Track6 item3 remains IN PROGRESS. Item4 learned action reliability and item5 post-session queue remain pending.
+
+This documentary commit itself requires fresh exact-head Windows CI before being marked GREEN.

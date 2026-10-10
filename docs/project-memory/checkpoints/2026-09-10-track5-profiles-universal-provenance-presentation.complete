@@ -1,0 +1,94 @@
+# Track 5 checkpoint — Profiles universal provenance presentation
+
+Date: 2026-09-10
+
+Status: **COMPLETE / GREEN**
+
+## Official application checkpoint
+
+- Branch: `build/initial-product`
+- Application SHA: `07b4264e438a5052ddca45d8b5eda111d74f4270`
+- Commit: `feat: present universal Custom profile provenance in Profiles`
+- Windows CI: **#1028 — SUCCESS**
+- Run id: `34441106814`
+
+The exact official Windows CI passed native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
+
+## Scope
+
+This increment exposes the already-proven current universal provenance of the selected persisted `Custom + Validated` challenger in the real Profiles UI. It is presentation-only: no History authority, candidate-space construction, GameIdentity inference, Auto Tuner mode inference, validation, winner selection, mutation or universal persistence was moved into WPF.
+
+## Permanent production changes
+
+### Pure presenter
+
+Added `src/FFPerformanceEngine.App/UniversalProfileProvenancePresentation.cs`.
+
+`UniversalProfileProvenancePresentation.FromProjection(...)` maps only an already-proven `UniversalValidatedProfileProjection` into display data:
+
+- `IsVisible`;
+- exact `GameId`;
+- exact `AdapterId`;
+- deterministic `key = value` lines copied from the exact `UniversalTuningCandidate.Values` dictionary.
+
+`null` maps to a hidden presentation with empty identifiers and zero candidate lines. No placeholder values are fabricated.
+
+### Profiles UI
+
+`ProfilesPage.xaml` adds `UniversalProvenanceCard` inside the existing challenge card. It is `Collapsed` by default and has empty identity/candidate text controls.
+
+`ProfilesPage.xaml.cs`:
+
+- refreshes this card for the selected `Custom + Validated` challenger;
+- calls only `App.Services.ResolveCurrentUniversalValidatedProfileProvenanceAsync(selectedCustom.Id)`;
+- immediately hides/clears old provenance while a new selection is being resolved;
+- uses `_universalProvenanceRevision` to reject stale async results after rapid selection changes;
+- shows exact `GameId`, exact `AdapterId` and the presenter-provided exact candidate lines only when application provenance exists;
+- keeps the existing challenge, A/B, historical validation and profile application flows intact.
+
+## TDD evidence
+
+Temporary verifier branch: `ci/track5-profiles-universal-provenance-presentation-verify`.
+
+- verifier workflow commit: `bed44063e059d98d56f0e4beb837c83adb9458f3`;
+- RED contract commit: `489eb1e868a573c9fe395164d9192cd43e05079c`;
+- RED verifier #2 / run `34440671279`: Core self-tests passed; App self-test compilation failed only because `UniversalProfileProvenancePresentation` did not exist (`CS0103` at the two new contract calls);
+- minimal production GREEN SHA: `cadf10b7f8f45e52e20d0b53a080c3b085550945`;
+- GREEN verifier #3 / run `34440919128`: Core self-tests, App self-tests and WPF application build all SUCCESS;
+- the RED test contract was not weakened or rewritten to obtain GREEN.
+
+## Selective official integration
+
+Official integration parent: documentary Slice 9 head `c42004bc1ac08ff73ae05eb5cb0ad14666a32bd7`.
+
+Official application SHA: `07b4264e438a5052ddca45d8b5eda111d74f4270`.
+
+The official diff contains exactly four permanent files:
+
+- `src/FFPerformanceEngine.App/UniversalProfileProvenancePresentation.cs` added;
+- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml` modified;
+- `src/FFPerformanceEngine.App/Pages/ProfilesPage.xaml.cs` modified;
+- `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
+
+The temporary verifier workflow was not integrated.
+
+## Authority preserved
+
+- `Observed != Validated` remains unchanged.
+- Stable GameId remains source-native; the UI copies but does not derive it.
+- Exact candidate values remain evidence/provenance correlation only.
+- WPF does not load History for universal provenance or rebuild candidate spaces.
+- WPF does not infer original Auto Tuner mode, validation, winner role or persistence authority.
+- `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)` remains the only application entry point used by this presentation.
+- Existing five specialized winner roles, Profile Challenge behavior, Global Controlled Benchmark Lease, rollback/History and typed PresentMon authority remain unchanged.
+
+## Next bounded increment
+
+After this checkpoint's docs-only HEAD passes full Windows CI, inspect durable promoted-winner provenance after restart:
+
+1. promotion `HistoryEvent` fields;
+2. `ProfileChallengeService` persistence behavior;
+3. persisted promoted `PerformanceProfile` fields;
+4. Slice 7 `UniversalPromotedProfileProjection` contract.
+
+Only implement a persisted promoted-winner universal provenance resolver if those durable specialized records can prove it exactly without synthesizing the unpersisted `ProfileChallengeResult`. Otherwise preserve the fail-closed boundary and move to another bounded Profiles/UI refinement.

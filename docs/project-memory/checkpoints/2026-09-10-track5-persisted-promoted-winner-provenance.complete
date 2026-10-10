@@ -1,0 +1,69 @@
+TRACK 5 SLICE 11 COMPLETE — PERSISTED PROMOTED-WINNER UNIVERSAL PROVENANCE ACROSS RESTART
+Date: 2026-09-10
+Branch: build/initial-product
+
+Application authority
+- SHA: b755064b72c0c4f91f864bae665cd327d8cc1488
+- Commit: feat: persist promoted winner universal provenance across restart
+- Windows CI: #1030
+- Run: 34498927985
+- Result: SUCCESS — native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload all passed.
+
+Purpose
+Recover read-only current universal provenance for a generated winner already promoted by the specialized ProfileChallengeService after an application restart, without reconstructing an unpersisted ProfileChallengeResult and without adding promotion, validation, winner, mutation or persistence authority.
+
+Durable specialized basis
+ProfileChallengeService already appends a Profile HistoryEvent after successful specialized promotion. DetailsJson records challengerProfileId, previousWinnerId, promotedProfileId, revalidationComparisonId and targetKind. Slice 11 treats this event only as a durable receipt/correlation record.
+
+Permanent implementation
+- src/FFPerformanceEngine.Core/Services/UniversalPersistedPromotedProfileProvenanceService.cs
+  - UniversalPersistedPromotionReceipt
+  - UniversalPersistedPromotedProfileProjection
+  - UniversalPersistedPromotedProfileProvenanceService
+- tests/FFPerformanceEngine.Core.SelfTest/PersistedPromotedProfileProvenanceSelfTests.cs
+- tests/FFPerformanceEngine.Core.SelfTest/Program.cs registration
+
+Fail-closed gates
+- exactly one requested persisted generated winner
+- winner must be one of five winner roles and Validated
+- exact SourceComparisonId, FF/FFMAX game, instance and environment fingerprint
+- exactly one parseable receipt claiming the promoted winner
+- exact target role and revalidation id correlation
+- non-empty/distinct challenger, previous-winner, promoted-winner and revalidation ids
+- exact persisted Custom + Validated challenger, same game/instance
+- exact persisted revalidation comparison
+- baseline and candidate Measured
+- structurally equivalent revalidation environments and current structural compatibility
+- candidate configuration exact match to Custom and promoted winner, including DPI
+- winner and Custom fingerprints equal exact candidate environment id
+- winner FPS, 1% low, frame time and latency equal exact revalidation candidate evidence
+- current Custom provenance must still re-prove through UniversalValidatedProfileProvenanceService/current candidate-space/current allow-list
+- duplicate/missing receipt, missing comparison/capability, phantom winner or any drift => null
+
+Authority boundary
+The service never reconstructs ProfileChallengeResult, never re-evaluates the historical two-round challenge verdict, never promotes a profile, never mutates or persists state, and never converts receipt metadata into specialized authority. It transports only the exact universal candidate/identity/adapter already re-proven for the preserved Custom source.
+
+TDD provenance
+- verifier branch: ci/track5-persisted-promoted-profile-provenance-verify
+- verifier workflow commit: 27eb2c7c65acdc5e09d23f11231758a53b9df82a
+- initial RED: 360e7be55def12ccf791c9c356a2aa07ac7424f3
+- verifier #2 / run 34441789494: intended missing service plus fixture-only CS8604 nullable-overload error
+- fixture-only correction: f3002e2635aae989780ed17fde171d81c64c8dc3
+- clean RED verifier #3 / run 34441912295: only CS0246 for missing UniversalPersistedPromotedProfileProvenanceService
+- GREEN candidate: c107afd396f95775d1be22dd17b3f415f386c74c
+- GREEN verifier #4 / run 34498595576: Core + App + WPF build SUCCESS
+- selective official integration excluded verifier workflow
+- official app SHA b755064b72c0c4f91f864bae665cd327d8cc1488
+- official Windows CI #1030 / run 34498927985 SUCCESS
+
+Official integration diff from Slice 10 documentary head 96b3188bdc78356ed88404ca869bd1375932c3f6
+- 1 commit
+- exactly 3 permanent files
+- +610 / -0
+- no temporary verifier workflow
+
+Canonical documents
+HANDOFF_CURRENT.md, IMPLEMENTATION_STATUS.md and ROADMAP.md are synchronized in the following docs-only checkpoint commit. CANONICAL_CONTEXT.md and DECISIONS_LOG.md intentionally remain unchanged because this Slice implements an already-approved read-only provenance boundary without changing product/authority architecture.
+
+Next bounded action
+Compose UniversalPersistedPromotedProfileProvenanceService into AppServices explicitly/on-demand, preserving side-effect-free construction/InitializeAsync and delegating durable receipt/revalidation/provenance authority to Core. TDD RED first.

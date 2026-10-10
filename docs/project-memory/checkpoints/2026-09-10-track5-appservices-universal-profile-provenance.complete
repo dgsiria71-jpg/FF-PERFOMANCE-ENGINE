@@ -1,0 +1,97 @@
+# Track 5 checkpoint — AppServices universal profile provenance
+
+Date: 2026-09-10
+
+Status: **COMPLETE / GREEN**
+
+## Official application checkpoint
+
+- Branch: `build/initial-product`
+- Application SHA: `20408ab20957afb43834b456df581bb0e417b4d0`
+- Commit: `feat: compose universal profile provenance in AppServices`
+- Windows CI: **#1026 — SUCCESS**
+- Run id: `34439301451`
+
+The exact official Windows CI passed native configure/build/test, managed build, Core self-tests, App self-tests, win-x64 publish and artifact upload.
+
+## Scope
+
+This increment composes the already-proven persisted-`Custom + Validated` universal provenance path into the real `AppServices` graph. It does not add a second profile model, persist universal metadata, infer an original Auto Tuner mode, alter validation/winner authority, or modify WPF presentation.
+
+## Permanent production changes
+
+`src/FFPerformanceEngine.App/AppServices.cs` now exposes:
+
+- `BlueStacksUniversalTuningCandidateBridge UniversalTuningCandidates`;
+- `UniversalValidatedProfileProvenanceService UniversalValidatedProfileProvenance`;
+- `ResolveCurrentUniversalValidatedProfileProvenanceAsync(Guid profileId, CancellationToken cancellationToken = default)`.
+
+The candidate bridge is composed from the existing shared `AutoTuner + GameAdapters`. The provenance service is composed from the existing shared `Profiles + History + UniversalTuningCandidates`.
+
+Construction remains side-effect free for this seam. No candidate generation, profile provenance resolution or extra game discovery is performed merely by constructing `AppServices`, and `InitializeAsync()` does not invoke the new provenance path.
+
+The on-demand method:
+
+1. loads persisted profiles only when called;
+2. requires exactly one requested persisted profile;
+3. gates to `ProfileKind.Custom + EvidenceLevel.Validated`, non-null `SourceComparisonId`, and non-empty instance name;
+4. captures the current environment only after those gates pass;
+5. requires exactly one current BlueStacks instance matching the persisted instance name;
+6. captures current settings only through the existing BlueStacks allow-list;
+7. requires a non-empty allow-list result;
+8. delegates final correlation/provenance authority to `UniversalValidatedProfileProvenanceService.ResolveCurrentAsync(...)`;
+9. fails closed to `null` on supported profile/history/config I/O, permission, JSON, invalid-data and argument errors.
+
+No fallback to another profile/instance/workload exists.
+
+## Permanent tests
+
+`tests/FFPerformanceEngine.App.SelfTest/Program.cs` now verifies that:
+
+- `AppServices` composes the shared candidate bridge;
+- `AppServices` composes the shared persisted-Custom provenance resolver;
+- resolving a random unknown profile id returns `null` without manufacturing identity/provenance or requiring unrelated discovery.
+
+All existing Track 4 application workload-routing tests remain intact and GREEN.
+
+## TDD evidence
+
+Temporary verifier branch: `ci/track5-appservices-profile-provenance-verify`.
+
+- verifier workflow commit: `40c79ca2627f3a71856d89fc2dd6bba3f9a984a9`;
+- RED contract commit: `24f8bc9b91ab5195343ed40da43b4043d6cddd17`;
+- RED verifier #2 / run `34438809367`: Core self-tests passed; App self-test compilation failed only with `CS1061` because `AppServices` did not yet expose `UniversalTuningCandidates`, `UniversalValidatedProfileProvenance`, or `ResolveCurrentUniversalValidatedProfileProvenanceAsync`;
+- first production candidate: `11c53eb0e915a21e5118fa2b978ce4a6faca053f`;
+- verifier #3 / run `34439045805`: Core remained GREEN; App compilation exposed only missing `System.IO` names used by the new fail-closed exception filters (`IOException`/`InvalidDataException`);
+- root-cause-only import correction: `d56979cfe400ec4f03508e24687717ce1e9b623c`;
+- GREEN verifier #4 / run `34439177062`: Core self-tests, App self-tests and WPF application build all SUCCESS;
+- test contract was not weakened to obtain GREEN.
+
+## Selective official integration
+
+Official integration parent: documentary Slice 8 head `fd88f6858a00ddce57f0db90d6493c9da7513f26`.
+
+Official application SHA: `20408ab20957afb43834b456df581bb0e417b4d0`.
+
+The official diff contains exactly two permanent files:
+
+- `src/FFPerformanceEngine.App/AppServices.cs` modified;
+- `tests/FFPerformanceEngine.App.SelfTest/Program.cs` modified.
+
+The temporary verifier workflow was not integrated.
+
+## Authority preserved
+
+- `Observed != Validated` remains unchanged.
+- Stable GameId identity remains source-native; no PID/path/display-name inference was added.
+- Candidate search support remains exploration/correlation only.
+- `UniversalValidatedProfileProvenanceService` remains downstream of specialized persisted validation authority.
+- `ProfileService`, `HistoryService`, `ProfileChallengeService`, challenge freshness/evaluator/winner logic, Global Controlled Benchmark Lease, rollback/History and typed PresentMon authority are unchanged.
+- No profile creation, validation, winner selection, recommendation, mutation or persistence authority was added.
+- No game discovery was added to `InitializeAsync()`.
+
+## Next bounded increment
+
+Proceed to the **Profiles presentation seam** only after this checkpoint's docs-only HEAD passes the full Windows CI.
+
+The next WPF increment must consume only `AppServices.ResolveCurrentUniversalValidatedProfileProvenanceAsync(...)` and present stable GameId, AdapterId and exact candidate values when a real projection exists. It must not reload History independently, rebuild candidate spaces, infer original Auto Tuner mode/identity, rerun validation, select winners or persist universal metadata. `null` means no universal provenance presentation.

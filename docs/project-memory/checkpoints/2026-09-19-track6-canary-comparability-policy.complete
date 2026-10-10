@@ -1,0 +1,15 @@
+# Track 6 item 3 — before/after comparability policy-only checkpoint
+
+Date 2026-09-19. Branch `build/initial-product`; main untouched, PR #1 remains draft.
+
+Baseline documentary `4145c6ce5ebf0fea778c1ed9754082c4cdc21de9` Windows CI #1065 run `35428387773` SUCCESS.
+
+RED on isolated `ci/track6-canary-comparability-verify` SHA `fc2e1ba8e01634862fda98a3c648fb37ed4bb4db`, run `35428624500`, job `105858954583`: native configure/build/test SUCCESS; managed failed exactly one expected missing `GenericGuardianCanaryComparisonWindow` CS0246, 0 compile warnings. Tests registered before production.
+
+GREEN verifier SHA `3395a90dc0c6e663842195e7f3dec95bae3675f2`, run `35428706183`, job `105859185411` SUCCESS native/managed/Core/App/publish, build 0 warnings and errors. Core log contains `PASS Track 6 Guardian comparability policy: exact lifecycle, scene/load/mode, temporal ordering and contamination fail closed`.
+
+Official app SHA `5e9d92521d7cbe324380ae7854c7947a6990758f`, CI #1066 run `35428840838`, job `105859555680` SUCCESS native configure/build/test, managed, Core, App, win-x64 publish, artifact upload and cleanup. Artifact `FFPerformanceEngine-win-x64` ID `10579654176`, SHA-256 `6eee9471cc33cc8667b81d26a8a7348c0055aaecc3dee5f5048458cb25d52ecd`.
+
+Selective official files: NEW `src/FFPerformanceEngine.Core/Services/GenericGuardianCanaryComparabilityPolicy.cs`, NEW `tests/FFPerformanceEngine.Core.SelfTest/GenericGuardianCanaryComparabilitySelfTests.cs`, modified test Program registration, plan `docs/superpowers/plans/2026-09-19-track6-canary-comparability-policy.md`. Excluded temporary verifier workflow.
+
+Scope: policy-only checks context supplied as window objects, exact lifecycle/target, scene/mode/load/environment/source equality, timestamps including mutation bracketing, contamination statuses explicitly false. `InScopeOnSuppliedEvidence` is structural consistency ONLY, not verified scene provenance, not causal benefit, not a permission to KEEP. Current typed capture does not expose scene/load/mode evidence and policy IS NOT wired into executor. No generic host activation, profile promotion, learned reliability or full benchmark coordination. Next prove authentic context source, trusted envelopes and Track0 lease status, mandate comparator in executor and rollback on any inconclusive outcome, THEN host integration. No production scene IDs or assumptions fabricated.
