@@ -1,6 +1,26 @@
-# Current Handoff — 2026-10-06
+# Current Handoff — 2026-10-10
 
-## Exact repository and application checkpoint
+## VERIFIED CURRENT STATE — 2026-10-10 (overrides older historical sections below)
+
+OFFICIAL app SHA f3fb6d9cdaaec78d5eebcd32930e0a5aeb564aa0 — fix: harden BlueStacks foreground and RAW ADB canary evidence.
+Windows CI #1115 SUCCESS, run 38031880767, job 114154364102: native configure/build/test, managed build, Core/App self-tests, win-x64 publish, artifact upload, cleanup ALL SUCCESS.
+Artifact FFPerformanceEngine-win-x64 ID 11662640835, SHA-256 94c09e3bb1de41cc059f0e3eaef0a0de4830f0fd859c9e0bfc257d10aa54a4a4.
+Previous official application 6d302b5052815e42c08f9c8ac8a7bfc368b83e52, CI #1114 run 37523521303 SUCCESS. Last documentary checkpoint ce9992cd8f25d718851071767161e8348cee80ed, CI #1103 SUCCESS. THIS new documentation commit still requires its own fresh exact Windows CI to be called GREEN.
+
+**Latest verified commits after previous documentation:**
+#1104 visual BlueStacks calibration; #1105 calibrated interval source; #1106 exact-PID LiveSafe AboveNormal priority; #1107 explicit inert HIL preparation; #1108 ADB RAW framebuffer; #1109 Windows limited access process path; #1110 measured GPU WDDM; #1111 calibrated foreground authority; #1112 exact package-list fallback; #1113 FF foreground→BlueStacks player PID binding; #1114 frame-pacing priority canary; #1115 ADB evidence fixes.
+
+**TDD #1115:** RED1 eb56c2f30ae7adf9592986351dcc6dc90a90acf5 run 38031534284 exposed stale-game-window foreground false positive; RED2 fadcdbf268239bc80590b20852c7dde877e52728 run 38031640230 exposed unsupported 12-byte RAW header. Full GREEN c22ae1a2498d57dc01e4821ad8a22f3d7b38adce run 38031759426 SUCCESS. Official selective commit f3fb6d9c... altered exactly four code/tests; verifier workflow excluded.
+
+**Accurate technical boundary:** Conditional production visual calibration/interval evidence DOES exist for BlueStacks/FF, but requires real measured 2+ frames/4 HUD regions, exact instance/port/version/dimensions, verified current foreground package and a stable process lifetime. The opaque 128-bit HUD fingerprint is structural, not semantic proof of map/mode; default FF/FF MAX adapters remain fail-closed without caller-measured calibration. Exact Windows canary, transaction rollback, Track0/Guardian/DG exclusion, runtime/lifecycle/budget and conditional HIL preparation already exist and MUST NOT be reimplemented.
+
+**Physical status on 2026-10-10:** Windows device dgrich was Offline in Remote Desktop Commander (~74h since last seen) with only 1% remote allowance left. No live ADB frame transfer, game HIL, FPS/P99 benefit or hardware rollback could be verified. Self-test CI passing is not HIL passing. External registry/driver/vendor tools remain outside process-local exclusion.
+
+**Exact next:** (1) read-only real BlueStacks HIL preflight: exact player PID/path/start time, configured ADB port and foreground package/version, successful RAW screenshot decode (12 or 16-byte RGBA8888) and PresentMon accepted FPS/frame-time/P99/stutter metrics; (2) measured calibration with negative-scene challenge; (3) explicit HIL priority canary BEFORE/AFTER with exact reversible state and repeated benefit. If any input is missing, return NotReady/Inconclusive. Generic Guardian automatic activation remains OFF. Track6 item3 IN PROGRESS; item4 learned reliability and item5 post-session queue PENDING; Tracks7–10 PLANNED. Main branch unchanged.
+
+---
+
+## Historical repository and application checkpoint (2026-10-06; superseded above)
 
 - Repo `dgsiria71-jpg/FF-PERFOMANCE-ENGINE`, dev branch `build/initial-product`, draft PR #1, `main` untouched. Product DG Performance Engine; preserve `FFPerformanceEngine.*`, original FF/BlueStacks specialization and tested Tracks0–5. Work via ChatGPT+GitHub, not an invented Codex workspace.
 - **Latest application SHA `2d958793907a9eeb3f8f62fbe268239525a10078`**, `feat: gate scheduled Guardian activation on production readiness`.
