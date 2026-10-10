@@ -40,6 +40,31 @@ internal static class BlueStacksAutomationSelfTests
         Require(BlueStacksAutomationService.ParseForegroundGame(freeFireWindow) == GameKind.FreeFire, "Foreground parser must detect Free Fire.");
         Require(BlueStacksAutomationService.ParseForegroundGame(maxWindow) == GameKind.FreeFireMax, "Foreground parser must detect Free Fire MAX.");
         Require(BlueStacksAutomationService.ParseForegroundGame("mCurrentFocus=Window{42 u0 com.android.launcher/com.android.launcher2.Launcher}") == GameKind.None, "Foreground parser must not invent a game.");
+        const string staleMax =
+            "mCurrentFocus=Window{9 u0 com.android.launcher/.Launcher}" + "\n"
+            + "Window #3 Window{1 u0 com.dts.freefiremax/.FFMainActivity}" + "\n"
+            + "mFocusedApp=ActivityRecord{12 u0 com.dts.freefiremax/.FFMainActivity}";
+        Require(BlueStacksAutomationService.ParseForegroundGame(staleMax) == GameKind.None,
+            "A historical Free Fire window or stale mFocusedApp must never override an explicit non-game current focus.");
+        Require(BlueStacksAutomationService.ParseForegroundGame(
+            "mCurrentFocus=Window{9 u0 com.other.example/.Main} freefiremax com.dts.freefireth") == GameKind.None,
+            "Unrelated focus with an embedded game package must never authorize game foreground.");
+        Require(BlueStacksAutomationService.ParseForegroundGame(
+            "Window #3 Window{1 u0 com.dts.freefireth/.FFMainActivity}") == GameKind.None,
+            "Stale window-list entries are not foreground evidence.");
+        Require(BlueStacksAutomationService.ParseForegroundGame(
+            "mCurrentFocus=null" + "\n"
+            + "mResumedActivity: ActivityRecord{9 u0 com.dts.freefireth/.FFMainActivity}") == GameKind.None,
+            "Explicit null current focus must fail closed instead of falling back to stale resumed activity.");
+        Require(BlueStacksAutomationService.ParseForegroundGame(
+            "mFocusedApp=AppWindowToken{9 ActivityRecord{2 u0 com.dts.freefiremax/.FFMainActivity}}")
+            == GameKind.FreeFireMax,
+            "A focused-app record is a permissible fallback only when there is no current-focus record.");
+        Require(BlueStacksAutomationService.ParseForegroundGame(
+            "mCurrentFocus=Window{9 u0 com.dts.freefiremax.evil/.Main}")
+            == GameKind.None,
+            "Package identifiers must match the exact supported component, not prefixes.");
+
 
         var detector = new GameStateDetector();
         Require(detector.Infer(new GameStateSignals { BlueStacksRunning = false }) == GameState.Desktop, "No player process must classify as Desktop.");

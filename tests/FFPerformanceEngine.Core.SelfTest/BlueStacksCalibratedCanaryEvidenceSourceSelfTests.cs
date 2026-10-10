@@ -172,6 +172,43 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
                 && backend.Endpoint == "127.0.0.1:5555",
             "ADB framebuffer capture must bind the calibrated instance endpoint, parse the real 16-byte raw screencap header and convert RGBA pixels to BGRA without reading the Windows desktop.");
 
+
+        var legacyRaw = new BlueStacksAdbCanaryVisualFrameCapture(
+            () => environment,
+            automation,
+            new FakeAdbRawScreenCapture(
+                RawFrame(
+                    calibration.WindowWidth,
+                    calibration.WindowHeight,
+                    pixelFormat: 1,
+                    red: 10,
+                    green: 20,
+                    blue: 30,
+                    headerBytes: 12)));
+        var legacyFrame = await legacyRaw.CaptureAsync(4242, calibration);
+        Require(legacyFrame is not null
+                && legacyFrame.Width == calibration.WindowWidth
+                && legacyFrame.Height == calibration.WindowHeight
+                && legacyFrame.Bgra32[0] == 30
+                && legacyFrame.Bgra32[1] == 20
+                && legacyFrame.Bgra32[2] == 10,
+            "Legacy 12-byte Android RAW screencap must parse as exactly as 16-byte format.");
+
+        var malformed = new BlueStacksAdbCanaryVisualFrameCapture(
+            () => environment,
+            automation,
+            new FakeAdbRawScreenCapture(
+                RawFrame(
+                    calibration.WindowWidth,
+                    calibration.WindowHeight,
+                    pixelFormat: 1,
+                    red: 10,
+                    green: 20,
+                    blue: 30,
+                    headerBytes: 13)));
+        Require(await malformed.CaptureAsync(4242, calibration) is null,
+            "Malformed 13-byte RAW header must fail closed instead of shifting framebuffer pixels.");
+
         var unsupported = new BlueStacksAdbCanaryVisualFrameCapture(
             () => environment,
             automation,
@@ -207,14 +244,16 @@ internal static class BlueStacksCalibratedCanaryEvidenceSourceSelfTests
         int pixelFormat,
         byte red,
         byte green,
-        byte blue)
+        byte blue,
+        int headerBytes = 16)
     {
-        var raw = new byte[checked(16 + width * height * 4)];
+        var raw = new byte[checked(headerBytes + width * height * 4)];
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(0, 4), width);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(4, 4), height);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(8, 4), pixelFormat);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(12, 4), 0);
-        for (var i = 16; i < raw.Length; i += 4)
+        if (headerBytes >= 16)
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(12, 4), 0);
+        for (var i = headerBytes; i < raw.Length; i += 4)
         {
             raw[i] = red;
             raw[i + 1] = green;
