@@ -126,7 +126,8 @@ public sealed class BlueStacksAdbRawScreenCapture : IBlueStacksAdbRawScreenCaptu
 public sealed class BlueStacksAdbCanaryVisualFrameCapture
     : IBlueStacksCanaryVisualFrameCapture
 {
-    private const int RawHeaderBytes = 16;
+    private const int LegacyRawHeaderBytes = 12;
+    private const int ExtendedRawHeaderBytes = 16;
     private const int Rgba8888PixelFormat = 1;
     private readonly Func<EnvironmentSnapshot> _environment;
     private readonly BlueStacksAutomationService _automation;
@@ -212,7 +213,7 @@ public sealed class BlueStacksAdbCanaryVisualFrameCapture
         out BlueStacksCanaryVisualFrame? frame)
     {
         frame = null;
-        if (raw is null || raw.Length < RawHeaderBytes)
+        if (raw is null || raw.Length < LegacyRawHeaderBytes)
             return false;
 
         var width = BinaryPrimitives.ReadInt32LittleEndian(raw.AsSpan(0, 4));
@@ -231,11 +232,20 @@ public sealed class BlueStacksAdbCanaryVisualFrameCapture
             return false;
         }
 
-        if (raw.Length != RawHeaderBytes + payloadBytes)
+        // Android RAW screencap has both a legacy 12-byte header
+        // (width/height/format) and an extended 16-byte header with dataspace.
+        // The measured total length must match EXACTLY one of the two layouts:
+        // do not guess offsets or reinterpret PNG/unknown pixel formats.
+        var headerBytes = raw.Length == (long)payloadBytes + LegacyRawHeaderBytes
+            ? LegacyRawHeaderBytes
+            : raw.Length == (long)payloadBytes + ExtendedRawHeaderBytes
+                ? ExtendedRawHeaderBytes
+                : 0;
+        if (headerBytes == 0)
             return false;
 
         var bgra = new byte[payloadBytes];
-        var source = RawHeaderBytes;
+        var source = headerBytes;
         for (var target = 0; target < bgra.Length; target += 4, source += 4)
         {
             bgra[target] = raw[source + 2];
