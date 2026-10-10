@@ -87,9 +87,54 @@ public sealed class BlueStacksAutomationService
 
     public static GameKind ParseForegroundGame(string? dumpsysOutput)
     {
-        if (string.IsNullOrWhiteSpace(dumpsysOutput)) return GameKind.None;
-        if (dumpsysOutput.Contains(FreeFireMaxPackage, StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFireMax;
-        if (dumpsysOutput.Contains(FreeFirePackage, StringComparison.OrdinalIgnoreCase)) return GameKind.FreeFire;
+        if (string.IsNullOrWhiteSpace(dumpsysOutput))
+            return GameKind.None;
+
+        // Window dumps include historical/inactive windows and stale package
+        // mentions. Only the highest-priority available focus record may prove
+        // foreground. An explicit non-game/null current focus must not fall back
+        // to an older mFocusedApp or resumed activity.
+        var lines = dumpsysOutput.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var key in new[]
+                 {
+                     "mCurrentFocus",
+                     "mFocusedApp",
+                     "topResumedActivity",
+                     "mResumedActivity"
+                 })
+        {
+            var matching = lines
+                .Where(line => line.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase)
+                               || line.StartsWith(key + ":", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (matching.Length == 0) continue;
+
+            GameKind? observed = null;
+            foreach (var record in matching)
+            {
+                var component = System.Text.RegularExpressions.Regex.Match(
+                    record,
+                    @"\bu[0-9]+\s+(com\.dts\.(?:freefiremax|freefireth))/",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                    | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+                if (!component.Success)
+                    return GameKind.None;
+
+                var package = component.Groups[1].Value;
+                var game = string.Equals(package, FreeFireMaxPackage,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? GameKind.FreeFireMax
+                    : GameKind.FreeFire;
+                if (observed is not null && observed.Value != game)
+                    return GameKind.None;
+                observed = game;
+            }
+
+            return observed ?? GameKind.None;
+        }
+
         return GameKind.None;
     }
 
